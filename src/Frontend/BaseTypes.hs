@@ -1,43 +1,46 @@
 module Frontend.BaseTypes where
 
-import Data.String
 import Data.List
 
-newtype Name = Name String
-    deriving (Eq)
+import CommonTypes
 
 data EffectExpr = EffectName Name
+    deriving Eq
 data TypeExpr = TypeName Name
               | SignatureType Signature
+    deriving Eq
 
-newtype ArgList = ArgList [(TypeExpr, Name)]
-newtype Block = Block [Stmt]
+newtype ArgList = ArgList {unArgList :: [(TypeExpr, Name)]}
+    deriving Eq
 
 data Signature = Signature {
     arguments :: ArgList,
     returnType :: TypeExpr,
     effect :: EffectExpr
+} deriving Eq
+
+newtype Program = Program [FuncDef]
+data FuncDef = FuncDef {
+    signature :: Signature,
+    body :: Block
 }
+
+newtype Block = Block [Stmt]
+data Stmt = LetStmt Name TypeExpr Expr
+          | VarStmt Name TypeExpr Expr
+          | WhileStmt Expr Block
+          | ExprStmt Expr
 
 data Expr = IntExpr Integer
           | FloatExpr Double
           | BoolExpr Bool
           | FuncExpr Signature Block
-
-data Stmt = FuncStmt Name Signature Block
-          | LetStmt Name Expr
-          | VarStmt Name Expr
-          | ExprStmt Expr
-          | WhileStmt Expr Block
+          | CallExpr Expr [Expr]
+          | BinExpr BinOp Expr Expr
+          | IdentifierExpr Name
 
 -- Basic instances
 
-instance Show Name where
-    show (Name str) = "{" ++ str ++ "}"
-
-instance IsString Name where
-    fromString = Name
-    
 instance Show EffectExpr where
     show (EffectName (Name str)) = "[" ++ str ++ "]"
 
@@ -50,11 +53,13 @@ instance Show Expr where
     show (FloatExpr num) = show num
     show (BoolExpr bool) = show bool
     show (FuncExpr sig _) = "func(" ++ show sig ++ ")"
+    show (CallExpr funcExpr arg) = "app(" ++ show funcExpr ++ ";" ++ show arg ++ ")"
+    show (BinExpr op l r) = show op ++ "(" ++ show l ++ ";" ++ show r ++ ")"
+    show (IdentifierExpr name) = show name
 
 instance Show Stmt where
-    show (FuncStmt name sig _) = "func "++ show name ++ "(" ++ show sig ++ ")"
-    show (LetStmt name expr  ) = "Let("      ++ show name ++ ", " ++ show expr ++ ")"
-    show (VarStmt name expr  ) = "Var("      ++ show name ++ ", " ++ show expr ++ ")"
+    show (LetStmt name _ expr) = "Let("      ++ show name ++ ", " ++ show expr ++ ")"
+    show (VarStmt name _ expr) = "Var("      ++ show name ++ ", " ++ show expr ++ ")"
     show (ExprStmt expr      ) = "ExprStmt(" ++ show expr ++ ")"
     show (WhileStmt cond _   ) = "While("    ++ show cond ++ ")"
 
