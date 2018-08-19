@@ -17,12 +17,12 @@ stages:
 variables:
     STACK_ROOT: "${CI_PROJECT_DIR}/.stack-root"
 
-build:
-    stage: "build"  
-    cache:
-        key: "$CI_BUILD_NAME"
-        paths:
-            - .stack-work/
-            - .stack-root/
-    script:
-        - stack --no-terminal build
+# build:
+#     stage: "build"  
+#     cache:
+#         key: "$CI_BUILD_NAME"
+#         paths:
+#             - .stack-work/
+#             - .stack-root/
+#     script:
+#         - stack build --ghc-options -Werror
