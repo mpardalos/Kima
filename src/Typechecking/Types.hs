@@ -37,6 +37,7 @@ data TypeError = TypeMismatchError KType KType
                | LookupError Name
                | TypeLookupError Name
                | BinOpTypeError [(KType, KType)] (KType, KType)
+               | UnaryOpTypeError [KType] KType 
 
 instance Show TypeError where
   show (TypeMismatchError expected actual) = "Expected " ++ show expected ++ ", got " ++ show actual
@@ -44,7 +45,8 @@ instance Show TypeError where
   show (LookupError     name) = "Name " ++ show name ++ " is not in scope"
   show (TypeLookupError name) = "Type name " ++ show name ++ " is not in scope"
   show (ArgumentCountError expected actual) = "Expected " ++ show expected ++ " arguments, received " ++ show actual
-  show (BinOpTypeError expected actual) = "Invalid types for operator. Expected on of " ++ show expected ++ " but received " ++ show actual
+  show (BinOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
+  show (UnaryOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
 
 newtype KTypeM a = KTypeM { runKTypeM :: StateT TypeCtx (Either TypeError) a}
   deriving (Functor, Applicative, Monad, MonadError TypeError, MonadState TypeCtx)

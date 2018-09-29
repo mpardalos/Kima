@@ -5,6 +5,7 @@ import qualified Prelude as P (lookup)
 import Data.Maybe
 import Control.Monad
 import Control.Monad.Except
+import Data.Functor
 
 import Data.Map
 import Safe
@@ -38,22 +39,27 @@ resolveTypeExpr (P.TypeName name) = lookup name . types <$> getCtx >>= \case
     Nothing -> lookupError name
 resolveTypeExpr (P.SignatureType sig) = KFunc <$> resolveSig sig
 
-expectedOpTypes :: BinOp -> [((KType, KType), KType)]
-expectedOpTypes Add = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
-                      , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
-expectedOpTypes Sub = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
-                      , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
-expectedOpTypes Div = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
-                      , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
-expectedOpTypes Mul = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
-                      , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
-expectedOpTypes Mod = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
-                      , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
+expectedBinOpTypes :: BinOp -> [((KType, KType), KType)]
+expectedBinOpTypes Add = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
+                         , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
+expectedBinOpTypes Sub = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
+                         , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
+expectedBinOpTypes Div = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
+                         , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
+expectedBinOpTypes Mul = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
+                         , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
+expectedBinOpTypes Mod = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
+                         , ((KFloat, KInt), KFloat) , ((KInt  , KFloat), KFloat) ]
+
+expectedUnaryOpTypes :: UnaryOp -> [(KType, KType)] 
+expectedUnaryOpTypes Negate = [(KInt, KInt), (KFloat, KFloat)]
+expectedUnaryOpTypes Invert = [(KBool, KBool)]
 
 checkExpr :: P.Expr -> KTypeM KType
 checkExpr (IntExpr _) = return KInt
 checkExpr (FloatExpr _) = return KFloat
 checkExpr (BoolExpr _) = return KBool
+checkExpr (StringExpr _) = return KString
 checkExpr (FuncExpr sig _) = KFunc <$> resolveSig sig
 checkExpr (CallExpr callee args) = checkExpr callee >>= \case
     KFunc Signature { arguments = expectedArgTypes, returnType } -> do
@@ -64,35 +70,41 @@ checkExpr (CallExpr callee args) = checkExpr callee >>= \case
         zipWithM_ assertEqualTypes expectedArgTypes argTypes
         return returnType
     t -> notAFunctionError t
+checkExpr (UnaryExpr op expr) = do
+    exprType <- checkExpr expr
+    let typeOptions = expectedUnaryOpTypes op
+    case P.lookup exprType typeOptions of 
+        Just rt -> return rt
+        Nothing -> throwError $ UnaryOpTypeError (fst <$> typeOptions) exprType
 checkExpr (BinExpr op l r) = do
     lType <- checkExpr l
     rType <- checkExpr r
-    let typeOptions = expectedOpTypes op
-    case P.lookup (lType, rType) typeOptions of 
+    let typeOptions = expectedBinOpTypes op
+    case P.lookup (lType, rType) typeOptions of
         Just rt -> return rt
         Nothing -> throwError $ BinOpTypeError (fst <$> typeOptions) (lType, rType)
 checkExpr (IdentifierExpr name) = typeOf name
 
 checkStmt :: P.Stmt -> KTypeM KType
-checkStmt (P.LetStmt name tExpr expr) = do
-    expectedType <- resolveTypeExpr tExpr
-    exprType <- checkExpr expr
-    assertEqualTypes expectedType exprType
-    bindName (Constant exprType) name
-    return KUnit
-checkStmt (P.VarStmt name tExpr expr) = do
-    expectedType <- resolveTypeExpr tExpr
-    exprType <- checkExpr expr
-    assertEqualTypes expectedType exprType
-    bindName (Variable exprType) name
-    return KUnit
+checkStmt (P.LetStmt name tExpr expr) = KUnit <$ 
+    checkBinding Constant name tExpr expr
+checkStmt (P.VarStmt name tExpr expr) = KUnit <$ 
+    checkBinding Variable name tExpr expr
+checkStmt (P.AssignStmt name expr) = KUnit <$ 
+    (assertEqualTypes <$> checkExpr expr <*> typeOf name)
 checkStmt (P.ExprStmt expr) = checkExpr expr
-checkStmt (P.WhileStmt cond body) = do 
-    condType <- checkExpr cond
-    assertEqualTypes KBool condType
-    void $ checkBlock body
-    return KUnit
+checkStmt (P.WhileStmt cond body) = do
+    assertEqualTypes KBool =<< checkExpr cond
+    checkBlock body 
+    $> KUnit
+
+checkBinding :: (KType -> TypeBinding) -> Name -> P.TypeExpr -> Expr -> KTypeM ()
+checkBinding bind name tExpr expr = do
+    expectedType <- resolveTypeExpr tExpr
+    exprType <- checkExpr expr
+    assertEqualTypes expectedType exprType
+    bindName (bind exprType) name
 
 -- |Typecheck a block, return its return type
 checkBlock :: P.Block -> KTypeM KType
-checkBlock (P.Block stmts) = fromMaybe KUnit <$> lastMay <$> mapM checkStmt stmts 
+checkBlock (P.Block stmts) = fromMaybe KUnit <$> lastMay <$> mapM checkStmt stmts
