@@ -2,12 +2,11 @@ module Debug where
 
 import Control.Monad.State
 
-import qualified Typechecking.Check as T
-import qualified Typechecking.BaseTypes as T
-import qualified Frontend.BaseTypes as P
+import qualified Typechecking as T
+import qualified Frontend as P
 
 evalChecker :: (a -> T.KTypeM T.KType) -> a -> Either T.TypeError T.KType
-evalChecker = (.) $ (`evalStateT` mempty) . T.runKTypeM
+evalChecker f = f . (`evalStateT` mempty) . T.runKTypeM
 
 evalCheckExpr  :: P.Expr  -> Either T.TypeError T.KType
 evalCheckStmt  :: P.Stmt  -> Either T.TypeError T.KType

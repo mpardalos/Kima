@@ -1,4 +1,4 @@
-module Typechecking.BaseTypes where
+module Typechecking.Types where
 
 import Data.Map.Strict
 import Control.Monad.State
@@ -15,7 +15,7 @@ data Signature = Signature {
 instance Show Signature where
   show Signature{arguments, returnType} = "(" ++ show arguments ++ ") -> " ++ show returnType
 
-data KType = KUnit | KBool | KInt | KFloat | KFunc Signature
+data KType = KString | KUnit | KBool | KInt | KFloat | KFunc Signature
   deriving (Eq, Show)
 
 data TypeBinding = Constant { kType :: KType }
@@ -30,14 +30,13 @@ instance Semigroup TypeCtx where
   l <> r = TypeCtx (types l <> types r) (bindings l <> bindings r)
 instance Monoid TypeCtx where
   mempty = TypeCtx empty empty
-
+  
 data TypeError = TypeMismatchError KType KType
                | ArgumentCountError Integer Integer
                | NotAFunctionError KType
                | LookupError Name
                | TypeLookupError Name
                | BinOpTypeError [(KType, KType)] (KType, KType)
-
 
 instance Show TypeError where
   show (TypeMismatchError expected actual) = "Expected " ++ show expected ++ ", got " ++ show actual

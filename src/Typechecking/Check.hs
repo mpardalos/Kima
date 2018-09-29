@@ -9,9 +9,9 @@ import Control.Monad.Except
 import Data.Map
 import Safe
 
-import Typechecking.BaseTypes
-import Frontend.BaseTypes(Expr(..))
-import qualified Frontend.BaseTypes as P
+import Typechecking.Types
+import Frontend(Expr(..))
+import qualified Frontend as P
 import CommonTypes
 
 -- |Get the binding of an identifier in the current context. May raise a LookupError

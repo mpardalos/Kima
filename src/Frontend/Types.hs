@@ -1,4 +1,4 @@
-module Frontend.BaseTypes where
+module Frontend.Types where
 
 import Data.Void
 import Text.Megaparsec
@@ -19,6 +19,8 @@ data Signature = Signature {
     returnType :: TypeExpr
 } deriving Eq
 
+newtype Block = Block [Stmt]
+
 newtype Program = Program [FuncDef]
 
 data FuncDef = FuncDef {
@@ -28,7 +30,6 @@ data FuncDef = FuncDef {
     body :: Block
 }
 
-newtype Block = Block [Stmt]
 data Stmt = LetStmt Name TypeExpr Expr
           | VarStmt Name TypeExpr Expr
           | AssignStmt Name Expr
@@ -45,7 +46,7 @@ data Expr = IntExpr Integer
           | UnaryExpr UnaryOp Expr
           | IdentifierExpr Name
 
--- Basic instances
+-- Show instances 
 
 instance Show FuncDef where
     show FuncDef { name, args, returnType, body } = 
@@ -87,10 +88,3 @@ instance Show Signature where
     show Signature {arguments, returnType} = 
            show arguments
         ++ " -> " ++ show returnType
-
--- instance Show ArgList where
---     show (ArgList []          ) = ""
---     show (ArgList argList) = "(" ++ L.intercalate ", " (argShow <$> argList) ++ ")"
---         where
---             argShow :: (TypeExpr, Name) -> String
---             argShow (typeName, argName) = show argName ++ " : " ++ show typeName

@@ -18,11 +18,13 @@ executable Kima
     other-modules:
         CommonTypes
         Debug
-        Runtime.BaseTypes
-        Frontend.BaseTypes
+        Frontend
+        Frontend.Types
         Frontend.Tokenizer
         Frontend.Parser
-        Typechecking.BaseTypes
+        Frontend.Shows
+        Typechecking
+        Typechecking.Types
         Typechecking.Check
     default-language: Haskell2010
     default-extensions: ExistentialQuantification GADTs

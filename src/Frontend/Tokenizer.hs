@@ -7,7 +7,7 @@ import           Control.Monad
 import           Data.Char
 
 import           CommonTypes hiding (Mod)
-import           Frontend.BaseTypes
+import           Frontend.Types
 
 -- Base combinators
 

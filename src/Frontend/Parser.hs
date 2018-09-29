@@ -7,7 +7,7 @@ import Text.Megaparsec.Expr
 
 import Frontend.Tokenizer hiding (Mod)
 import qualified Frontend.Tokenizer as T 
-import Frontend.BaseTypes
+import Frontend.Types
 import CommonTypes
 
 program :: Parser [FuncDef]
@@ -40,8 +40,8 @@ typedArg = do
 -- Statements
 
 stmt :: Parser Stmt
-stmt = dbg "statement" (letStmt <|> varStmt <|> whileStmt <|> assignStmt <|> exprStmt
-    <?> "statement")
+stmt = letStmt <|> varStmt <|> whileStmt <|> assignStmt <|> exprStmt
+    <?> "statement"
 
 letStmt :: Parser Stmt
 letStmt = LetStmt 
