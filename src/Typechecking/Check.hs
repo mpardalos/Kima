@@ -28,7 +28,7 @@ typeOf = (kType <$>) . bindingOf
 resolveSig :: P.Signature -> KTypeM Signature
 resolveSig P.Signature {P.arguments=argExprs, P.returnType=returnTypeExpr} = do
     returnType <- resolveTypeExpr returnTypeExpr
-    argTypes <- (resolveTypeExpr . fst) `mapM` (P.unArgList argExprs)
+    argTypes <- resolveTypeExpr `mapM` argExprs
     return (argTypes $-> returnType)
 
 -- |Resolve a TypeExpr in the current typing context

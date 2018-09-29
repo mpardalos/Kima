@@ -13,3 +13,6 @@ instance IsString Name where
 
 data BinOp = Add | Sub | Div | Mul | Mod
     deriving Show
+
+data UnaryOp = Negate | Invert
+    deriving Show

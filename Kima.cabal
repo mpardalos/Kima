@@ -20,6 +20,8 @@ executable Kima
         Debug
         Runtime.BaseTypes
         Frontend.BaseTypes
+        Frontend.Tokenizer
+        Frontend.Parser
         Typechecking.BaseTypes
         Typechecking.Check
     default-language: Haskell2010
@@ -27,10 +29,11 @@ executable Kima
                         StandaloneDeriving RankNTypes DataKinds KindSignatures
                         GeneralizedNewtypeDeriving LambdaCase NamedFieldPuns
                         ScopedTypeVariables OverloadedStrings TypeInType TypeOperators
-                        TypeFamilies
+                        TypeFamilies DuplicateRecordFields MultiParamTypeClasses FunctionalDependencies
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,
         containers -any,
         mtl -any,
-        safe -any
+        safe -any,
+        megaparsec >= 6.5 && < 7
