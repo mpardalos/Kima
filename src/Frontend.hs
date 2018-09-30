@@ -1,6 +1,6 @@
 module Frontend(
     module Frontend.Types,
-    program
+    program, funcDef, block, stmt, expr
 ) where
 
 import Frontend.Types 

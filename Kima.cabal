@@ -17,7 +17,6 @@ executable Kima
     hs-source-dirs: src
     other-modules:
         CommonTypes
-        Debug
         Frontend
         Frontend.Types
         Frontend.Tokenizer
