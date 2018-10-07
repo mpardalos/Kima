@@ -8,7 +8,7 @@ import Text.Megaparsec.Expr
 import Frontend.Tokenizer hiding (Mod)
 import qualified Frontend.Tokenizer as T 
 import Frontend.Types
-import CommonTypes
+import AST
 
 program :: Parser [FuncDef]
 program = some funcDef <* eof
@@ -23,19 +23,19 @@ funcDef = do
     
     symbol Arrow
     retType <- typeExpr
-    FuncDef name args retType <$> block
+    FuncDef name (NamedSignature args retType) <$> block
     <?> "Function definition"
 
-argList :: Parser [(TypeExpr, Name)]
+argList :: Parser [(Name, TypeExpr)]
 argList = typedArg `sepBy` symbol Comma
     <?> "Argument list"
 
-typedArg :: Parser (TypeExpr, Name)
+typedArg :: Parser (Name, TypeExpr)
 typedArg = do 
     n <- identifier
     symbol Colon
     t <- typeExpr
-    return (t, n)
+    return (n, t)
 
 -- Statements
 
@@ -101,12 +101,12 @@ term = IdentifierExpr <$> identifier
 -- Types
 
 typeExpr :: Parser TypeExpr
-typeExpr = SignatureType <$> try signature
-       <|> TypeName <$> try identifier
+typeExpr = uncurry SignatureType <$> try anonymousSignature
+       <|> (TypeName <$> try identifier)
        <?> "type expression"
 
-signature :: Parser Signature
-signature = Signature 
+anonymousSignature :: Parser ([TypeExpr], TypeExpr)
+anonymousSignature = (,) 
     <$> parens (typeExpr `sepBy` symbol Comma) 
     <*> (symbol Arrow *> typeExpr)
     <?> "function signature"

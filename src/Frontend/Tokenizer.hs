@@ -6,7 +6,7 @@ import qualified Text.Megaparsec.Char.Lexer    as L
 import           Control.Monad
 import           Data.Char
 
-import           CommonTypes hiding (Mod)
+import           AST hiding (Mod)
 import           Frontend.Types
 
 -- Base combinators

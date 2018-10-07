@@ -3,17 +3,16 @@ module Typechecking.Types where
 import Data.Map.Strict
 import Control.Monad.State
 import Control.Monad.Except
+import AST
 
-import CommonTypes
+data TypedExpr = TypedExpr KType Expr
+data TypedBlock = TypedBlock KType Block
 
 data Signature = Signature {
   arguments :: [KType],
   returnType :: KType
 } deriving Eq
 ($->) = Signature
-
-instance Show Signature where
-  show Signature{arguments, returnType} = "(" ++ show arguments ++ ") -> " ++ show returnType
 
 data KType = KString | KUnit | KBool | KInt | KFloat | KFunc Signature
   deriving (Eq, Show)
@@ -25,11 +24,6 @@ data TypeCtx = TypeCtx {
   types :: Map Name KType,
   bindings :: Map Name TypeBinding
 }
-instance Show TypeCtx where show _ = "TypeCtx"
-instance Semigroup TypeCtx where
-  l <> r = TypeCtx (types l <> types r) (bindings l <> bindings r)
-instance Monoid TypeCtx where
-  mempty = TypeCtx empty empty
   
 data TypeError = TypeMismatchError KType KType
                | ArgumentCountError Integer Integer
@@ -50,6 +44,17 @@ instance Show TypeError where
 
 newtype KTypeM a = KTypeM { runKTypeM :: StateT TypeCtx (Either TypeError) a}
   deriving (Functor, Applicative, Monad, MonadError TypeError, MonadState TypeCtx)
+
+instance Show Signature where
+  show Signature{arguments, returnType} = "(" ++ show arguments ++ ") -> " ++ show returnType
+
+instance Show TypeCtx where show _ = "TypeCtx"
+
+instance Semigroup TypeCtx where
+  l <> r = TypeCtx (types l <> types r) (bindings l <> bindings r)
+
+instance Monoid TypeCtx where
+  mempty = TypeCtx empty empty
 
 typeOk :: KTypeM ()
 typeOk = return ()

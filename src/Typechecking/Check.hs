@@ -10,10 +10,8 @@ import Data.Functor
 import Data.Map
 import Safe
 
-import Typechecking.Types
-import Frontend(Expr(..))
-import qualified Frontend as P
-import CommonTypes
+import Typechecking.Types as TC
+import AST
 
 -- |Get the binding of an identifier in the current context. May raise a LookupError
 bindingOf :: Name -> KTypeM TypeBinding
@@ -23,21 +21,25 @@ bindingOf name = lookup name . bindings <$> getCtx >>= \case
 
 -- |Get the type of an identifier in the current context. May raise a LookupError
 typeOf :: Name -> KTypeM KType
-typeOf = (kType <$>) . bindingOf
+typeOf name = kType <$> bindingOf name
+
+resolveNamedSig :: AST.NamedSignature -> KTypeM TC.Signature
+resolveNamedSig NamedSignature {arguments, returnType} =
+    resolveSig (snd <$> arguments) returnType
 
 -- |Lookup all TypeExprs in a parsed signature and return a typed Signature
-resolveSig :: P.Signature -> KTypeM Signature
-resolveSig P.Signature {P.arguments=argExprs, P.returnType=returnTypeExpr} = do
+resolveSig :: [TypeExpr] -> TypeExpr -> KTypeM TC.Signature
+resolveSig argTypeExprs returnTypeExpr = do
     returnType <- resolveTypeExpr returnTypeExpr
-    argTypes <- resolveTypeExpr `mapM` argExprs
+    argTypes <- resolveTypeExpr `mapM` argTypeExprs
     return (argTypes $-> returnType)
 
 -- |Resolve a TypeExpr in the current typing context
-resolveTypeExpr :: P.TypeExpr -> KTypeM KType
-resolveTypeExpr (P.TypeName name) = lookup name . types <$> getCtx >>= \case
+resolveTypeExpr :: TypeExpr -> KTypeM KType
+resolveTypeExpr (TypeName name) = lookup name . types <$> getCtx >>= \case
     Just ty -> return ty
     Nothing -> lookupError name
-resolveTypeExpr (P.SignatureType sig) = KFunc <$> resolveSig sig
+resolveTypeExpr (AST.SignatureType args rt) = KFunc <$> resolveSig args rt
 
 expectedBinOpTypes :: BinOp -> [((KType, KType), KType)]
 expectedBinOpTypes Add = [ ((KInt  , KInt), KInt  ) , ((KFloat, KFloat), KFloat)
@@ -55,14 +57,14 @@ expectedUnaryOpTypes :: UnaryOp -> [(KType, KType)]
 expectedUnaryOpTypes Negate = [(KInt, KInt), (KFloat, KFloat)]
 expectedUnaryOpTypes Invert = [(KBool, KBool)]
 
-checkExpr :: P.Expr -> KTypeM KType
+checkExpr :: Expr -> KTypeM KType
 checkExpr (IntExpr _) = return KInt
 checkExpr (FloatExpr _) = return KFloat
 checkExpr (BoolExpr _) = return KBool
 checkExpr (StringExpr _) = return KString
-checkExpr (FuncExpr sig _) = KFunc <$> resolveSig sig
+checkExpr (FuncExpr sig _) = KFunc <$> resolveNamedSig sig
 checkExpr (CallExpr callee args) = checkExpr callee >>= \case
-    KFunc Signature { arguments = expectedArgTypes, returnType } -> do
+    KFunc TC.Signature { arguments = expectedArgTypes, returnType } -> do
         let argCount = toInteger $ length args
         let expectedArgCount = toInteger $ length expectedArgTypes
         assert (argCount == expectedArgCount) (ArgumentCountError expectedArgCount argCount)
@@ -73,7 +75,7 @@ checkExpr (CallExpr callee args) = checkExpr callee >>= \case
 checkExpr (UnaryExpr op expr) = do
     exprType <- checkExpr expr
     let typeOptions = expectedUnaryOpTypes op
-    case P.lookup exprType typeOptions of 
+    case P.lookup exprType typeOptions of
         Just rt -> return rt
         Nothing -> throwError $ UnaryOpTypeError (fst <$> typeOptions) exprType
 checkExpr (BinExpr op l r) = do
@@ -85,20 +87,20 @@ checkExpr (BinExpr op l r) = do
         Nothing -> throwError $ BinOpTypeError (fst <$> typeOptions) (lType, rType)
 checkExpr (IdentifierExpr name) = typeOf name
 
-checkStmt :: P.Stmt -> KTypeM KType
-checkStmt (P.LetStmt name tExpr expr) = KUnit <$ 
+checkStmt :: Stmt -> KTypeM KType
+checkStmt (LetStmt name tExpr expr) = KUnit <$ 
     checkBinding Constant name tExpr expr
-checkStmt (P.VarStmt name tExpr expr) = KUnit <$ 
+checkStmt (VarStmt name tExpr expr) = KUnit <$ 
     checkBinding Variable name tExpr expr
-checkStmt (P.AssignStmt name expr) = KUnit <$ 
+checkStmt (AssignStmt name expr) = KUnit <$ 
     (assertEqualTypes <$> checkExpr expr <*> typeOf name)
-checkStmt (P.ExprStmt expr) = checkExpr expr
-checkStmt (P.WhileStmt cond body) = do
+checkStmt (ExprStmt expr) = checkExpr expr
+checkStmt (WhileStmt cond body) = do
     assertEqualTypes KBool =<< checkExpr cond
     checkBlock body 
     $> KUnit
 
-checkBinding :: (KType -> TypeBinding) -> Name -> P.TypeExpr -> Expr -> KTypeM ()
+checkBinding :: (KType -> TypeBinding) -> Name -> TypeExpr -> Expr -> KTypeM ()
 checkBinding bind name tExpr expr = do
     expectedType <- resolveTypeExpr tExpr
     exprType <- checkExpr expr
@@ -106,5 +108,5 @@ checkBinding bind name tExpr expr = do
     bindName (bind exprType) name
 
 -- |Typecheck a block, return its return type
-checkBlock :: P.Block -> KTypeM KType
-checkBlock (P.Block stmts) = fromMaybe KUnit <$> lastMay <$> mapM checkStmt stmts
+checkBlock :: Block -> KTypeM KType
+checkBlock (Block stmts) = fromMaybe KUnit <$> lastMay <$> mapM checkStmt stmts
