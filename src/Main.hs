@@ -18,4 +18,6 @@ parseStmt = either (putStrLn . parseErrorPretty) print . runParser F.stmt ""
 parseExpr = either (putStrLn . parseErrorPretty) print . runParser F.expr ""
 
 main :: IO ()
-main = putStrLn "hello world"
+main = getCommand >>= \case
+    Run opts fn -> _runInterpreter opts fn
+    Compile _ _ -> notImplemented "compiler"

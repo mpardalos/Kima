@@ -12,11 +12,12 @@ build-type: Simple
 extra-source-files:
     README.md
 
-executable Kima
+executable kima
     main-is: Main.hs
     hs-source-dirs: src
     other-modules:
         AST
+        ArgumentParser
 
         Frontend
         Frontend.Types
@@ -38,4 +39,5 @@ executable Kima
         containers -any,
         mtl -any,
         safe -any,
-        megaparsec >= 6.5 && < 7
+        megaparsec >= 6.5 && < 7,
+        optparse-applicative -any
