@@ -1,7 +1,7 @@
 module Typechecking.Types where
 
 import Data.Map.Strict
-import Control.Monad.State
+import Control.Monad.State.Extended
 import Control.Monad.Except
 import AST
 
@@ -24,7 +24,7 @@ data TypeCtx = TypeCtx {
   types :: Map Name KType,
   bindings :: Map Name TypeBinding
 }
-  
+
 data TypeError = TypeMismatchError KType KType
                | ArgumentCountError Integer Integer
                | NotAFunctionError KType
