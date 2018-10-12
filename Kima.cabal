@@ -19,6 +19,8 @@ executable kima
         AST
         ArgumentParser
 
+        Control.Monad.State.Extended
+
         Frontend
         Frontend.Types
         Frontend.Tokenizer
