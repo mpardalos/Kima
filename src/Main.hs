@@ -1,23 +1,24 @@
 module Main where
 
-import Control.Monad.State
-import Text.Megaparsec
+import           ArgumentParser
+import           Frontend
+import           Typechecking
+import           Interpreter
 
-import qualified Typechecking as T
-import qualified Frontend as F
+notImplemented str = putStrLn (str ++ " is not implemented")
 
-evalChecker :: (a -> T.KTypeM T.KType) -> a -> Either T.TypeError T.KType
-evalChecker f = (`evalStateT` mempty) . T.runKTypeM . f
-
-evalCheckExpr  = evalChecker T.checkExpr
-evalCheckStmt  = evalChecker T.checkStmt
-evalCheckBlock = evalChecker T.checkBlock
-
-parseBlock = either (putStrLn . parseErrorPretty) print . runParser F.block ""
-parseStmt = either (putStrLn . parseErrorPretty) print . runParser F.stmt ""
-parseExpr = either (putStrLn . parseErrorPretty) print . runParser F.expr ""
+runInterpreter :: RunOpts -> FilePath -> IO ()
+runInterpreter RunOpts path = parseProgram path <$> readFile path >>= \case
+    Left  err -> putStrLn (parseErrorPretty err)
+    Right ast -> do
+        case runTypeChecking (checkProgram ast) of
+            Left  err -> print err
+            Right _   -> pure ()
+        execInterpreter (runProgram ast) >>= \case
+            Left  _   -> putStrLn "Runtime Error"
+            Right _   -> return ()
 
 main :: IO ()
 main = getCommand >>= \case
-    Run opts fn -> _runInterpreter opts fn
-    Compile _ _ -> notImplemented "compiler"
+    Run     opts fn -> runInterpreter opts fn
+    Compile _    _  -> notImplemented "compiler"

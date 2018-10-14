@@ -45,6 +45,9 @@ instance Show TypeError where
 newtype KTypeM a = KTypeM { runKTypeM :: StateT TypeCtx (Either TypeError) a}
   deriving (Functor, Applicative, Monad, MonadError TypeError, MonadState TypeCtx)
 
+runTypeChecking :: KTypeM a -> Either TypeError a
+runTypeChecking = (`evalStateT` mempty) . runKTypeM
+
 instance Show Signature where
   show Signature{arguments, returnType} = "(" ++ show arguments ++ ") -> " ++ show returnType
 

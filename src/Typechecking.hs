@@ -3,6 +3,7 @@ module Typechecking(
     checkBlock,
     checkStmt,
     checkExpr,
+    checkProgram
 ) where
 
 import Typechecking.Types

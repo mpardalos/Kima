@@ -10,8 +10,8 @@ import qualified Frontend.Tokenizer as T
 import Frontend.Types
 import AST
 
-program :: Parser [FuncDef]
-program = some funcDef <* eof
+program :: Parser Program 
+program = Program <$> some funcDef <* eof
 
 -- Function defintions
 
@@ -31,11 +31,7 @@ argList = typedArg `sepBy` symbol Comma
     <?> "Argument list"
 
 typedArg :: Parser (Name, TypeExpr)
-typedArg = do 
-    n <- identifier
-    symbol Colon
-    t <- typeExpr
-    return (n, t)
+typedArg = (,) <$> identifier <*> (symbol Colon *> typeExpr)
 
 -- Statements
 
