@@ -18,7 +18,8 @@ newtype Interpreter a = Interpreter {
     Applicative,
     Monad,
     MonadError RuntimeError,
-    MonadState (Environment Value))
+    MonadState (Environment Value),
+    MonadIO)
 
 execInterpreter :: Interpreter a -> IO (Either RuntimeError a)
 execInterpreter = (`evalStateT` mempty) . runExceptT . runInterpreter
@@ -33,7 +34,10 @@ data Value = Integer Integer
            | Bool Bool
            | String String
            | Function [Name] Block
-           | KUnit
+           | BuiltinFunction1 (Value -> Interpreter Value)
+           | BuiltinFunction2 (Value -> Value -> Interpreter Value)
+           | BuiltinFunction3 (Value -> Value -> Value -> Interpreter Value)
+           | Unit
 
 newtype Environment a = Environment {unEnv :: Map Name a}
     deriving (Functor, Monoid, Semigroup)

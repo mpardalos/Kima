@@ -12,6 +12,7 @@ import           Data.Map
 import           Safe
 
 import           Typechecking.Types            as TC
+import           Typechecking.Monad            as TC
 import           AST
 
 -- |Get the binding of an identifier in the current context. May raise a LookupError
@@ -50,7 +51,7 @@ resolveSig argTypeExprs returnTypeExpr = do
 resolveTypeExpr :: TypeExpr -> KTypeM KType
 resolveTypeExpr (TypeName name) = lookup name . types <$> getCtx >>= \case
     Just ty -> return ty
-    Nothing -> lookupError name
+    Nothing -> throwError (TypeLookupError name)
 resolveTypeExpr (AST.SignatureType args rt) = KFunc <$> resolveSig args rt
 
 expectedBinOpTypes :: BinOp -> [((KType, KType), KType)]

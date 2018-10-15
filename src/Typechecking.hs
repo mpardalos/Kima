@@ -3,8 +3,11 @@ module Typechecking(
     checkBlock,
     checkStmt,
     checkExpr,
-    checkProgram
+    checkProgram,
+    KTypeM,
+    runTypeChecking
 ) where
 
 import Typechecking.Types
 import Typechecking.Check
+import Typechecking.Monad

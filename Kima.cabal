@@ -29,6 +29,7 @@ executable kima
         Typechecking
         Typechecking.Types
         Typechecking.Check
+        Typechecking.Monad
 
         Interpreter
         Interpreter.Types

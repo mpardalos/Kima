@@ -1,9 +1,9 @@
 module Main where
 
-import           ArgumentParser
-import           Frontend
-import           Typechecking
-import           Interpreter
+import ArgumentParser
+import Frontend
+import Typechecking
+import Interpreter
 
 notImplemented str = putStrLn (str ++ " is not implemented")
 
@@ -11,7 +11,7 @@ runInterpreter :: RunOpts -> FilePath -> IO ()
 runInterpreter RunOpts path = parseProgram path <$> readFile path >>= \case
     Left  err -> putStrLn (parseErrorPretty err)
     Right ast -> do
-        case runTypeChecking (checkProgram ast) of
+        case runTypeChecking mempty (checkProgram ast) of
             Left  err -> print err
             Right _   -> pure ()
         execInterpreter (runProgram ast) >>= \case

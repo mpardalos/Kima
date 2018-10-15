@@ -35,7 +35,7 @@ runBlock :: Block -> Interpreter Value
 runBlock (Block stmts) = do
     res <- lastDef Nothing <$> mapM runStmt stmts
     return $ case res of
-        Nothing -> KUnit
+        Nothing -> Unit
         Just v  -> v
 
 runFunc :: Value -> [Value] -> Interpreter Value
