@@ -1,12 +1,9 @@
 module Interpreter.Builtins where
 
-import Control.Monad.State.Extended
-import Data.Map
-
 import Interpreter.Types
 import AST
 
-evalBinOp :: BinOp -> Value -> Value -> Interpreter Value
+evalBinOp :: (MonadEnv s m, MonadRE e m) => BinOp -> Value -> Value -> m Value
 evalBinOp Add (Integer l) (Integer r) = return $ Integer (l + r)
 evalBinOp Add (Integer l) (Float r) = return . Float $ fromInteger l + r
 evalBinOp Add (Float l) (Integer r) = return . Float $ l + fromInteger r
@@ -30,12 +27,9 @@ evalBinOp Mul _ _ = runtimeError
 evalBinOp Mod (Integer l) (Integer r) = return $ Integer (l `mod` r)
 evalBinOp Mod _ _ = runtimeError
 
-evalUnaryOp :: UnaryOp -> Value -> Interpreter Value
+evalUnaryOp :: (MonadEnv s m, MonadRE e m) => UnaryOp -> Value -> m Value
 evalUnaryOp Negate (Integer val) = return $ Integer (-val)
 evalUnaryOp Negate (Float val) = return $ Float (-val)
 evalUnaryOp Negate _ = runtimeError
 evalUnaryOp Invert (Bool val) = return $ Bool (not val)
 evalUnaryOp Invert _ = runtimeError
-
-bind :: Name -> Value -> Interpreter ()
-bind name val = modify (Environment . insert name val . unEnv) 

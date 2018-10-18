@@ -10,7 +10,7 @@ import           AST
 import           Interpreter.Types
 import           Interpreter.Builtins
 
-eval :: Expr -> Interpreter Value
+eval :: (MonadEnv s m, MonadRE e m) => Expr -> m Value
 eval (IntExpr    n        ) = return $ Integer n
 eval (FloatExpr  f        ) = return $ Float f
 eval (BoolExpr   b        ) = return $ Bool b
@@ -21,24 +21,24 @@ eval (CallExpr callee args) = runFunc <$> eval callee <*> mapM eval args >>= id
 eval (BinExpr op l r      ) = evalBinOp op <$> eval l <*> eval r >>= id
 eval (UnaryExpr op e      ) = evalUnaryOp op <$> eval e >>= id
 
-runStmt :: Stmt -> Interpreter (Maybe Value)
-runStmt (     LetStmt name _t expr) = Nothing <$ bind name <$> eval expr
-runStmt (     VarStmt name _t expr) = Nothing <$ bind name <$> eval expr
-runStmt (     AssignStmt name expr) = Nothing <$ bind name <$> eval expr
+runStmt :: (MonadState (Environment Value) m, MonadRE e m) => Stmt -> m (Maybe Value)
+runStmt (     LetStmt name _t expr) = Nothing <$ (eval expr >>= bind name)
+runStmt (     VarStmt name _t expr) = Nothing <$ (eval expr >>= bind name)
+runStmt (     AssignStmt name expr) = Nothing <$ (eval expr >>= bind name)
 runStmt loop@(WhileStmt  cond body) = eval cond >>= \case
     Bool True  -> runBlock body >> runStmt loop
     Bool False -> return Nothing
     _          -> runtimeError
 runStmt (ExprStmt expr) = Just <$> eval expr
 
-runBlock :: Block -> Interpreter Value
+runBlock :: (MonadEnv s m, MonadRE e m) => Block -> m Value
 runBlock (Block stmts) = do
     res <- lastDef Nothing <$> mapM runStmt stmts
     return $ case res of
         Nothing -> Unit
         Just v  -> v
 
-runFunc :: Value -> [Value] -> Interpreter Value
+runFunc :: (MonadEnv s m, MonadRE e m) => Value -> [Value] -> m Value
 runFunc (Function argNames body) args = withState addArgs (runBlock body)
   where
     addArgs :: Environment Value -> Environment Value
@@ -48,19 +48,24 @@ runFunc (Function argNames body) args = withState addArgs (runBlock body)
     argEnv = Environment $ fromList (zip argNames args)
 runFunc _ _ = runtimeError
 
-getName :: Name -> Interpreter Value
+bind :: (MonadState s m, s ~ (Environment Value)) => Name -> Value -> m ()
+bind name val = modify (Environment . insert name val . unEnv) 
+
+getName :: (MonadEnv s m, MonadRE e m) => Name -> m Value
 getName name = gets (lookup name . unEnv) >>= \case
     Just val -> return val
     Nothing  -> runtimeError
 
-evalFuncDef :: FuncDef -> Interpreter Value
+evalFuncDef :: MonadEnv s m => FuncDef -> m Value
 evalFuncDef FuncDef { signature, body } =
     return $ Function (fst <$> arguments signature) body
 
-bindFuncDef :: FuncDef -> Interpreter ()
+bindFuncDef :: MonadEnv s m => FuncDef -> m ()
 bindFuncDef f = bind (name f) =<< evalFuncDef f
 
-runProgram :: Program -> Interpreter ()
+runProgram :: (MonadEnv s m, MonadRE e m) => Program -> m ()
 runProgram (Program functions) = do
     mapM_ bindFuncDef functions -- Bind all top-level functions
-    runFunc <$> getName "main" <*> pure [] >>= const (pure ()) -- Run the main with no arguments
+    mainFunc <- getName "main"
+    _ <- runFunc mainFunc [] 
+    return ()

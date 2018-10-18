@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Interpreter.Types where
 
 import Prelude hiding (lookup)
@@ -21,12 +23,15 @@ newtype Interpreter a = Interpreter {
     MonadState (Environment Value),
     MonadIO)
 
+type MonadRE e m = (MonadError e m, e ~ RuntimeError)
+type MonadEnv s m = (MonadState s m, s ~ Environment Value)
+
 execInterpreter :: Interpreter a -> IO (Either RuntimeError a)
 execInterpreter = (`evalStateT` mempty) . runExceptT . runInterpreter
 
 data RuntimeError = RuntimeError
 
-runtimeError :: Interpreter a
+runtimeError :: MonadRE e m => m a
 runtimeError = throwError RuntimeError
 
 data Value = Integer Integer
@@ -41,3 +46,6 @@ data Value = Integer Integer
 
 newtype Environment a = Environment {unEnv :: Map Name a}
     deriving (Functor, Monoid, Semigroup)
+
+type EM e m = (MonadError e m, e ~ ())
+type SM s m = (MonadState s m, s ~ Int)
