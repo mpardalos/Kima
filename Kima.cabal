@@ -42,12 +42,13 @@ executable kima
                         GeneralizedNewtypeDeriving LambdaCase NamedFieldPuns
                         ScopedTypeVariables OverloadedStrings TypeInType TypeOperators
                         TypeFamilies DuplicateRecordFields MultiParamTypeClasses FunctionalDependencies
-                        ConstraintKinds, FlexibleContexts
-    ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
+                        ConstraintKinds FlexibleContexts TemplateHaskell DeriveFunctor FlexibleInstances
+    ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes -fdefer-type-errors
     build-depends:
         base >=4.7 && <5,
         containers -any,
         mtl -any,
         safe -any,
         megaparsec >= 6.5 && < 7,
-        optparse-applicative -any
+        optparse-applicative -any,
+        compdata >= 0.12

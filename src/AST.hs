@@ -1,18 +1,14 @@
 module AST where
 
 import Data.String
+import Data.Comp
+import Data.Comp.Derive
+import Data.Comp.Show()
 
 newtype Name = Name String
     deriving (Eq, Ord)
 
-data BinOp = Add | Sub | Div | Mul | Mod
-    deriving Show
-
-data UnaryOp = Negate | Invert
-    deriving Show
-
 data EffectExpr = EffectName Name
-    deriving Eq
 
 data TypeExpr = TypeName Name
               | SignatureType [TypeExpr] TypeExpr
@@ -39,15 +35,33 @@ data Stmt = LetStmt Name TypeExpr Expr
           | WhileStmt Expr Block
           | ExprStmt Expr
 
-data Expr = IntExpr Integer
-          | FloatExpr Double
-          | BoolExpr Bool
-          | StringExpr String
-          | FuncExpr NamedSignature Block
-          | CallExpr Expr [Expr]
-          | BinExpr BinOp Expr Expr
-          | UnaryExpr UnaryOp Expr
-          | IdentifierExpr Name
+-- Expressions
+type Expr = Term ExprF
+
+type ExprF = (BinExpr :+: UnaryExpr :+: Literal :+: Identifier :+: FuncExpr :+: Call)
+data BinExpr e       = Add e e 
+                     | Sub e e 
+                     | Div e e 
+                     | Mul e e 
+                     | Mod e e
+                     deriving Functor
+data UnaryExpr e     = Negate e 
+                     | Invert e
+                     deriving Functor
+data Literal e       = IntExpr Integer
+                     | FloatExpr Double
+                     | BoolExpr Bool
+                     | StringExpr String 
+                     deriving Functor
+newtype Identifier e = IdentifierExpr Name
+                     deriving Functor
+data FuncExpr e      = FuncExpr NamedSignature Block
+                     deriving Functor
+data Call e          = CallExpr e [e]
+                     deriving Functor
+
+$(derive [makeShowF, makeFoldable, makeTraversable, smartAConstructors, smartConstructors]
+ [''BinExpr, ''UnaryExpr, ''Literal, ''Identifier, ''FuncExpr, ''Call])
 
 -- Show instances 
 
@@ -67,17 +81,6 @@ instance Show EffectExpr where
 instance Show TypeExpr where
     show (TypeName (Name str)) = "#" ++ str
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
-
-instance Show Expr where
-    show (IntExpr num) = show num
-    show (FloatExpr num) = show num
-    show (BoolExpr bool) = show bool
-    show (StringExpr str) = show str
-    show (FuncExpr sig _) = "func(" ++ show sig ++ ")"
-    show (CallExpr funcExpr arg) = "app(" ++ show funcExpr ++ ";" ++ show arg ++ ")"
-    show (BinExpr op l r) = show op ++ "(" ++ show l ++ ";" ++ show r ++ ")"
-    show (UnaryExpr op e) = show op ++ "(" ++ show e ++ ")"
-    show (IdentifierExpr name) = show name
 
 instance Show Stmt where
     show (LetStmt    name t expr) = "Let("      ++ show name ++ ": " ++ show t ++ " = " ++ show expr ++ ")"
