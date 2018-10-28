@@ -43,7 +43,8 @@ executable kima
                         ScopedTypeVariables OverloadedStrings TypeInType TypeOperators
                         TypeFamilies DuplicateRecordFields MultiParamTypeClasses FunctionalDependencies
                         ConstraintKinds FlexibleContexts TemplateHaskell DeriveFunctor FlexibleInstances
-    ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes -fdefer-type-errors
+                        InstanceSigs UndecidableInstances
+    ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,
         containers -any,
