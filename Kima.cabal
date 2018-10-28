@@ -16,11 +16,15 @@ executable kima
     main-is: Main.hs
     hs-source-dirs: src
     other-modules:
-        AST
         ArgumentParser
         Debugging
 
         Control.Monad.State.Extended
+
+        AST
+        AST.Common
+        AST.Expression
+        AST.Statement
 
         Frontend
         Frontend.Types
@@ -43,7 +47,7 @@ executable kima
                         ScopedTypeVariables OverloadedStrings TypeInType TypeOperators
                         TypeFamilies DuplicateRecordFields MultiParamTypeClasses FunctionalDependencies
                         ConstraintKinds FlexibleContexts TemplateHaskell DeriveFunctor FlexibleInstances
-                        InstanceSigs UndecidableInstances
+                        InstanceSigs UndecidableInstances DeriveTraversable
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,
