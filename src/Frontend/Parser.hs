@@ -1,6 +1,7 @@
 module Frontend.Parser where
 
 import Prelude hiding (mod)
+import Data.Newtype
 
 import Text.Megaparsec
 import Text.Megaparsec.Expr
@@ -10,12 +11,12 @@ import qualified Frontend.Tokenizer as T
 import Frontend.Types
 import AST
 
-program :: Parser Program 
+program :: Parser (Program Stmt)
 program = Program <$> some funcDef <* eof
 
 -- Function defintions
 
-funcDef :: Parser FuncDef
+funcDef :: Parser (FuncDef Stmt)
 funcDef = do 
     reserved RFun 
     name <- identifier
@@ -40,48 +41,48 @@ stmt = letStmt <|> varStmt <|> whileStmt <|> assignStmt <|> exprStmt
     <?> "statement"
 
 letStmt :: Parser Stmt
-letStmt = LetStmt 
+letStmt = Stmt <$> (iLetStmt
     <$> (reserved RLet *> identifier) 
     <*> (symbol Colon *> typeExpr) 
     <*> (symbol Equals *> expr)
-    <?> "let statement"
+    <?> "let statement")
 
 varStmt :: Parser Stmt
-varStmt = VarStmt 
+varStmt = Stmt <$> (iVarStmt 
     <$> (reserved RVar *> identifier) 
     <*> (symbol Colon *> typeExpr) 
     <*> (symbol Equals *> expr)
-    <?> "var statement"
+    <?> "var statement")
 
 assignStmt :: Parser Stmt
-assignStmt = AssignStmt 
+assignStmt = Stmt <$> (iAssignStmt 
     <$> identifier 
     <*> (symbol Equals *> expr)
-    <?> "assignment"
+    <?> "assignment")
 
 whileStmt :: Parser Stmt
-whileStmt = WhileStmt 
+whileStmt = Stmt <$> (iWhileStmt 
     <$> (reserved RWhile *> expr)
-    <*> block
-    <?> "while statement"
+    <*> (Block . (fmap unwrap) . unBlock <$> block)
+    <?> "while statement")
 
 exprStmt :: Parser Stmt
-exprStmt = ExprStmt <$> expr
+exprStmt = Stmt <$> (iExprStmt <$> expr)
     <?> "expression statement"
 
 -- Expressions
 
 expr :: Parser Expr
 expr = makeExprParser term [
-        [ prefix (symbol Minus) (UnaryExpr Negate)
+        [ prefix (symbol Minus) (under (iNegate :: ExprTerm -> ExprTerm))
         , prefix (symbol Plus) id
-        , prefix (symbol Bang) (UnaryExpr Invert)
+        , prefix (symbol Bang) (under (iInvert :: ExprTerm -> ExprTerm))
         ],
-        [ binary (symbol Plus) (BinExpr Add)
-        , binary (symbol Minus) (BinExpr Sub)
-        , binary (symbol Star) (BinExpr Mul)
-        , binary (symbol Slash) (BinExpr Div)
-        , binary (symbol T.Mod) (BinExpr Mod)
+        [ binary (symbol Plus) (under2 (iAdd :: ExprTerm -> ExprTerm -> ExprTerm))
+        , binary (symbol Minus) (under2 (iSub :: ExprTerm -> ExprTerm -> ExprTerm))
+        , binary (symbol Star) (under2 (iMul :: ExprTerm -> ExprTerm -> ExprTerm))
+        , binary (symbol Slash) (under2 (iDiv :: ExprTerm -> ExprTerm -> ExprTerm))
+        , binary (symbol T.Mod) (under2 (iMod :: ExprTerm -> ExprTerm -> ExprTerm))
         ]
     ] <?> "expression"
     
@@ -90,8 +91,8 @@ prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)
 
 term :: Parser Expr
-term = IdentifierExpr <$> identifier 
-   <|> StringExpr <$> string 
+term = (Expr . iIdentifierExpr <$> identifier )
+   <|> (Expr . iStringExpr <$> string)
    <|> parens expr
 
 -- Types
@@ -113,6 +114,6 @@ typeName = TypeName <$> identifier
 effectExpr :: Parser EffectExpr
 effectExpr = EffectName <$> identifier
 
-block :: Parser Block
+block :: Parser (Block Stmt)
 block = Block <$> braces (stmt `sepEndBy` stmtEnd)
     <?> "Block"

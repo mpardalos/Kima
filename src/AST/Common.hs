@@ -7,6 +7,9 @@ newtype Name = Name String
 
 newtype Block s = Block [s] deriving (Functor, Foldable, Traversable)
 
+unBlock :: Block s -> [s] 
+unBlock (Block stmts) = stmts
+
 newtype Program s = Program [FuncDef s]
 
 data FuncDef s = FuncDef {
