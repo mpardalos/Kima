@@ -4,7 +4,7 @@ import           Data.Map.Lazy
 import           AST
 
 data TypedExpr = TypedExpr KType Expr
-data TypedBlock = TypedBlock KType Block
+data TypedBlock = TypedBlock KType (Block Stmt)
 
 data KType = KString | KUnit | KBool | KInt | KFloat | KFunc Signature 
   deriving (Eq, Show)

@@ -17,23 +17,6 @@ import           Typechecking.Types            as TC
 import           Typechecking.Monad            as TC
 import           AST
 
-------------- Statements -------------
-checkStmt :: Stmt -> KTypeM KType
-checkStmt (LetStmt name tExpr expr) = KUnit <$ checkBinding Constant name tExpr expr
-checkStmt (VarStmt name tExpr expr) =
-    KUnit <$ checkBinding Variable name tExpr expr
-checkStmt (AssignStmt name expr) =
-    KUnit <$ (assertEqualTypes <$> checkExpr expr <*> typeOf name)
-checkStmt (ExprStmt expr) = checkExpr expr
-checkStmt (WhileStmt cond body) = do 
-    assertEqualTypes KBool =<< checkExpr cond
-    checkBlock body
-    return KUnit
-
-
-------------- Expressions -------------
-checkExpr :: Expr -> KTypeM KType
-checkExpr = cataM checkAlgebraM
 
 type TypeCheckAlg f = Alg f KType
 type TypeCheckAlgM f = AlgM KTypeM f KType
@@ -45,6 +28,29 @@ instance (TypeCheckable f, TypeCheckable g) => TypeCheckable (f :+: g) where
     checkAlgebraM = caseF 
         (checkAlgebraM :: TypeCheckAlgM f)
         (checkAlgebraM :: TypeCheckAlgM g)
+
+------------- Statements -------------
+checkStmt :: Stmt -> KTypeM KType
+checkStmt (Stmt stmt) = cataM checkAlgebraM stmt
+
+instance TypeCheckable (QualifiedAssignment Expr) where
+    checkAlgebraM (LetStmt name tExpr expr) = KUnit <$ checkBinding Constant name tExpr expr
+    checkAlgebraM (VarStmt name tExpr expr) =
+        KUnit <$ checkBinding Variable name tExpr expr
+    checkAlgebraM (AssignStmt name expr) =
+        KUnit <$ (assertEqualTypes <$> checkExpr expr <*> typeOf name)
+
+instance TypeCheckable (ExprStmt Expr) where
+    checkAlgebraM (ExprStmt expr) = checkExpr expr
+
+instance TypeCheckable (WhileLoop Expr) where
+    checkAlgebraM (WhileStmt cond _) = do 
+        _ <- assertEqualTypes <$> checkExpr cond <*> pure KBool
+        return KUnit
+
+------------- Expressions -------------
+checkExpr :: Expr -> KTypeM KType
+checkExpr (Expr expr) = cataM checkAlgebraM expr
 
 instance TypeCheckable Literal where
     checkAlgebraM (IntExpr _)    = return KInt
@@ -94,7 +100,7 @@ instance TypeCheckable UnaryExpr where
     checkAlgebraM (Invert KBool) = return KBool
     checkAlgebraM (Invert _) = _
     
-instance TypeCheckable FuncExpr where
+instance TypeCheckable (FuncExpr Stmt) where
     checkAlgebraM (FuncExpr sig body) = KFunc <$> checkFunc sig body
 
 instance TypeCheckable Call where
@@ -156,10 +162,10 @@ checkBinding bind name tExpr expr = do
     bindName (bind exprType) name
 
 -- |Typecheck a block, return its return type
-checkBlock :: Block -> KTypeM KType
+checkBlock :: (Block Stmt) -> KTypeM KType
 checkBlock (Block stmts) = fromMaybe KUnit <$> lastMay <$> mapM checkStmt stmts
 
-checkFunc :: NamedSignature -> Block -> KTypeM TC.Signature
+checkFunc :: NamedSignature -> (Block Stmt) -> KTypeM TC.Signature
 checkFunc sig body = do
     typedSig        <- resolveNamedSig sig
     funcEnvironment <- namedSigEnvironment sig
@@ -169,11 +175,11 @@ checkFunc sig body = do
 
     return typedSig
 
-checkFuncDef :: FuncDef -> KTypeM ()
+checkFuncDef :: (FuncDef Stmt) -> KTypeM ()
 checkFuncDef FuncDef {name, signature, body} = do 
     typedSig <- checkFunc signature body
     bindName (Constant . KFunc $ typedSig) name
 
 -- |Typecheck a block, return its return type
-checkProgram :: Program -> KTypeM ()
+checkProgram :: (Program Stmt) -> KTypeM ()
 checkProgram (Program ast) = mapM_ checkFuncDef ast
