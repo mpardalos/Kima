@@ -1,6 +1,6 @@
 module Interpreter (
     runProgram,
-    eval,
+    evalExpr,
     runStmt,
     runBlock,
     execInterpreter

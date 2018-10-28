@@ -39,7 +39,6 @@ executable kima
         Interpreter
         Interpreter.Types
         Interpreter.Interpreter
-        Interpreter.Builtins
     default-language: Haskell2010
     default-extensions: ExistentialQuantification GADTs
                         StandaloneDeriving RankNTypes DataKinds KindSignatures

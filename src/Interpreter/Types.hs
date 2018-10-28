@@ -1,6 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module Interpreter.Types where
+
+import Data.Comp.Algebra
 
 import Prelude hiding (lookup)
 
@@ -34,11 +34,14 @@ data RuntimeError = RuntimeError
 runtimeError :: MonadRE e m => m a
 runtimeError = throwError RuntimeError
 
+type EvalAlg f = Alg f Value
+type EvalAlgM m f = AlgM m f Value
+
 data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           | Function [Name] Block
+           | Function [Name] (Block DesugaredStmt)
            | BuiltinFunction1 (Value -> Interpreter Value)
            | BuiltinFunction2 (Value -> Value -> Interpreter Value)
            | BuiltinFunction3 (Value -> Value -> Value -> Interpreter Value)
