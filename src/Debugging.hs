@@ -5,6 +5,7 @@ import System.IO
 import Text.Megaparsec
 import qualified Frontend as F
 import qualified Typechecking as T
+import qualified Interpreter as I
 
 evalChecker :: (a -> T.KTypeM T.KType) -> a -> Either T.TypeError T.KType
 evalChecker f = T.runTypeChecking mempty . f
@@ -24,15 +25,18 @@ parseRepl = do
     either (putStrLn . F.parseErrorPretty) putStrLn res
     parseRepl
 
-parseFile :: FilePath -> IO ()
+parseFile :: FilePath -> IO (Either F.ParseError (Program Stmt))
 parseFile fn = do 
     src <- readFile fn
-    case F.runParser F.program fn src of
-        Left err -> putStrLn $ F.parseErrorPretty err
-        Right (Program ast) -> putStrLn $ show ast
+    return $ F.runParser F.program fn src
 
-typecheckFile :: FilePath -> IO ()
-typecheckFile _ = _
+typecheckFile :: FilePath -> IO (Either T.TypeError ())
+typecheckFile fn = do
+    (Right src) <- parseFile fn
+    return $ T.runTypeChecking mempty (T.checkProgram src)
 
-runFile :: FilePath -> IO ()
-runFile _ = _
+runFile :: FilePath -> IO (Either I.RuntimeError ())
+runFile fn = do
+    (Right src) <- parseFile fn
+    (Right ()) <- typecheckFile fn
+    I.runProgram (_desugar src)

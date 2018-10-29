@@ -5,7 +5,7 @@ import Data.String
 newtype Name = Name String
     deriving (Eq, Ord)
 
-newtype Program s = Program [FuncDef s]
+newtype Program s = Program [FuncDef s] deriving Show
 
 data FuncDef s = FuncDef {
     name :: Name,
