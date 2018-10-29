@@ -10,7 +10,7 @@ algMCombine :: AlgM m f a -> AlgM m g a -> AlgM m (f :+: g) a
 algMCombine = caseF 
 
 rAlgCombine :: RAlg f a -> RAlg g a -> RAlg (f :+: g) a 
-rAlgCombine = _
+rAlgCombine = _rAlgCombine
 
 rAlgMCombine :: RAlgM m f a -> RAlgM m g a -> RAlgM m (f :+: g) a 
-rAlgMCombine = _
+rAlgMCombine = _rAlgMCombine

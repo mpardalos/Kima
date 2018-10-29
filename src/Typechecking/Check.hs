@@ -66,39 +66,39 @@ instance TypeCheckable BinExpr where
     checkAlgebraM (Add KFloat KFloat) = return KFloat
     checkAlgebraM (Add KFloat KInt)   = return KFloat
     checkAlgebraM (Add KInt KFloat)   = return KFloat
-    checkAlgebraM (Add _ _) = throwError _
+    checkAlgebraM (Add _ _) = throwError _binExprError
 
     checkAlgebraM (Sub KInt KInt)     = return KInt
     checkAlgebraM (Sub KFloat KFloat) = return KFloat
     checkAlgebraM (Sub KFloat KInt)   = return KFloat
     checkAlgebraM (Sub KInt KFloat)   = return KFloat
-    checkAlgebraM (Sub _ _) = throwError _
+    checkAlgebraM (Sub _ _) = throwError _binExprError
 
     checkAlgebraM (Mul KInt KInt)     = return KInt
     checkAlgebraM (Mul KFloat KFloat) = return KFloat
     checkAlgebraM (Mul KFloat KInt)   = return KFloat
     checkAlgebraM (Mul KInt KFloat)   = return KFloat
-    checkAlgebraM (Mul _ _) = throwError _
+    checkAlgebraM (Mul _ _) = throwError _binExprError
 
     checkAlgebraM (Div KInt KInt)     = return KInt
     checkAlgebraM (Div KFloat KFloat) = return KFloat
     checkAlgebraM (Div KFloat KInt)   = return KFloat
     checkAlgebraM (Div KInt KFloat)   = return KFloat
-    checkAlgebraM (Div _ _) = throwError _
+    checkAlgebraM (Div _ _) = throwError _binExprError
 
     checkAlgebraM (Mod KInt KInt)     = return KInt
     checkAlgebraM (Mod KFloat KFloat) = return KFloat
     checkAlgebraM (Mod KFloat KInt)   = return KFloat
     checkAlgebraM (Mod KInt KFloat)   = return KFloat
-    checkAlgebraM (Mod _ _) = throwError _
+    checkAlgebraM (Mod _ _) = throwError _binExprError
 
 instance TypeCheckable UnaryExpr where
     checkAlgebraM (Negate KInt) = return KInt
     checkAlgebraM (Negate KFloat) = return KFloat
-    checkAlgebraM (Negate _) = _
+    checkAlgebraM (Negate _) = _unaryExprError
 
     checkAlgebraM (Invert KBool) = return KBool
-    checkAlgebraM (Invert _) = _
+    checkAlgebraM (Invert _) = _unaryExprError
     
 instance TypeCheckable (FuncExpr Stmt) where
     checkAlgebraM (FuncExpr sig body) = KFunc <$> checkFunc sig body
