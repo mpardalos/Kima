@@ -21,7 +21,6 @@ executable kima
 
         Control.Monad.State.Extended
         Data.Newtype
-        Data.Comp.Algebra.Combine
 
         AST
         AST.Common

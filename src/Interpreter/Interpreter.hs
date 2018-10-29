@@ -4,7 +4,6 @@ import           Prelude                 hiding ( lookup )
 import           Data.Comp.Algebra
 import           Data.Comp.Sum
 import           Data.Comp.Term
-import           Data.Comp.Algebra.Combine
 
 import           Control.Monad.State.Extended
 import           Data.Map
@@ -21,19 +20,22 @@ class (Monad m, Traversable f) => Eval m f where
     cataEval :: Term f -> m Value
     cataEval = cataM evalAlgM
 
--- | Types that can be evaluated to a value using a monadic paramorphism
-class (Monad m, Traversable f) => ParaEval m f where
-    -- | The monadic R-Algebra that can evaluate f
-    evalRAlgM :: RAlgM m f Value
+-- | Types that can be recursively run inside a monad
+-- | Here we use a plain algebra (f (m Value) -> m Value) instead
+-- | of a monadic algebra (f Value -> m Value) so that we can control 
+-- | the sequencing of operations. This allows for control flow.
+class (Monad m, Functor f) => Run m f where
+    -- | The Algebra that can run f
+    runAlg :: Alg f (m Value)
 
-    paraEval :: Term f -> m Value
-    paraEval = paraM evalRAlgM
+    run :: Term f -> m Value
+    run = cata runAlg
 
 instance (Eval m f, Eval m g) => Eval m (f :+: g) where
     evalAlgM = caseF evalAlgM evalAlgM
 
-instance (Functor f, Functor g, ParaEval m f, ParaEval m g) => ParaEval m (f :+: g) where
-    evalRAlgM = rAlgMCombine evalRAlgM evalRAlgM
+instance (Functor f, Functor g, Run m f, Run m g) => Run m (f :+: g) where
+    runAlg = caseF runAlg runAlg
 
 
 ---------- Expressions ----------
@@ -57,21 +59,23 @@ instance (Monad m, MonadEnv s m, MonadRE e m) => Eval m Call where
 
 ---------- Expressions ----------
 runStmt :: (MonadState (Environment Value) m, MonadRE e m) => DesugaredStmt -> m Value
-runStmt (DesugaredStmt stmt) = paraM evalRAlgM stmt
+runStmt (DesugaredStmt stmt) = run stmt
 
-instance (MonadEnv s m, MonadRE e m) => ParaEval m (SimpleAssignment DesugaredExpr) where
-    evalRAlgM (SimpleAssignStmt name expr) = Unit <$ (evalExpr expr >>= bind name)
+instance (MonadEnv s m, MonadRE e m) => Run m (SimpleAssignment DesugaredExpr) where
+    runAlg (SimpleAssignStmt name expr) = Unit <$ (evalExpr expr >>= bind name)
 
-instance (MonadEnv s m, MonadRE e m) => ParaEval m (ExprStmt DesugaredExpr) where
-    evalRAlgM (ExprStmt expr) = evalExpr expr
+instance (MonadEnv s m, MonadRE e m) => Run m (ExprStmt DesugaredExpr) where
+    runAlg (ExprStmt expr) = evalExpr expr
 
-instance (MonadEnv s m, MonadRE e m) => ParaEval m (WhileLoop DesugaredExpr) where
-    evalRAlgM loop@(WhileStmt cond (Block body)) = evalExpr cond >>= \case
-        (Bool True) -> runBlock injectedBody  >> evalRAlgM loop
+-- You just need a plain (non-monadic) catamorphism!
+-- You can then do the sequencing yourself
+instance (MonadEnv s m, MonadRE e m) => Run m (WhileLoop DesugaredExpr) where
+    runAlg loop@(WhileStmt cond (Block body)) = evalExpr cond >>= \case
+        (Bool True) -> do
+            sequence_ body
+            runAlg loop
         (Bool False) -> return Unit
         _ -> runtimeError
-        where
-            injectedBody = Block (DesugaredStmt <$> (deepInject . fst <$> body))
 
 runBlock :: (MonadEnv s m, MonadRE e m) => Block DesugaredStmt -> m Value
 runBlock (Block stmts) = lastDef Unit <$> mapM runStmt stmts
