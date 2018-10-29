@@ -13,15 +13,15 @@ evalChecker f = T.runTypeChecking mempty . f
 evalCheckExpr  = evalChecker T.checkExpr
 evalCheckStmt  = evalChecker T.checkStmt
 
-parseBlock = either (putStrLn . F.parseErrorPretty) _print . F.runParser F.block ""
-parseStmt = either (putStrLn . F.parseErrorPretty) _print . F.runParser F.stmt ""
-parseExpr = either (putStrLn . F.parseErrorPretty) _print . F.runParser F.expr ""
+parseBlock = either (putStrLn . F.parseErrorPretty) print . F.runParser F.block ""
+parseStmt = either (putStrLn . F.parseErrorPretty) print . F.runParser F.stmt ""
+parseExpr = either (putStrLn . F.parseErrorPretty) print . F.runParser F.expr ""
 
 parseRepl :: IO ()
 parseRepl = do 
     hSetBuffering stdin LineBuffering 
     line <- putStr "> " >> getLine
-    let res = F.runParser (foldl1 (<|>) (try <$> [_show <$> F.expr, _show <$> F.stmt, _show <$> F.block])) "" line
+    let res = F.runParser (foldl1 (<|>) (try <$> [show <$> F.expr, show <$> F.stmt, show <$> F.block])) "" line
     either (putStrLn . F.parseErrorPretty) putStrLn res
     parseRepl
 
@@ -30,10 +30,10 @@ parseFile fn = do
     src <- readFile fn
     case F.runParser F.program fn src of
         Left err -> putStrLn $ F.parseErrorPretty err
-        Right (Program ast) -> putStrLn $ _show ast
+        Right (Program ast) -> putStrLn $ show ast
 
 typecheckFile :: FilePath -> IO ()
-typecheckFile fn = _
+typecheckFile _ = _
 
 runFile :: FilePath -> IO ()
-runFile fn = _
+runFile _ = _

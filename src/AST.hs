@@ -10,6 +10,7 @@ import AST.Statement as E
 
 import Data.Comp.Term
 import Data.Newtype
+import Data.Comp.Show()
 
 type ExprTerm = Term (ExprF Stmt)
 type StmtTerm = Term (StmtF Expr)
@@ -17,11 +18,12 @@ type StmtTerm = Term (StmtF Expr)
 type DesugaredExprTerm = Term (DesugaredExprF DesugaredStmt)
 type DesugaredStmtTerm = Term (DesugaredStmtF DesugaredExpr)
 
-newtype Stmt = Stmt StmtTerm
-newtype Expr = Expr ExprTerm
+newtype Stmt = Stmt StmtTerm deriving Show
+newtype Expr = Expr ExprTerm deriving Show
 
-newtype DesugaredStmt = DesugaredStmt DesugaredStmtTerm
-newtype DesugaredExpr = DesugaredExpr DesugaredExprTerm
+newtype DesugaredStmt = DesugaredStmt DesugaredStmtTerm deriving Show
+newtype DesugaredExpr = DesugaredExpr DesugaredExprTerm deriving Show
+
 
 instance Newtype Stmt StmtTerm where
     wrap = Stmt
