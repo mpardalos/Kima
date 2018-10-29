@@ -14,7 +14,7 @@ runInterpreter RunOpts path = parseProgram path <$> readFile path >>= \case
         case runTypeChecking mempty (checkProgram ast) of
             Left  err -> print err
             Right _   -> pure ()
-        execInterpreter (runProgram ast) >>= \case
+        execInterpreter (runProgram (_desugar ast)) >>= \case
             Left  _   -> putStrLn "Runtime Error"
             Right _   -> return ()
 
