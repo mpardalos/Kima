@@ -7,6 +7,6 @@ module Typechecking(
     runTypeChecking
 ) where
 
-import Typechecking.Types
 import Typechecking.Check
 import Typechecking.Monad
+import Typechecking.Types

@@ -1,13 +1,16 @@
 module Frontend.Tokenizer where
 
-import           Text.Megaparsec
-import           Text.Megaparsec.Char          as C hiding ( newline )
-import qualified Text.Megaparsec.Char.Lexer    as L
-import           Control.Monad
-import           Data.Char
+import AST hiding (Mod)
 
-import           AST hiding (Mod)
-import           Frontend.Types
+import Control.Monad
+
+import Data.Char
+
+import Frontend.Types
+
+import Text.Megaparsec
+import Text.Megaparsec.Char          as C hiding ( newline )
+import qualified Text.Megaparsec.Char.Lexer    as L
 
 -- Base combinators
 

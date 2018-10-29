@@ -1,15 +1,18 @@
 module Frontend.Parser where
 
 import Prelude hiding (mod)
+
+import AST
+
 import Data.Newtype
+
+import Frontend.Tokenizer hiding (Mod)
+import Frontend.Types
+import qualified Frontend.Tokenizer as T 
 
 import Text.Megaparsec
 import Text.Megaparsec.Expr
 
-import Frontend.Tokenizer hiding (Mod)
-import qualified Frontend.Tokenizer as T 
-import Frontend.Types
-import AST
 
 program :: Parser (Program Stmt)
 program = Program <$> some funcDef <* eof

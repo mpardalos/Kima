@@ -1,15 +1,15 @@
 module Interpreter.Types where
 
-import Data.Comp.Algebra
-
 import Prelude hiding (lookup)
 
-import Control.Monad.State
-import Control.Monad.Except
+import AST
 
+import Control.Monad.Except
+import Control.Monad.State
+
+import Data.Comp.Algebra
 import Data.Map hiding (toList, fromList)
 
-import AST
 
 newtype Interpreter a = Interpreter { 
     runInterpreter :: ExceptT RuntimeError (

@@ -1,11 +1,13 @@
 module Typechecking.Monad where
 
-import           Control.Monad.State.Extended
-import           Control.Monad.Except
-import           Data.Map.Lazy
-
-import           Typechecking.Types
 import AST
+
+import Control.Monad.Except
+import Control.Monad.State.Extended
+
+import Data.Map.Lazy
+
+import Typechecking.Types
 
 newtype KTypeM a = KTypeM { runKTypeM :: StateT TypeCtx (Either TypeError) a}
   deriving (Functor, Applicative, Monad, MonadError TypeError, MonadState TypeCtx)

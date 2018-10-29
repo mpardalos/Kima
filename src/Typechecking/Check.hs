@@ -1,21 +1,21 @@
 module Typechecking.Check where
 
-import           Prelude                 hiding ( lookup )
-import qualified Prelude                       as P
-                                                ( lookup )
-import           Data.Maybe
-import           Control.Monad
-import           Control.Monad.Except
-import           Control.Monad.State.Extended
-import           Data.Comp.Algebra
-import           Data.Comp.Sum
+import Prelude hiding ( lookup )
 
-import           Data.Map
-import           Safe
+import AST
 
-import           Typechecking.Types            as TC
-import           Typechecking.Monad            as TC
-import           AST
+import Control.Monad
+import Control.Monad.Except
+import Control.Monad.State.Extended
+
+import Data.Comp.Algebra
+import Data.Comp.Sum
+import Data.Map
+
+import Safe
+
+import Typechecking.Monad as TC
+import Typechecking.Types as TC
 
 
 type TypeCheckAlg f = Alg f KType

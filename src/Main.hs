@@ -2,8 +2,8 @@ module Main where
 
 import ArgumentParser
 import Frontend
-import Typechecking
 import Interpreter
+import Typechecking
 
 notImplemented str = putStrLn (str ++ " is not implemented")
 

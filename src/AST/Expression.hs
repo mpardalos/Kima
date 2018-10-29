@@ -1,9 +1,9 @@
 module AST.Expression where
 
+import AST.Common
+
 import Data.Comp.Derive
 import Data.Comp.Sum
-
-import AST.Common
 
 -- Expressions
 type ExprF s = (BinExpr :+: UnaryExpr :+: Literal :+: Identifier :+: FuncExpr s :+: Call)

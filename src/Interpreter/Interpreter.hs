@@ -1,16 +1,18 @@
 module Interpreter.Interpreter where
 
-import           Prelude                 hiding ( lookup )
-import           Data.Comp.Algebra
-import           Data.Comp.Sum
-import           Data.Comp.Term
+import Prelude hiding ( lookup )
+import Safe
 
-import           Control.Monad.State.Extended
-import           Data.Map
-import           Safe
+import AST
 
-import           AST
-import           Interpreter.Types
+import Control.Monad.State.Extended
+
+import Data.Comp.Algebra
+import Data.Comp.Sum
+import Data.Comp.Term
+import Data.Map
+
+import Interpreter.Types
 
 -- | Types that can be evaluated to a value using a monadic catamorphism
 class (Monad m, Traversable f) => Eval m f where

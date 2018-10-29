@@ -1,11 +1,10 @@
 module Debugging where
 
-import System.IO
-
 import AST
+import System.IO
 import Text.Megaparsec
-import qualified Typechecking as T
 import qualified Frontend as F
+import qualified Typechecking as T
 
 evalChecker :: (a -> T.KTypeM T.KType) -> a -> Either T.TypeError T.KType
 evalChecker f = T.runTypeChecking mempty . f

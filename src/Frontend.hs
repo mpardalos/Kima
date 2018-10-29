@@ -4,8 +4,8 @@ module Frontend(
     parseProgram, parseErrorPretty, runParser
 ) where
 
-import Frontend.Types 
 import Frontend.Parser
+import Frontend.Types 
 import Text.Megaparsec
 
 -- | Parse a string as a Kima program and return either a ParseError that was

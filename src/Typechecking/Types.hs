@@ -1,7 +1,7 @@
 module Typechecking.Types where
 
-import           Data.Map.Lazy
-import           AST
+import AST
+import Data.Map.Lazy
 
 data TypedExpr = TypedExpr KType Expr
 data TypedBlock = TypedBlock KType Stmt

@@ -1,9 +1,9 @@
 module AST.Statement where
 
+import AST.Common
+
 import Data.Comp.Sum
 import Data.Comp.Derive
-
-import AST.Common
 
 type StmtF e = BlockStmt :+: QualifiedAssignment e :+: WhileLoop e :+: ExprStmt e
 type DesugaredStmtF e = BlockStmt :+: SimpleAssignment e :+: WhileLoop e :+: ExprStmt e
