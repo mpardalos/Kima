@@ -69,39 +69,66 @@ instance TypeCheckable BinExpr where
     checkAlgebraM (Add KFloat KFloat) = return KFloat
     checkAlgebraM (Add KFloat KInt)   = return KFloat
     checkAlgebraM (Add KInt KFloat)   = return KFloat
-    checkAlgebraM (Add _ _) = throwError _binExprError
+    checkAlgebraM (Add lType rType)   = throwError $ BinOpTypeError 
+        [ (KInt, KInt)
+        , (KFloat, KFloat)
+        , (KFloat, KInt)
+        , (KInt, KFloat)
+        ] (lType, rType)
 
     checkAlgebraM (Sub KInt KInt)     = return KInt
     checkAlgebraM (Sub KFloat KFloat) = return KFloat
     checkAlgebraM (Sub KFloat KInt)   = return KFloat
     checkAlgebraM (Sub KInt KFloat)   = return KFloat
-    checkAlgebraM (Sub _ _) = throwError _binExprError
+    checkAlgebraM (Sub lType rType)   = throwError $ BinOpTypeError 
+        [ (KInt, KInt)
+        , (KFloat, KFloat)
+        , (KFloat, KInt)
+        , (KInt, KFloat)
+        ] (lType, rType)
 
     checkAlgebraM (Mul KInt KInt)     = return KInt
     checkAlgebraM (Mul KFloat KFloat) = return KFloat
     checkAlgebraM (Mul KFloat KInt)   = return KFloat
     checkAlgebraM (Mul KInt KFloat)   = return KFloat
-    checkAlgebraM (Mul _ _) = throwError _binExprError
+    checkAlgebraM (Mul lType rType)   = throwError $ BinOpTypeError 
+        [ (KInt, KInt)
+        , (KFloat, KFloat)
+        , (KFloat, KInt)
+        , (KInt, KFloat)
+        ] (lType, rType)
 
     checkAlgebraM (Div KInt KInt)     = return KInt
     checkAlgebraM (Div KFloat KFloat) = return KFloat
     checkAlgebraM (Div KFloat KInt)   = return KFloat
     checkAlgebraM (Div KInt KFloat)   = return KFloat
-    checkAlgebraM (Div _ _) = throwError _binExprError
+    checkAlgebraM (Div lType rType)   = throwError $ BinOpTypeError 
+        [ (KInt, KInt)
+        , (KFloat, KFloat)
+        , (KFloat, KInt)
+        , (KInt, KFloat)
+        ] (lType, rType)
 
     checkAlgebraM (Mod KInt KInt)     = return KInt
     checkAlgebraM (Mod KFloat KFloat) = return KFloat
     checkAlgebraM (Mod KFloat KInt)   = return KFloat
     checkAlgebraM (Mod KInt KFloat)   = return KFloat
-    checkAlgebraM (Mod _ _) = throwError _binExprError
+    checkAlgebraM (Mod lType rType)   = throwError $ BinOpTypeError 
+        [ (KInt, KInt)
+        , (KFloat, KFloat)
+        , (KFloat, KInt)
+        , (KInt, KFloat)
+        ] (lType, rType)
 
 instance TypeCheckable UnaryExpr where
     checkAlgebraM (Negate KInt) = return KInt
     checkAlgebraM (Negate KFloat) = return KFloat
-    checkAlgebraM (Negate _) = _unaryExprError
+    checkAlgebraM (Negate eType) = throwError $ UnaryOpTypeError
+        [KInt, KFloat] eType
 
     checkAlgebraM (Invert KBool) = return KBool
-    checkAlgebraM (Invert _) = _unaryExprError
+    checkAlgebraM (Invert eType) = throwError $ UnaryOpTypeError
+        [KBool] eType
     
 instance TypeCheckable (FuncExpr Stmt) where
     checkAlgebraM (FuncExpr sig body) = KFunc <$> checkFunc sig body
