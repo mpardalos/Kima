@@ -61,6 +61,11 @@ instance (Monad m, MonadEnv s m, MonadRE e m) => Eval m Call where
 runStmt :: (MonadState (Environment Value) m, MonadRE e m) => DesugaredStmt -> m Value
 runStmt (DesugaredStmt stmt) = run stmt
 
+instance (Monad m, MonadEnv s m, MonadRE e m) => Run m BlockStmt where
+    runAlg (BlockStmt stmts) = do 
+        vals <- sequence stmts
+        return (lastDef Unit vals)
+
 instance (MonadEnv s m, MonadRE e m) => Run m (SimpleAssignment DesugaredExpr) where
     runAlg (SimpleAssignStmt name expr) = Unit <$ (evalExpr expr >>= bind name)
 
@@ -70,18 +75,15 @@ instance (MonadEnv s m, MonadRE e m) => Run m (ExprStmt DesugaredExpr) where
 -- You just need a plain (non-monadic) catamorphism!
 -- You can then do the sequencing yourself
 instance (MonadEnv s m, MonadRE e m) => Run m (WhileLoop DesugaredExpr) where
-    runAlg loop@(WhileStmt cond (Block body)) = evalExpr cond >>= \case
+    runAlg loop@(WhileStmt cond body) = evalExpr cond >>= \case
         (Bool True) -> do
-            sequence_ body
+            _ <- body
             runAlg loop
         (Bool False) -> return Unit
         _ -> runtimeError
 
-runBlock :: (MonadEnv s m, MonadRE e m) => Block DesugaredStmt -> m Value
-runBlock (Block stmts) = lastDef Unit <$> mapM runStmt stmts
-
 runFunc :: (MonadEnv s m, MonadRE e m) => Value -> [Value] -> m Value
-runFunc (Function argNames body) args = withState addArgs (runBlock body)
+runFunc (Function argNames (DesugaredStmt body)) args = withState addArgs (run body)
   where
     addArgs :: Environment Value -> Environment Value
     addArgs env = env <> argEnv

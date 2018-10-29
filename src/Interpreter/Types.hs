@@ -42,7 +42,7 @@ data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           | Function [Name] (Block DesugaredStmt)
+           | Function [Name] DesugaredStmt
            | BuiltinFunction1 (Value -> Interpreter Value)
            | BuiltinFunction2 (Value -> Value -> Interpreter Value)
            | BuiltinFunction3 (Value -> Value -> Value -> Interpreter Value)

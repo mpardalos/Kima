@@ -63,7 +63,7 @@ assignStmt = Stmt <$> (iAssignStmt
 whileStmt :: Parser Stmt
 whileStmt = Stmt <$> (iWhileStmt 
     <$> (reserved RWhile *> expr)
-    <*> (Block . (fmap unwrap) . unBlock <$> block)
+    <*> (unwrap <$> block)
     <?> "while statement")
 
 exprStmt :: Parser Stmt
@@ -114,6 +114,6 @@ typeName = TypeName <$> identifier
 effectExpr :: Parser EffectExpr
 effectExpr = EffectName <$> identifier
 
-block :: Parser (Block Stmt)
-block = Block <$> braces (stmt `sepEndBy` stmtEnd)
+block :: Parser Stmt
+block = Stmt . iBlockStmt . fmap unwrap <$> braces (stmt `sepEndBy` stmtEnd)
     <?> "Block"

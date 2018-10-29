@@ -2,7 +2,6 @@ module Interpreter (
     runProgram,
     evalExpr,
     runStmt,
-    runBlock,
     execInterpreter
 ) where
 

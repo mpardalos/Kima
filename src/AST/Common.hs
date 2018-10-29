@@ -5,17 +5,12 @@ import Data.String
 newtype Name = Name String
     deriving (Eq, Ord)
 
-newtype Block s = Block [s] deriving (Functor, Foldable, Traversable)
-
-unBlock :: Block s -> [s] 
-unBlock (Block stmts) = stmts
-
 newtype Program s = Program [FuncDef s]
 
 data FuncDef s = FuncDef {
     name :: Name,
     signature :: NamedSignature,
-    body :: Block s
+    body :: s
 }
 
 -- Effects
@@ -48,13 +43,6 @@ instance Show Name where
 
 instance IsString Name where
     fromString = Name
-
-instance Show s => Show (Block s) where
-    show (Block blk) = "{\n" ++ blockShow blk ++ "}"
-        where
-            blockShow :: [s] -> String
-            blockShow [] = ""
-            blockShow (stmt : stmts) = "\t" ++ show stmt ++ "\n" ++ blockShow stmts
 
 instance Show s => Show (FuncDef s) where
     show FuncDef { name, signature=sig, body } =

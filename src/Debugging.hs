@@ -12,7 +12,6 @@ evalChecker f = T.runTypeChecking mempty . f
 
 evalCheckExpr  = evalChecker T.checkExpr
 evalCheckStmt  = evalChecker T.checkStmt
-evalCheckBlock = evalChecker T.checkBlock
 
 parseBlock = either (putStrLn . F.parseErrorPretty) _print . F.runParser F.block ""
 parseStmt = either (putStrLn . F.parseErrorPretty) _print . F.runParser F.stmt ""

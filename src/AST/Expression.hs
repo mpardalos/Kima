@@ -21,7 +21,7 @@ data Literal e       = IntExpr Integer
                      | BoolExpr Bool
                      | StringExpr String 
 newtype Identifier e = IdentifierExpr Name
-data FuncExpr s e    = FuncExpr NamedSignature (Block s)
+data FuncExpr s e    = FuncExpr NamedSignature s
 data Call e          = CallExpr e [e]
 
 deriving instance Functor BinExpr

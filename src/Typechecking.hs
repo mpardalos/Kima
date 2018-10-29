@@ -1,6 +1,5 @@
 module Typechecking(
     module Typechecking.Types,
-    checkBlock,
     checkStmt,
     checkExpr,
     checkProgram,

@@ -33,6 +33,9 @@ instance (TypeCheckable f, TypeCheckable g) => TypeCheckable (f :+: g) where
 checkStmt :: Stmt -> KTypeM KType
 checkStmt (Stmt stmt) = cataM checkAlgebraM stmt
 
+instance TypeCheckable BlockStmt where
+    checkAlgebraM (BlockStmt returnTypes) = return (lastDef KUnit returnTypes)
+
 instance TypeCheckable (QualifiedAssignment Expr) where
     checkAlgebraM (LetStmt name tExpr expr) = KUnit <$ checkBinding Constant name tExpr expr
     checkAlgebraM (VarStmt name tExpr expr) =
@@ -162,15 +165,15 @@ checkBinding bind name tExpr expr = do
     bindName (bind exprType) name
 
 -- |Typecheck a block, return its return type
-checkBlock :: (Block Stmt) -> KTypeM KType
-checkBlock (Block stmts) = fromMaybe KUnit <$> lastMay <$> mapM checkStmt stmts
+-- checkBlock :: Stmt -> KTypeM KType
+-- checkBlock blk = fromMaybe KUnit <$> lastMay <$> mapM checkStmt stmts
 
-checkFunc :: NamedSignature -> (Block Stmt) -> KTypeM TC.Signature
+checkFunc :: NamedSignature -> Stmt -> KTypeM TC.Signature
 checkFunc sig body = do
     typedSig        <- resolveNamedSig sig
     funcEnvironment <- namedSigEnvironment sig
 
-    bodyRetType     <- withState (const funcEnvironment) (checkBlock body)
+    bodyRetType     <- withState (const funcEnvironment) (checkStmt body)
     assertEqualTypes bodyRetType (TC.returnType typedSig)
 
     return typedSig
