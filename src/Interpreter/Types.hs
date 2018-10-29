@@ -36,6 +36,7 @@ runtimeError = throwError RuntimeError
 
 type EvalAlg f = Alg f Value
 type EvalAlgM m f = AlgM m f Value
+type EvalRAlgM m f = RAlgM m f Value
 
 data Value = Integer Integer
            | Float Double
@@ -49,6 +50,3 @@ data Value = Integer Integer
 
 newtype Environment a = Environment {unEnv :: Map Name a}
     deriving (Functor, Monoid, Semigroup)
-
-type EM e m = (MonadError e m, e ~ ())
-type SM s m = (MonadState s m, s ~ Int)
