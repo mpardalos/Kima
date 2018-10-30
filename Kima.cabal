@@ -47,7 +47,7 @@ executable kima
                         ScopedTypeVariables OverloadedStrings TypeInType TypeOperators
                         TypeFamilies DuplicateRecordFields MultiParamTypeClasses FunctionalDependencies
                         ConstraintKinds FlexibleContexts TemplateHaskell DeriveFunctor FlexibleInstances
-                        InstanceSigs UndecidableInstances DeriveTraversable PartialTypeSignatures
+                        InstanceSigs UndecidableInstances DeriveTraversable PartialTypeSignatures TypeApplications
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,

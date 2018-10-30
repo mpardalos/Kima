@@ -8,7 +8,7 @@ class Newtype n u where
     unwrap :: n -> u
 
 -- | Run a 1 argument function on a wrapped type inside the wrapper
-under :: Newtype n u => (u -> u) -> n -> n
+under :: (Newtype n u, Newtype n' u') => (u -> u') -> n -> n'
 under f = wrap . f . unwrap
 
 -- | Run a 2 argument function on a wrapped type inside the wrapper

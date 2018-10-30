@@ -1,11 +1,12 @@
 module Debugging where
 
 import AST
+import Data.Newtype
 import System.IO
 import Text.Megaparsec
 import qualified Frontend as F
-import qualified Typechecking as T
 import qualified Interpreter as I
+import qualified Typechecking as T
 
 evalChecker :: (a -> T.KTypeM T.KType) -> a -> Either T.TypeError T.KType
 evalChecker f = T.runTypeChecking mempty . f
@@ -39,4 +40,4 @@ runFile :: FilePath -> IO (Either I.RuntimeError ())
 runFile fn = do
     (Right src) <- parseFile fn
     (Right ()) <- typecheckFile fn
-    I.runProgram (_desugar src)
+    I.runProgram (fmap @[] desugarFuncDef `under` src)

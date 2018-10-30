@@ -1,6 +1,7 @@
 module AST.Common where
 
 import Data.String
+import Data.Newtype
 
 newtype Name = Name String
     deriving (Eq, Ord)
@@ -47,3 +48,7 @@ instance IsString Name where
 instance Show s => Show (FuncDef s) where
     show FuncDef { name, signature=sig, body } =
         "fun " ++ show name ++ " " ++ show (arguments sig)  ++ " -> " ++ show (returnType sig) ++ " " ++ show body
+
+instance Newtype (Program s) [FuncDef s] where
+    wrap = Program
+    unwrap (Program l) = l

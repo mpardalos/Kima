@@ -1,6 +1,8 @@
 module Main where
 
+import AST
 import ArgumentParser
+import Data.Newtype
 import Frontend
 import Interpreter
 import Typechecking
@@ -14,7 +16,7 @@ runInterpreter RunOpts path = parseProgram path <$> readFile path >>= \case
         case runTypeChecking mempty (checkProgram ast) of
             Left  err -> print err
             Right _   -> pure ()
-        runProgram (_desugar ast) >>= \case
+        runProgram (fmap @[] desugarFuncDef `under` ast) >>= \case
             Left  _   -> putStrLn "Runtime Error"
             Right _   -> return ()
 
