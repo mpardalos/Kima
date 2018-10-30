@@ -40,7 +40,7 @@ typedArg = (,) <$> identifier <*> (symbol Colon *> typeExpr)
 -- Statements
 
 stmt :: Parser Stmt
-stmt = letStmt <|> varStmt <|> whileStmt <|> assignStmt <|> exprStmt
+stmt = letStmt <|> varStmt <|> whileStmt <|> assignStmt <|> exprStmt <|> ifStmt
     <?> "statement"
 
 letStmt :: Parser Stmt
@@ -72,6 +72,12 @@ whileStmt = Stmt <$> (iWhileStmt
 exprStmt :: Parser Stmt
 exprStmt = Stmt <$> (iExprStmt <$> expr)
     <?> "expression statement"
+
+ifStmt :: Parser Stmt
+ifStmt = Stmt <$> (iIfStmt 
+    <$> expr 
+    <*> (unwrap <$> stmt) 
+    <*> (unwrap <$> stmt))
 
 -- Expressions
 

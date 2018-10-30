@@ -84,6 +84,12 @@ instance (MonadEnv s m, MonadRE e m) => Run m (WhileLoop DesugaredExpr) where
         (Bool False) -> return Unit
         _ -> runtimeError
 
+instance (MonadEnv s m, MonadRE e m) => Run m (IfStmt DesugaredExpr) where
+    runAlg (IfStmt cond ifblk elseblk) = evalExpr cond >>= \case
+        (Bool True) -> ifblk
+        (Bool False) -> elseblk
+        _ -> runtimeError
+
 runFunc :: (MonadEnv s m, MonadRE e m) => Value -> [Value] -> m Value
 runFunc (Function argNames (DesugaredStmt body)) args = withState addArgs (run body)
   where

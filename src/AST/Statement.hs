@@ -5,8 +5,8 @@ import AST.Common
 import Data.Comp.Sum
 import Data.Comp.Derive
 
-type StmtF e = BlockStmt :+: QualifiedAssignment e :+: WhileLoop e :+: ExprStmt e
-type DesugaredStmtF e = BlockStmt :+: SimpleAssignment e :+: WhileLoop e :+: ExprStmt e
+type StmtF e = BlockStmt :+: QualifiedAssignment e :+: WhileLoop e :+: ExprStmt e :+: IfStmt e
+type DesugaredStmtF e = BlockStmt :+: SimpleAssignment e :+: WhileLoop e :+: ExprStmt e :+: IfStmt e
 
 data    SimpleAssignment e s    = SimpleAssignStmt Name e
 data    QualifiedAssignment e s = LetStmt Name TypeExpr e
@@ -15,6 +15,7 @@ data    QualifiedAssignment e s = LetStmt Name TypeExpr e
 data    WhileLoop e s           = WhileStmt e s
 newtype ExprStmt e s            = ExprStmt e
 newtype BlockStmt s             = BlockStmt [s] 
+data    IfStmt e s              = IfStmt e s s
 
 
 deriving instance Functor BlockStmt
@@ -22,6 +23,7 @@ deriving instance Functor (SimpleAssignment e)
 deriving instance Functor (QualifiedAssignment e)
 deriving instance Functor (WhileLoop e)
 deriving instance Functor (ExprStmt e)
+deriving instance Functor (IfStmt e)
 
 $(derive [makeShowF, makeFoldable, makeTraversable, smartAConstructors, smartConstructors]
- [''BlockStmt, ''SimpleAssignment, ''QualifiedAssignment, ''WhileLoop, ''ExprStmt])
+ [''BlockStmt, ''SimpleAssignment, ''QualifiedAssignment, ''WhileLoop, ''ExprStmt, ''IfStmt])

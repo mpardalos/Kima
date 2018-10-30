@@ -51,6 +51,14 @@ instance TypeCheckable (WhileLoop Expr) where
         _ <- assertEqualTypes <$> checkExpr cond <*> pure KBool
         return KUnit
 
+instance TypeCheckable (IfStmt Expr) where
+    checkAlgebraM (IfStmt cond ifblk elseblk) = do 
+        condType <- checkExpr cond
+
+        assertEqualTypes condType KBool
+        assertEqualTypes ifblk elseblk
+        return ifblk
+
 ------------- Expressions -------------
 checkExpr :: Expr -> KTypeM KType
 checkExpr (Expr expr) = cataM checkAlgebraM expr
