@@ -102,6 +102,8 @@ postfix p f = Postfix (f <$ p)
 term :: Parser Expr
 term = (Expr . iIdentifierExpr <$> identifier )
    <|> (Expr . iStringExpr <$> string)
+   <|> (Expr . iIntExpr <$> intLiteral)
+   <|> (Expr . iFloatExpr <$> floatLiteral)
    <|> parens expr
 
 -- Types

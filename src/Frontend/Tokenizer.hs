@@ -18,6 +18,9 @@ whitespace :: Parser ()
 whitespace = L.space space1 skipLineComment empty
     where skipLineComment = L.skipLineComment "#"
 
+inlineWhitespace :: Parser ()
+inlineWhitespace = L.space space1 empty empty
+
 -- | These consume whitespace before them
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme whitespace
@@ -31,12 +34,21 @@ braces = between (verbatim "{") (verbatim "}")
 
 -- Literals
 
+isIdentifierStartChar :: Char -> Bool
+isIdentifierStartChar c = isAlpha c || c == '$'
+
 isIdentifierChar :: Char -> Bool
-isIdentifierChar c = isAlphaNum c || c == '$'
+isIdentifierChar c = isIdentifierStartChar c || isNumber c
+
+intLiteral :: Parser Integer
+intLiteral = L.decimal
+
+floatLiteral :: Parser Double
+floatLiteral = L.signed inlineWhitespace L.float
 
 identifier :: Parser Name
 identifier = do
-    idName <- lexeme (takeWhile1P Nothing isIdentifierChar)
+    idName <- lexeme ((:) <$> satisfy isIdentifierStartChar <*> takeWhileP Nothing isIdentifierChar)
     if idName `elem` reservedWords
         then fail ("\"" ++ idName ++ "\" is a reserved word")
         else return $ Name idName
