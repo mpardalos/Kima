@@ -33,6 +33,7 @@ executable kima
         Frontend.Parser
 
         Typechecking
+        Typechecking.Builtins
         Typechecking.Types
         Typechecking.Check
         Typechecking.Monad
@@ -48,6 +49,7 @@ executable kima
                         TypeFamilies DuplicateRecordFields MultiParamTypeClasses FunctionalDependencies
                         ConstraintKinds FlexibleContexts TemplateHaskell DeriveFunctor FlexibleInstances
                         InstanceSigs UndecidableInstances DeriveTraversable PartialTypeSignatures TypeApplications
+                        BangPatterns
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,

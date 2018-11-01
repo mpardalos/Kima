@@ -18,7 +18,8 @@ data Signature = Signature {
 
 data TypeBinding = Constant { kType :: KType }
                  | Variable { kType :: KType }
-
+  deriving Show
+                 
 data TypeCtx = TypeCtx {
   types :: Map Name KType,
   bindings :: Map Name TypeBinding
@@ -45,10 +46,8 @@ instance Show TypeError where
 instance Show Signature where
   show Signature{arguments, returnType} = "(" ++ show arguments ++ ") -> " ++ show returnType
 
-instance Show TypeCtx where show _ = "TypeCtx"
+instance Show TypeCtx where 
+  show TypeCtx { types, bindings } = "TypeCtx " ++ show types ++ " | " ++ show bindings
 
 instance Semigroup TypeCtx where
   l <> r = TypeCtx (types l <> types r) (bindings l <> bindings r)
-
-instance Monoid TypeCtx where
-  mempty = TypeCtx empty empty

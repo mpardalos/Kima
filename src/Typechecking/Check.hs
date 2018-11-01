@@ -37,7 +37,8 @@ instance TypeCheckable BlockStmt where
     checkAlgebraM (BlockStmt returnTypes) = return (lastDef KUnit returnTypes)
 
 instance TypeCheckable (QualifiedAssignment Expr) where
-    checkAlgebraM (LetStmt name tExpr expr) = KUnit <$ checkBinding Constant name tExpr expr
+    checkAlgebraM (LetStmt name tExpr expr) = 
+        KUnit <$ checkBinding Constant name tExpr expr
     checkAlgebraM (VarStmt name tExpr expr) =
         KUnit <$ checkBinding Variable name tExpr expr
     checkAlgebraM (AssignStmt name expr) =
@@ -199,25 +200,21 @@ checkBinding bind name tExpr expr = do
     assertEqualTypes expectedType exprType
     bindName (bind exprType) name
 
--- |Typecheck a block, return its return type
--- checkBlock :: Stmt -> KTypeM KType
--- checkBlock blk = fromMaybe KUnit <$> lastMay <$> mapM checkStmt stmts
-
 checkFunc :: NamedSignature -> Stmt -> KTypeM TC.Signature
 checkFunc sig body = do
     typedSig        <- resolveNamedSig sig
     funcEnvironment <- namedSigEnvironment sig
 
-    bodyRetType     <- withState (const funcEnvironment) (checkStmt body)
+    bodyRetType     <- withState (<> funcEnvironment) (checkStmt body)
     assertEqualTypes bodyRetType (TC.returnType typedSig)
 
     return typedSig
 
-checkFuncDef :: (FuncDef Stmt) -> KTypeM ()
+checkFuncDef :: FuncDef Stmt -> KTypeM ()
 checkFuncDef FuncDef {name, signature, body} = do 
     typedSig <- checkFunc signature body
     bindName (Constant . KFunc $ typedSig) name
 
 -- |Typecheck a block, return its return type
-checkProgram :: (Program Stmt) -> KTypeM ()
+checkProgram :: Program Stmt -> KTypeM ()
 checkProgram (Program ast) = mapM_ checkFuncDef ast

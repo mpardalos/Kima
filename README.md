@@ -4,8 +4,8 @@ Kima
 TODO
 ----
 
-* Builtin types 
-* Algebraic types
-* Polymorphic types
-* Effect system
-* Source position annotations
+[x] Builtin types 
+[ ] Algebraic types
+[ ] Polymorphic types
+[ ] Effect system
+[ ] Source position annotations

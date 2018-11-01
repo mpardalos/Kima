@@ -9,7 +9,7 @@ import qualified Interpreter as I
 import qualified Typechecking as T
 
 evalChecker :: (a -> T.KTypeM T.KType) -> a -> Either T.TypeError T.KType
-evalChecker f = T.runTypeChecking mempty . f
+evalChecker f = T.runTypeChecking T.baseCtx . f
 
 evalCheckExpr  = evalChecker T.checkExpr
 evalCheckStmt  = evalChecker T.checkStmt
@@ -34,7 +34,7 @@ parseFile fn = do
 typecheckFile :: FilePath -> IO (Either T.TypeError ())
 typecheckFile fn = do
     (Right src) <- parseFile fn
-    return $ T.runTypeChecking mempty (T.checkProgram src)
+    return $ T.runTypeChecking T.baseCtx (T.checkProgram src)
 
 runFile :: FilePath -> IO (Either I.RuntimeError ())
 runFile fn = do
