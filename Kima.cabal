@@ -41,8 +41,8 @@ executable kima
 
         Interface
         Interface.ArgumentParser
-        Interface.Debugging
-        Interface.Errors
+        Interface.Runners
+        Interface.Types
 
     default-language: Haskell2010
     default-extensions: ExistentialQuantification GADTs
@@ -52,7 +52,7 @@ executable kima
                         TypeFamilies DuplicateRecordFields MultiParamTypeClasses FunctionalDependencies
                         ConstraintKinds FlexibleContexts TemplateHaskell DeriveFunctor FlexibleInstances
                         InstanceSigs UndecidableInstances DeriveTraversable PartialTypeSignatures TypeApplications
-                        BangPatterns
+                        BangPatterns DefaultSignatures
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,
