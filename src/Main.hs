@@ -1,11 +1,11 @@
 module Main where
 
 import AST
-import ArgumentParser
 import Data.Newtype
 import Frontend
 import Interpreter
 import Typechecking
+import Interface
 
 notImplemented str = putStrLn (str ++ " is not implemented")
 

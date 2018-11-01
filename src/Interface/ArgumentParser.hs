@@ -1,4 +1,4 @@
-module ArgumentParser where
+module Interface.ArgumentParser where
 
 import Options.Applicative
 

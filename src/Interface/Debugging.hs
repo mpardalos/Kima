@@ -1,4 +1,4 @@
-module Debugging where
+module Interface.Debugging where
 
 import AST
 import Data.Newtype

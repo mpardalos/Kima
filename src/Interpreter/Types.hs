@@ -30,6 +30,7 @@ execInterpreter :: Interpreter a -> IO (Either RuntimeError a)
 execInterpreter = (`evalStateT` mempty) . runExceptT . runInterpreter
 
 data RuntimeError = RuntimeError
+    deriving Show
 
 runtimeError :: MonadRE e m => m a
 runtimeError = throwError RuntimeError
