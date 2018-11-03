@@ -35,10 +35,10 @@ braces = between (verbatim "{") (verbatim "}")
 -- Literals
 
 isIdentifierStartChar :: Char -> Bool
-isIdentifierStartChar c = isAlpha c || c == '$'
+isIdentifierStartChar c = isAlpha c || elem @[] c "$_"
 
 isIdentifierChar :: Char -> Bool
-isIdentifierChar c = isIdentifierStartChar c || isNumber c
+isIdentifierChar c = isIdentifierStartChar c || isNumber c 
 
 intLiteral :: Parser Integer
 intLiteral = L.decimal
