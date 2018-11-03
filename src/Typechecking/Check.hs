@@ -217,4 +217,9 @@ checkFuncDef FuncDef {name, signature, body} = do
 
 -- |Typecheck a block, return its return type
 checkProgram :: Program Stmt -> KTypeM ()
-checkProgram (Program ast) = mapM_ checkFuncDef ast
+checkProgram (Program funcDefs) = do 
+    funcSignatures <- forM funcDefs $ \funcDef -> do 
+        typedSig <- resolveNamedSig (signature funcDef)
+        return (name funcDef, Constant $ KFunc typedSig)
+    let hoistedCtx = TypeCtx mempty (fromList funcSignatures)
+    withState (<> hoistedCtx) (mapM_ checkFuncDef funcDefs)

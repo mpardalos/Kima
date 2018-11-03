@@ -111,16 +111,13 @@ getName name = gets (lookup name . unEnv) >>= \case
     Just val -> return val
     Nothing  -> runtimeError
 
-evalFuncDef :: MonadEnv m => FuncDef DesugaredStmt -> m Value
+evalFuncDef :: FuncDef DesugaredStmt -> Value
 evalFuncDef FuncDef { signature, body } =
-    return $ Function (fst <$> arguments signature) body
-
-bindFuncDef :: MonadEnv m => FuncDef DesugaredStmt -> m ()
-bindFuncDef f = bind (name f) =<< evalFuncDef f
+    Function (fst <$> arguments signature) body
 
 runProgram :: MonadInterpreter m => Program DesugaredStmt -> m ()
 runProgram (Program functions) = do
-    mapM_ bindFuncDef functions -- Bind all top-level functions
+    forM_ functions $ \f -> bind (name f) (evalFuncDef f)
     mainFunc <- getName "main"
     _ <- runFunc mainFunc [] 
     return ()
