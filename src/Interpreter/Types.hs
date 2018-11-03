@@ -10,29 +10,15 @@ import Control.Monad.State
 import Data.Comp.Algebra
 import Data.Map hiding (toList, fromList)
 
+type MonadRE m = (Monad m, MonadError RuntimeError m)
+type MonadEnv m = (Monad m, MonadState (Environment Value) m)
+type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadIO m)
 
-newtype Interpreter a = Interpreter { 
-    runInterpreter :: ExceptT RuntimeError (
-                      StateT (Environment Value) 
-                      IO) a 
-} deriving (
-    Functor, 
-    Applicative,
-    Monad,
-    MonadError RuntimeError,
-    MonadState (Environment Value),
-    MonadIO)
-
-type MonadRE e m = (MonadError e m, e ~ RuntimeError)
-type MonadEnv s m = (MonadState s m, s ~ Environment Value)
-
-execInterpreter :: Interpreter a -> IO (Either RuntimeError a)
-execInterpreter = (`evalStateT` mempty) . runExceptT . runInterpreter
 
 data RuntimeError = RuntimeError
     deriving Show
 
-runtimeError :: MonadRE e m => m a
+runtimeError :: MonadRE m => m a
 runtimeError = throwError RuntimeError
 
 type EvalAlg f = Alg f Value
@@ -44,10 +30,10 @@ data Value = Integer Integer
            | Bool Bool
            | String String
            | Function [Name] DesugaredStmt
-           | BuiltinFunction1 (Value -> Interpreter Value)
-           | BuiltinFunction2 (Value -> Value -> Interpreter Value)
-           | BuiltinFunction3 (Value -> Value -> Value -> Interpreter Value)
+           | BuiltinFunction1 (forall m. MonadInterpreter m => Value -> m Value)
+           | BuiltinFunction2 (forall m. MonadInterpreter m => Value -> Value -> m Value)
+           | BuiltinFunction3 (forall m. MonadInterpreter m => Value -> Value -> Value -> m Value)
            | Unit
 
 newtype Environment a = Environment {unEnv :: Map Name a}
-    deriving (Functor, Monoid, Semigroup)
+    deriving (Functor,  Semigroup)

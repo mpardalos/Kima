@@ -13,4 +13,10 @@ builtinTypes = fromList
     , ("Float" , KFloat)
     ]
 
-baseCtx = TypeCtx builtinTypes mempty
+
+builtinBindings :: Map Name TypeBinding
+builtinBindings = fromList 
+    [ ("print", Constant $ KFunc ([KString] $-> KUnit))
+    ]
+
+baseCtx = TypeCtx builtinTypes builtinBindings

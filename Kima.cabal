@@ -38,6 +38,8 @@ executable kima
         Interpreter
         Interpreter.Types
         Interpreter.Interpreter
+        Interpreter.Builtins
+        Interpreter.Monad
 
         Interface
         Interface.ArgumentParser

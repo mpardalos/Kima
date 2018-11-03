@@ -8,6 +8,7 @@ module Interpreter (
 
 import Interpreter.Interpreter as E
 import Interpreter.Types as E
+import Interpreter.Monad as E
 
 import AST
 
