@@ -10,7 +10,8 @@ import Control.Monad.State.Extended
 
 import Data.Comp.Algebra
 import Data.Comp.Sum
-import Data.Map
+import qualified Data.Map as Map
+import Data.Map (Map)
 
 import Safe
 
@@ -140,23 +141,25 @@ instance TypeCheckable UnaryExpr where
         [KBool] eType
     
 instance TypeCheckable (FuncExpr Stmt) where
-    checkAlgebraM (FuncExpr sig body) = KFunc <$> checkFunc sig body
+    checkAlgebraM (FuncExpr sig body) = do
+        checkedSig <- checkFunc sig body
+        return $ KFunc [checkedSig]
 
 instance TypeCheckable Call where
-    checkAlgebraM (CallExpr calleeType argTypes) = case calleeType of
-        KFunc Signature { arguments = expectedArgTypes, returnType } -> do
-            let argCount         = toInteger $ length argTypes
-            let expectedArgCount = toInteger $ length expectedArgTypes
-            assert (argCount == expectedArgCount)
-                (ArgumentCountError expectedArgCount argCount)
-            zipWithM_ assertEqualTypes expectedArgTypes argTypes
-            return returnType
-        t -> notAFunctionError t
+    checkAlgebraM (CallExpr calleeType argTypes) = checkCall calleeType argTypes
+
+checkCall :: KType -> [KType] -> KTypeM KType
+checkCall (KFunc sigs) args = foldl @[] checkSig (throwError $ NoMatchingSignature "__missing_name" args) sigs
+    where 
+        checkSig :: KTypeM KType -> Signature -> KTypeM KType
+        checkSig _   sig | TC.arguments sig == args = return $ TC.returnType sig
+        checkSig def _                              = def
+checkCall callee _= throwError $ NotAFunctionError callee
 
 ------------- Helpers -------------
 -- |Get the binding of an identifier in the current context. May raise a LookupError
 bindingOf :: Name -> KTypeM TypeBinding
-bindingOf name = lookup name . bindings <$> getCtx >>= \case
+bindingOf name = Map.lookup name . bindings <$> getCtx >>= \case
     Just binding -> return binding
     Nothing      -> lookupError name
 
@@ -170,7 +173,7 @@ namedSigEnvironment sig = do
 
     let argNames    = fst <$> AST.arguments sig
     let argBindings = Constant <$> TC.arguments typedSig
-    let bindings    = fromList (zip argNames argBindings)
+    let bindings    = Map.fromList (zip argNames argBindings)
 
     return $ TypeCtx mempty bindings
 
@@ -188,10 +191,12 @@ resolveSig argTypeExprs returnTypeExpr = do
 
 -- |Resolve a TypeExpr in the current typing context
 resolveTypeExpr :: TypeExpr -> KTypeM KType
-resolveTypeExpr (TypeName name) = lookup name . types <$> getCtx >>= \case
+resolveTypeExpr (TypeName name) = Map.lookup name . types <$> getCtx >>= \case
     Just ty -> return ty
     Nothing -> throwError (TypeLookupError name)
-resolveTypeExpr (AST.SignatureType args rt) = KFunc <$> resolveSig args rt
+resolveTypeExpr (AST.SignatureType args rt) = do 
+    sig <- resolveSig args rt
+    return $ KFunc [sig]
 
 checkBinding :: (KType -> TypeBinding) -> Name -> TypeExpr -> Expr -> KTypeM ()
 checkBinding bind name tExpr expr = do
@@ -213,13 +218,23 @@ checkFunc sig body = do
 checkFuncDef :: FuncDef Stmt -> KTypeM ()
 checkFuncDef FuncDef {name, signature, body} = do 
     typedSig <- checkFunc signature body
-    bindName (Constant . KFunc $ typedSig) name
+    bindName (Constant . KFunc $ [typedSig]) name
+
+envFromList :: [(Name, TypeBinding)] -> Map Name TypeBinding
+envFromList = Map.fromListWith comb
+    where
+        comb :: TypeBinding -> TypeBinding -> TypeBinding
+        comb Constant { kType = KFunc sigl } Constant { kType = KFunc sigr } = Constant $ KFunc (sigl ++ sigr)
+        comb Constant { kType = KFunc sigl } Variable { kType = KFunc sigr } = Constant $ KFunc (sigl ++ sigr)
+        comb Variable { kType = KFunc sigl } Constant { kType = KFunc sigr } = Constant $ KFunc (sigl ++ sigr)
+        comb Variable { kType = KFunc sigl } Variable { kType = KFunc sigr } = Variable $ KFunc (sigl ++ sigr)
+        comb _ r = r
 
 -- |Typecheck a block, return its return type
 checkProgram :: Program Stmt -> KTypeM ()
 checkProgram (Program funcDefs) = do 
     funcSignatures <- forM funcDefs $ \funcDef -> do 
         typedSig <- resolveNamedSig (signature funcDef)
-        return (name funcDef, Constant $ KFunc typedSig)
-    let hoistedCtx = TypeCtx mempty (fromList funcSignatures)
+        return (name funcDef, Constant $ KFunc [typedSig])
+    let hoistedCtx = TypeCtx mempty (envFromList funcSignatures)
     withState (<> hoistedCtx) (mapM_ checkFuncDef funcDefs)

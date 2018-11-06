@@ -16,7 +16,13 @@ builtinTypes = fromList
 
 builtinBindings :: Map Name TypeBinding
 builtinBindings = fromList 
-    [ ("print", Constant $ KFunc ([KString] $-> KUnit))
+    [ ("print", Constant $ KFunc 
+        [ [KString] $-> KUnit 
+        , [KUnit] $-> KUnit 
+        , [KBool] $-> KUnit 
+        , [KInt] $-> KUnit 
+        , [KFloat] $-> KUnit 
+        ])
     ]
 
 baseCtx = TypeCtx builtinTypes builtinBindings

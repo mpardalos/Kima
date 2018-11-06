@@ -6,7 +6,7 @@ import Data.Map.Lazy
 data TypedExpr = TypedExpr KType Expr
 data TypedBlock = TypedBlock KType Stmt
 
-data KType = KString | KUnit | KBool | KInt | KFloat | KFunc Signature 
+data KType = KString | KUnit | KBool | KInt | KFloat | KFunc [Signature] 
   deriving (Eq, Show)
 
 data Signature = Signature {
@@ -25,21 +25,20 @@ data TypeCtx = TypeCtx {
   bindings :: Map Name TypeBinding
 }
 
-data TypeError = TypeMismatchError KType KType
-               | ArgumentCountError Integer Integer
+data TypeError = NoMatchingSignature Name [KType]
+               | TypeMismatchError KType KType
                | NotAFunctionError KType
                | LookupError Name
                | TypeLookupError Name
                | BinOpTypeError [(KType, KType)] (KType, KType)
                | UnaryOpTypeError [KType] KType
 
-
 instance Show TypeError where
+  show (NoMatchingSignature funcName args) = "No implementation of " ++ show funcName ++ " accepts the types " ++ show args
   show (TypeMismatchError expected actual) = "Expected " ++ show expected ++ ", got " ++ show actual
   show (NotAFunctionError  t) = "Expected a function but got " ++ show t
   show (LookupError     name) = "Name " ++ show name ++ " is not in scope"
   show (TypeLookupError name) = "Type name " ++ show name ++ " is not in scope"
-  show (ArgumentCountError expected actual) = "Expected " ++ show expected ++ " arguments, received " ++ show actual
   show (BinOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
   show (UnaryOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
 
