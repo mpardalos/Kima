@@ -3,5 +3,5 @@ fun main() -> Unit {
 }
 
 fun get_string() -> String {
-    return "Hello world";
+    "Hello world";
 }
