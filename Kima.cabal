@@ -17,7 +17,6 @@ executable kima
     hs-source-dirs: src
     other-modules:
         Control.Monad.State.Extended
-        Data.Newtype
 
         AST
         AST.Common
@@ -47,14 +46,16 @@ executable kima
         Interface.Types
 
     default-language: Haskell2010
-    default-extensions: ExistentialQuantification GADTs
-                        StandaloneDeriving RankNTypes DataKinds KindSignatures
-                        GeneralizedNewtypeDeriving LambdaCase NamedFieldPuns
-                        ScopedTypeVariables OverloadedStrings TypeInType TypeOperators
-                        TypeFamilies DuplicateRecordFields MultiParamTypeClasses FunctionalDependencies
-                        ConstraintKinds FlexibleContexts TemplateHaskell DeriveFunctor FlexibleInstances
-                        InstanceSigs UndecidableInstances DeriveTraversable PartialTypeSignatures TypeApplications
-                        BangPatterns DefaultSignatures
+    default-extensions: 
+        BangPatterns ConstraintKinds DataKinds DefaultSignatures
+        DeriveFunctor DeriveGeneric DeriveTraversable DuplicateRecordFields
+        ExistentialQuantification FlexibleContexts FlexibleInstances
+        FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs
+        KindSignatures LambdaCase MultiParamTypeClasses NamedFieldPuns
+        OverloadedStrings PartialTypeSignatures RankNTypes
+        ScopedTypeVariables StandaloneDeriving TemplateHaskell
+        TypeApplications TypeFamilies TypeInType TypeOperators
+        UndecidableInstances
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,
@@ -63,4 +64,5 @@ executable kima
         safe -any,
         megaparsec >= 6.5 && < 7,
         optparse-applicative -any,
-        compdata >= 0.12
+        compdata >= 0.12,
+        newtype-generics >= 0.5.3

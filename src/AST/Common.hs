@@ -1,12 +1,13 @@
 module AST.Common where
 
+import GHC.Generics
+import Control.Newtype.Generics
 import Data.String
-import Data.Newtype
 
 newtype Name = Name String
     deriving (Eq, Ord)
 
-newtype Program s = Program [FuncDef s] deriving Show
+newtype Program s = Program [FuncDef s] deriving (Show, Generic)
 
 data FuncDef s = FuncDef {
     name :: Name,
@@ -49,6 +50,4 @@ instance Show s => Show (FuncDef s) where
     show FuncDef { name, signature=sig, body } =
         "fun " ++ show name ++ " " ++ show (arguments sig)  ++ " -> " ++ show (returnType sig) ++ " " ++ show body
 
-instance Newtype (Program s) [FuncDef s] where
-    wrap = Program
-    unwrap (Program l) = l
+instance Newtype (Program s) where

@@ -4,7 +4,7 @@ import Prelude hiding (mod)
 
 import AST
 
-import Data.Newtype
+import Control.Newtype.Generics
 
 import Frontend.Tokenizer hiding (Mod)
 import Frontend.Types
@@ -44,7 +44,7 @@ stmt = letStmt <|> varStmt <|> whileStmt <|> assignStmt <|> exprStmt <|> ifStmt
     <?> "statement"
 
 block :: Parser Stmt
-block = Stmt . iBlockStmt . fmap unwrap <$> braces (stmt `sepEndBy` stmtEnd)
+block = Stmt . iBlockStmt . fmap unpack <$> braces (stmt `sepEndBy` stmtEnd)
     <?> "Block"
 
 letStmt :: Parser Stmt
@@ -70,7 +70,7 @@ assignStmt = try $ Stmt <$> (iAssignStmt
 whileStmt :: Parser Stmt
 whileStmt = Stmt <$> (iWhileStmt 
     <$> (reserved RWhile *> expr)
-    <*> (unwrap <$> block)
+    <*> (unpack <$> block)
     <?> "while statement")
 
 exprStmt :: Parser Stmt
@@ -80,22 +80,22 @@ exprStmt = Stmt <$> (iExprStmt <$> expr)
 ifStmt :: Parser Stmt
 ifStmt = Stmt <$> (iIfStmt 
     <$> expr 
-    <*> (unwrap <$> stmt) 
-    <*> (unwrap <$> stmt))
+    <*> (unpack <$> stmt) 
+    <*> (unpack <$> stmt))
 
 -- Expressions
 
 expr :: Parser Expr
 expr = makeExprParser term [
-        [ prefix (symbol Minus) (under (iNegate :: ExprTerm -> ExprTerm))
+        [ prefix (symbol Minus) (over Expr iNegate)
         , prefix (symbol Plus) id
-        , prefix (symbol Bang) (under (iInvert :: ExprTerm -> ExprTerm))
+        , prefix (symbol Bang) (over Expr iInvert)
         ],
-        [ binary (symbol Plus) (under2 (iAdd :: ExprTerm -> ExprTerm -> ExprTerm))
-        , binary (symbol Minus) (under2 (iSub :: ExprTerm -> ExprTerm -> ExprTerm))
-        , binary (symbol Star) (under2 (iMul :: ExprTerm -> ExprTerm -> ExprTerm))
-        , binary (symbol Slash) (under2 (iDiv :: ExprTerm -> ExprTerm -> ExprTerm))
-        , binary (symbol T.Mod) (under2 (iMod :: ExprTerm -> ExprTerm -> ExprTerm))
+        [ binary (symbol Plus)  (over2 Expr iAdd)
+        , binary (symbol Minus) (over2 Expr iSub)
+        , binary (symbol Star)  (over2 Expr iMul)
+        , binary (symbol Slash) (over2 Expr iDiv)
+        , binary (symbol T.Mod) (over2 Expr iMod)
         ]
     ] <?> "expression"
     
@@ -125,7 +125,7 @@ call = do
     return (foldl makeCallExpr callee argLists)
     where
         makeCallExpr :: Expr -> [Expr] -> Expr
-        makeCallExpr (Expr callee) args = Expr (iCallExpr callee (unwrap <$> args))
+        makeCallExpr (Expr callee) args = Expr (iCallExpr callee (unpack <$> args))
 
 typeExpr :: Parser TypeExpr
 typeExpr = uncurry SignatureType <$> try anonymousSignature

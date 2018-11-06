@@ -3,7 +3,7 @@ module Interface.Runners where
 import AST
 import Control.Monad.IO.Class
 import Control.Monad.Except
-import Data.Newtype
+import Control.Newtype.Generics
 import Data.Bifunctor
 import Interface.Types
 import System.IO
@@ -41,7 +41,7 @@ runFile' :: MonadInterface m => FilePath -> m ()
 runFile' fn = do
     src <- parseFile' fn
     typecheckFile' fn
-    runResult <- liftIO (I.runProgram (fmap @[] desugarFuncDef `under` src))
+    runResult <- liftIO (I.runProgram (over Program (fmap @[] desugarFuncDef) src))
     runEither runResult
 
 userThrow :: (MonadInterface m, UserThrowable err) => err -> m a

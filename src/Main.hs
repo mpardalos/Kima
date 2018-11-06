@@ -1,7 +1,7 @@
 module Main where
 
 import AST
-import Data.Newtype
+import Control.Newtype.Generics
 import Frontend
 import Interpreter
 import Typechecking
@@ -14,7 +14,7 @@ runInterpreter RunOpts path = parseProgram path <$> readFile path >>= \case
     Left  err -> putStrLn (parseErrorPretty err)
     Right ast -> case runTypeChecking baseCtx (checkProgram ast) of
         Left  err -> print err
-        Right _   -> runProgram (fmap @[] desugarFuncDef `under` ast) >>= \case
+        Right _   -> runProgram (over Program (fmap @[] desugarFuncDef) ast) >>= \case
             Left  _   -> putStrLn "Runtime Error"
             Right _   -> return ()
 
