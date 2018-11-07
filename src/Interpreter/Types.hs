@@ -4,11 +4,15 @@ import Prelude hiding (lookup)
 
 import AST
 
+import Control.Newtype.Generics
+
 import Control.Monad.Except
 import Control.Monad.State
 
 import Data.Comp.Algebra
 import Data.Map hiding (toList, fromList)
+
+import GHC.Generics
 
 type MonadRE m = (Monad m, MonadError RuntimeError m)
 type MonadEnv m = (Monad m, MonadState (Environment Value) m)
@@ -36,4 +40,5 @@ data Value = Integer Integer
            | Unit
 
 newtype Environment a = Environment {unEnv :: Map Name a}
-    deriving (Functor,  Semigroup)
+    deriving (Functor, Semigroup, Generic)
+instance Newtype (Environment a)

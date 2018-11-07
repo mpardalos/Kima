@@ -5,12 +5,13 @@ import Safe
 
 import AST
 
+import Control.Newtype.Generics
 import Control.Monad.State.Extended
 
 import Data.Comp.Algebra
 import Data.Comp.Sum
 import Data.Comp.Term
-import Data.Map
+import qualified Data.Map as Map
 
 import Interpreter.Types
 
@@ -97,17 +98,17 @@ runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
 runFunc (Function argNames (DesugaredStmt body)) args = withState (<> argEnv) (run body)
   where
     argEnv :: Environment Value
-    argEnv = Environment $ fromList (zip argNames args)
+    argEnv = Environment $ Map.fromList (zip argNames args)
 runFunc (BuiltinFunction1 f) [arg] = f arg
 runFunc (BuiltinFunction2 f) [arg1, arg2] = f arg1 arg2
 runFunc (BuiltinFunction3 f) [arg1, arg2, arg3] = f arg1 arg2 arg3
 runFunc _ _ = runtimeError
 
 bind :: (MonadEnv m) => Name -> Value -> m ()
-bind name val = modify (Environment . insert name val . unEnv) 
+bind name val = modify (over Environment $ Map.insert name val) 
 
 getName :: (MonadEnv m, MonadRE m) => Name -> m Value
-getName name = gets (lookup name . unEnv) >>= \case
+getName name = gets (Map.lookup name . unEnv) >>= \case
     Just val -> return val
     Nothing  -> runtimeError
 

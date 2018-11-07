@@ -41,7 +41,8 @@ runFile' :: MonadInterface m => FilePath -> m ()
 runFile' fn = do
     src <- parseFile' fn
     typecheckFile' fn
-    runResult <- liftIO (I.runProgram (over Program (fmap @[] desugarFuncDef) src))
+    let desugaredProgram = over Program (fmap @[] desugarFuncDef) src
+    runResult <- liftIO (I.runProgram desugaredProgram)
     runEither runResult
 
 userThrow :: (MonadInterface m, UserThrowable err) => err -> m a
