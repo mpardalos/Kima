@@ -22,6 +22,9 @@ executable kima
         AST.Common
         AST.Expression
         AST.Statement
+        AST.Desugared
+        AST.Parsed
+        AST.Typed
 
         Frontend
         Frontend.Types

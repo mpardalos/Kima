@@ -3,11 +3,7 @@ module AST.Statement where
 import AST.Common
 
 import Data.Bifunctor
-import Data.Comp.Sum
 import Data.Comp.Derive
-
-type StmtF e = BlockStmt :+: QualifiedAssignment e :+: WhileLoop e :+: ExprStmt e :+: IfStmt e
-type DesugaredStmtF e = BlockStmt :+: SimpleAssignment e :+: WhileLoop e :+: ExprStmt e :+: IfStmt e
 
 newtype BlockStmt s             = BlockStmt [s] 
 newtype ExprStmt e s            = ExprStmt e

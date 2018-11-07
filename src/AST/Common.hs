@@ -1,8 +1,8 @@
 module AST.Common where
 
-import GHC.Generics
 import Control.Newtype.Generics
 import Data.String
+import GHC.Generics
 
 newtype Name = Name String
     deriving (Eq, Ord)

@@ -4,14 +4,9 @@ import AST.Common
 
 import Data.Bifunctor
 
+import Data.Comp
 import Data.Comp.Derive
 import Data.Comp.Desugar
-import Data.Comp.Sum
-import Data.Comp.Term
-
--- Expressions
-type ExprF s          = (Literal :+: Identifier :+: FuncExpr s :+: Call :+: BinExpr :+: UnaryExpr)
-type DesugaredExprF s = (Literal :+: Identifier :+: FuncExpr s :+: Call)
 
 data BinExpr e       = Add e e 
                      | Sub e e 
