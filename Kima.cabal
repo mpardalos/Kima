@@ -31,6 +31,8 @@ executable kima
         Frontend.Tokenizer
         Frontend.Parser
 
+        KimaTypes
+
         Typechecking
         Typechecking.Builtins
         Typechecking.Types

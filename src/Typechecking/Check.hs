@@ -15,8 +15,9 @@ import Data.Map (Map)
 
 import Safe
 
-import Typechecking.Monad as TC
-import Typechecking.Types as TC
+import KimaTypes as T
+import Typechecking.Monad
+import Typechecking.Types
 
 
 type TypeCheckAlg f = Alg f KType
@@ -152,7 +153,7 @@ checkCall :: KType -> [KType] -> KTypeM KType
 checkCall (KFunc sigs) args = foldl @[] checkSig (throwError $ NoMatchingSignature "__missing_name" args) sigs
     where 
         checkSig :: KTypeM KType -> Signature -> KTypeM KType
-        checkSig _   sig | TC.arguments sig == args = return $ TC.returnType sig
+        checkSig _   sig | T.arguments sig == args = return $ T.returnType sig
         checkSig def _                              = def
 checkCall callee _= throwError $ NotAFunctionError callee
 
@@ -172,18 +173,18 @@ namedSigEnvironment sig = do
     typedSig <- resolveNamedSig sig
 
     let argNames    = fst <$> AST.arguments sig
-    let argBindings = Constant <$> TC.arguments typedSig
+    let argBindings = Constant <$> T.arguments typedSig
     let bindings    = Map.fromList (zip argNames argBindings)
 
     return $ TypeCtx mempty bindings
 
 
-resolveNamedSig :: AST.NamedSignature -> KTypeM TC.Signature
+resolveNamedSig :: AST.NamedSignature -> KTypeM T.Signature
 resolveNamedSig NamedSignature { arguments, returnType } =
     resolveSig (snd <$> arguments) returnType
 
 -- |Lookup all TypeExprs in a parsed signature and return a typed Signature
-resolveSig :: [TypeExpr] -> TypeExpr -> KTypeM TC.Signature
+resolveSig :: [TypeExpr] -> TypeExpr -> KTypeM T.Signature
 resolveSig argTypeExprs returnTypeExpr = do
     returnType <- resolveTypeExpr returnTypeExpr
     argTypes   <- resolveTypeExpr `mapM` argTypeExprs
@@ -205,13 +206,13 @@ checkBinding bind name tExpr expr = do
     assertEqualTypes expectedType exprType
     bindName (bind exprType) name
 
-checkFunc :: NamedSignature -> Stmt -> KTypeM TC.Signature
+checkFunc :: NamedSignature -> Stmt -> KTypeM T.Signature
 checkFunc sig body = do
     typedSig        <- resolveNamedSig sig
     funcEnvironment <- namedSigEnvironment sig
 
     bodyRetType     <- withState (<> funcEnvironment) (checkStmt body)
-    assertEqualTypes bodyRetType (TC.returnType typedSig)
+    assertEqualTypes bodyRetType (T.returnType typedSig)
 
     return typedSig
 

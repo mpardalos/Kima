@@ -3,6 +3,7 @@ module Typechecking.Builtins where
 import AST
 import Typechecking.Types
 import Data.Map
+import KimaTypes
 
 builtinTypes :: Map Name KType
 builtinTypes = fromList 

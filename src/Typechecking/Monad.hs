@@ -7,6 +7,8 @@ import Control.Monad.State.Extended
 
 import Data.Map.Lazy
 
+import KimaTypes
+
 import Typechecking.Types
 
 newtype KTypeM a = KTypeM { runKTypeM :: StateT TypeCtx (Either TypeError) a}

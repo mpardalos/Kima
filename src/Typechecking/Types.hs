@@ -2,19 +2,7 @@ module Typechecking.Types where
 
 import AST
 import Data.Map.Lazy
-
-data TypedExpr = TypedExpr KType Expr
-data TypedBlock = TypedBlock KType Stmt
-
-data KType = KString | KUnit | KBool | KInt | KFloat | KFunc [Signature] 
-  deriving (Eq, Show)
-
-data Signature = Signature {
-  arguments :: [KType],
-  returnType :: KType
-} deriving Eq
-($->) = Signature
-
+import KimaTypes
 
 data TypeBinding = Constant { kType :: KType }
                  | Variable { kType :: KType }
@@ -41,9 +29,6 @@ instance Show TypeError where
   show (TypeLookupError name) = "Type name " ++ show name ++ " is not in scope"
   show (BinOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
   show (UnaryOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
-
-instance Show Signature where
-  show Signature{arguments, returnType} = "(" ++ show arguments ++ ") -> " ++ show returnType
 
 instance Show TypeCtx where 
   show TypeCtx { types, bindings } = "TypeCtx " ++ show types ++ " | " ++ show bindings
