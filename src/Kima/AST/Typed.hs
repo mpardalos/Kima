@@ -1,24 +1,25 @@
 module Kima.AST.Typed where
 
-import GHC.Generics hiding ((:+:))
-import Data.Comp
-import Control.Newtype.Generics
-import Data.Kind
-import Kima.AST.Parsed
+import Kima.AST.Common as Common
+import Kima.AST.Expression
 import Kima.KimaTypes
 
--- | Annotate every signature in a sum with a constant type annotation
-type family Annotate (f :: Type -> Type) (p :: Type) :: Type -> Type where
-    Annotate (f :+: g) a = Annotate f a :+: Annotate g a
-    Annotate f         a = f :&: a
+newtype Program = Program [Kima.AST.Typed.FuncDef] deriving Show
+type FuncDef = Common.FuncDef KType Stmt
 
-type TypedStmtF e = Annotate (StmtF e) KType
-type TypedStmtTerm e = Term (TypedStmtF e)
-newtype TypedStmt = TypedStmt (TypedStmtTerm TypedExpr) deriving Generic
+data Stmt = BlockStmt [Stmt]
+          | WhileStmt Expr Stmt
+          | ExprStmt Expr
+          | IfStmt Expr Stmt Stmt
+          | AssignStmt Name Expr
+          | VarStmt Name KType Expr
+          | LetStmt Name KType Expr
+    deriving Show
 
-type TypedExprF e = Annotate (ExprF e) KType
-type TypedExprTerm e = Term (TypedExprF e)
-newtype TypedExpr = TypedExpr (TypedExprTerm TypedStmt) deriving Generic
-
-instance Newtype TypedStmt
-instance Newtype TypedExpr
+data Expr = Identifier Name KType
+          | FuncExpr (NamedSignature KType) Stmt
+          | Call Expr [Expr] KType
+          | LiteralExpr Literal KType
+          | BinExpr (Binary Expr) KType
+          | UnaryExpr (Unary Expr) KType
+    deriving Show

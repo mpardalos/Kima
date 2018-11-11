@@ -1,11 +1,11 @@
 module Kima.Interface.Runners where
 
 import Control.Monad.Except
-import Control.Monad.IO.Class
-import Control.Newtype.Generics
 import Data.Bifunctor
 
-import Kima.AST
+import Kima.AST.Parsed as Parsed
+import Kima.AST.Typed as Typed
+import Kima.AST.Desugared as Desugared
 import Kima.Interface.Types
 import qualified Kima.Frontend as F
 import qualified Kima.Interpreter as I
@@ -27,25 +27,22 @@ parseRepl = do
     parseRepl
 
 parseFile = runMonadInterface . parseFile'
-parseFile' :: MonadInterface m => FilePath -> m (Program Stmt)
+parseFile' :: MonadInterface m => FilePath -> m Parsed.Program
 parseFile' fn = do 
     src <- liftIO (readFile fn)
     runEither (F.runParser F.program fn src)
 
-typecheckFile = runMonadInterface . typecheckFile'
-typecheckFile' :: MonadInterface m => FilePath -> m ()
-typecheckFile' fn = do
-    src <- parseFile' fn
-    runEither (T.runTypeChecking T.baseCtx (T.checkProgram src))
+typecheckFile = runMonadInterface . (parseFile' >=> typecheckAST')
 
-runFile = runMonadInterface . runFile'
-runFile' :: MonadInterface m => FilePath -> m ()
-runFile' fn = do
-    src <- parseFile' fn
-    typecheckFile' fn
-    let desugaredProgram = over Program (fmap @[] desugarFuncDef) src
-    runResult <- liftIO (I.runProgram desugaredProgram)
-    runEither runResult
+typecheckAST = runMonadInterface . typecheckAST'
+typecheckAST' :: MonadInterface m => Parsed.Program -> m Typed.Program
+typecheckAST' = runEither . T.runTypeChecking T.baseCtx . T.checkProgram
+
+runFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> _desugarAST' >=> runAST')
+
+runAST = runMonadInterface . runAST'
+runAST' :: MonadInterface m => Desugared.Program -> m ()
+runAST' src = liftIO (I.runProgram src) >>= runEither 
 
 userThrow :: (MonadInterface m, UserThrowable err) => err -> m a
 userThrow = throwError . UserThrowableError

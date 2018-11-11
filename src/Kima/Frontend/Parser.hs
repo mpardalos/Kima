@@ -2,9 +2,9 @@ module Kima.Frontend.Parser where
 
 import Prelude hiding (mod) 
 
-import Control.Newtype.Generics
-
-import Kima.AST
+import Kima.AST.Parsed as P
+import Kima.AST.Common
+import Kima.AST.Expression
 import Kima.Frontend.Tokenizer hiding (Mod)
 import Kima.Frontend.Types
 import qualified Kima.Frontend.Tokenizer as T 
@@ -13,12 +13,12 @@ import Text.Megaparsec hiding (dbg)
 import Text.Megaparsec.Expr
 
 
-program :: Parser (Program Stmt)
+program :: Parser Program
 program = Program <$> some funcDef <* eof
 
 -- Function defintions
 
-funcDef :: Parser (FuncDef Stmt)
+funcDef :: Parser P.FuncDef
 funcDef = do 
     reserved RFun 
     name <- identifier
@@ -43,58 +43,55 @@ stmt = letStmt <|> varStmt <|> whileStmt <|> assignStmt <|> exprStmt <|> ifStmt
     <?> "statement"
 
 block :: Parser Stmt
-block = Stmt . iBlockStmt . fmap unpack <$> braces (stmt `sepEndBy` stmtEnd)
+block = BlockStmt <$> braces (stmt `sepEndBy` stmtEnd)
     <?> "Block"
 
 letStmt :: Parser Stmt
-letStmt = Stmt <$> (iLetStmt
+letStmt = LetStmt
     <$> (reserved RLet *> identifier) 
     <*> (symbol Colon *> typeExpr) 
     <*> (symbol Equals *> expr)
-    <?> "let statement")
+    <?> "let statement"
 
 varStmt :: Parser Stmt
-varStmt = Stmt <$> (iVarStmt 
+varStmt = VarStmt 
     <$> (reserved RVar *> identifier) 
     <*> (symbol Colon *> typeExpr) 
     <*> (symbol Equals *> expr)
-    <?> "var statement")
+    <?> "var statement"
 
 assignStmt :: Parser Stmt
-assignStmt = try $ Stmt <$> (iAssignStmt 
+assignStmt = try (AssignStmt 
     <$> identifier 
-    <*> (symbol Equals *> expr)
-    <?> "assignment")
+    <*> (symbol Equals *> expr))
+    <?> "assignment"
 
 whileStmt :: Parser Stmt
-whileStmt = Stmt <$> (iWhileStmt 
+whileStmt = WhileStmt 
     <$> (reserved RWhile *> expr)
-    <*> (unpack <$> block)
-    <?> "while statement")
+    <*> block
+    <?> "while statement"
 
 exprStmt :: Parser Stmt
-exprStmt = Stmt <$> (iExprStmt <$> expr)
+exprStmt = ExprStmt <$> expr
     <?> "expression statement"
 
 ifStmt :: Parser Stmt
-ifStmt = Stmt <$> (iIfStmt 
-    <$> expr 
-    <*> (unpack <$> stmt) 
-    <*> (unpack <$> stmt))
+ifStmt = IfStmt <$> expr <*> stmt <*> stmt
 
 -- Expressions
 
 expr :: Parser Expr
 expr = makeExprParser term [
-        [ prefix (symbol Minus) (over Expr iNegate)
+        [ prefix (symbol Minus) (UnaryExpr . Negate)
         , prefix (symbol Plus) id
-        , prefix (symbol Bang) (over Expr iInvert)
+        , prefix (symbol Bang) (UnaryExpr . Invert)
         ],
-        [ binary (symbol Plus)  (over2 Expr iAdd)
-        , binary (symbol Minus) (over2 Expr iSub)
-        , binary (symbol Star)  (over2 Expr iMul)
-        , binary (symbol Slash) (over2 Expr iDiv)
-        , binary (symbol T.Mod) (over2 Expr iMod)
+        [ binary (symbol Plus)  (\l r -> BinExpr $ Add l r)
+        , binary (symbol Minus) (\l r -> BinExpr $ Sub l r)
+        , binary (symbol Star)  (\l r -> BinExpr $ Mul l r)
+        , binary (symbol Slash) (\l r -> BinExpr $ Div l r)
+        , binary (symbol T.Mod) (\l r -> BinExpr $ Mod l r)
         ]
     ] <?> "expression"
     
@@ -108,10 +105,10 @@ term = try call <|> baseterm
 -- | A term without calls (Useful for parsing calls)
 baseterm :: Parser Expr
 baseterm = parens expr
-   <|> Expr . iStringExpr     <$> string
-   <|> Expr . iIntExpr        <$> intLiteral
-   <|> Expr . iFloatExpr      <$> floatLiteral
-   <|> Expr . iIdentifierExpr <$> identifier
+   <|> LiteralExpr . StringExpr     <$> string
+   <|> LiteralExpr . IntExpr        <$> intLiteral
+   <|> LiteralExpr . FloatExpr      <$> floatLiteral
+   <|>               Identifier     <$> identifier
 
 argList :: Parser [Expr]
 argList = parens (expr `sepBy` symbol Comma)
@@ -119,12 +116,9 @@ argList = parens (expr `sepBy` symbol Comma)
 -- | Parse a series of nested calls
 call :: Parser Expr
 call = do 
-    callee :: Expr <- baseterm 
-    argLists :: [[Expr]] <- some argList
-    return (foldl makeCallExpr callee argLists)
-    where
-        makeCallExpr :: Expr -> [Expr] -> Expr
-        makeCallExpr (Expr callee) args = Expr (iCallExpr callee (unpack <$> args))
+    callee <- baseterm 
+    argLists <- some argList
+    return (foldl Call callee argLists)
 
 typeExpr :: Parser TypeExpr
 typeExpr = uncurry SignatureType <$> try anonymousSignature

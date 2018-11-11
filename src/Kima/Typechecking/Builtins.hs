@@ -2,7 +2,7 @@ module Kima.Typechecking.Builtins where
 
 import Data.Map
 
-import Kima.AST
+import Kima.AST.Common
 import Kima.Typechecking.Types
 import Kima.KimaTypes
 

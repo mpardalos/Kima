@@ -4,7 +4,7 @@ import Control.Monad.Except
 import Kima.Control.Monad.State.Extended
 import Data.Map.Lazy
 
-import Kima.AST
+import Kima.AST.Common
 import Kima.KimaTypes
 import Kima.Typechecking.Types
 

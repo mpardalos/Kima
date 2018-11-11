@@ -2,7 +2,7 @@ module Kima.Typechecking.Types where
 
 import Data.Map.Lazy
 
-import Kima.AST
+import Kima.AST.Common
 import Kima.KimaTypes
 
 data TypeBinding = Constant { kType :: KType }
@@ -19,6 +19,7 @@ data TypeError = NoMatchingSignature Name [KType]
                | NotAFunctionError KType
                | LookupError Name
                | TypeLookupError Name
+               | NameAlreadyBoundError Name
                | BinOpTypeError [(KType, KType)] (KType, KType)
                | UnaryOpTypeError [KType] KType
 
@@ -30,6 +31,7 @@ instance Show TypeError where
   show (TypeLookupError name) = "Type name " ++ show name ++ " is not in scope"
   show (BinOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
   show (UnaryOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
+  show (NameAlreadyBoundError name) = "The variable " ++ show name ++ " is already bound."
 
 instance Show TypeCtx where 
   show TypeCtx { types, bindings } = "TypeCtx " ++ show types ++ " | " ++ show bindings

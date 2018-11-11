@@ -1,194 +1,134 @@
-module Kima.Typechecking.Check where
+module Kima.Typechecking.Check (checkProgram, checkFuncDef, checkStmt, checkExpr) where
 
 import Prelude hiding ( lookup )
 
 import Control.Monad
 import Control.Monad.Except
+import Kima.Control.Monad.State.Extended
 
-import Data.Comp.Algebra
-import Data.Comp.Sum
+import Data.List
 
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Kima.AST as AST
-import Kima.Control.Monad.State.Extended
-import Kima.KimaTypes as T
+import Kima.AST.Common as AST
+import Kima.AST.Parsed as P
+import Kima.AST.Typed as T
+import Kima.AST.Expression 
+import Kima.KimaTypes as KT
 import Kima.Typechecking.Monad
 import Kima.Typechecking.Types
 
 import Safe
 
+-- | Check a parsed function definition and return a typed function definition.
+-- | It also binds the function name
+checkFuncDef :: P.FuncDef -> KTypeM T.FuncDef
+checkFuncDef FuncDef {name, signature, body} = do 
+    typedSig <- resolveTypeExpr `mapM` signature
+    typedBody <- checkFunc typedSig body
+    return $ FuncDef name typedSig typedBody
 
-type TypeCheckAlg f = Alg f KType
-type TypeCheckAlgM f = AlgM KTypeM f KType
+-- | Check a parsed function against a resolved signature and return the typed 
+-- | body of the function
+checkFunc :: NamedSignature KType -> P.Stmt -> KTypeM T.Stmt
+checkFunc sig body = do
+    funcEnvironment <- namedSigEnvironment sig
 
-class TypeCheckable f where
-    checkAlgebraM :: TypeCheckAlgM f
+    checkedBody <- withState (<> funcEnvironment) (checkStmt body)
 
-instance (TypeCheckable f, TypeCheckable g) => TypeCheckable (f :+: g) where
-    checkAlgebraM = caseF 
-        (checkAlgebraM :: TypeCheckAlgM f)
-        (checkAlgebraM :: TypeCheckAlgM g)
+    assertEqualTypes (stmtRetType checkedBody) (AST.returnType sig)
 
-------------- Statements -------------
-checkStmt :: Stmt -> KTypeM KType
-checkStmt (Stmt stmt) = cataM checkAlgebraM stmt
-
-instance TypeCheckable BlockStmt where
-    checkAlgebraM (BlockStmt returnTypes) = return (lastDef KUnit returnTypes)
-
-instance TypeCheckable (QualifiedAssignment Expr) where
-    checkAlgebraM (LetStmt name tExpr expr) = 
-        KUnit <$ checkBinding Constant name tExpr expr
-    checkAlgebraM (VarStmt name tExpr expr) =
-        KUnit <$ checkBinding Variable name tExpr expr
-    checkAlgebraM (AssignStmt name expr) =
-        KUnit <$ (assertEqualTypes <$> checkExpr expr <*> typeOf name)
-
-instance TypeCheckable (ExprStmt Expr) where
-    checkAlgebraM (ExprStmt expr) = checkExpr expr
-
-instance TypeCheckable (WhileLoop Expr) where
-    checkAlgebraM (WhileStmt cond _) = do 
-        _ <- assertEqualTypes <$> checkExpr cond <*> pure KBool
-        return KUnit
-
-instance TypeCheckable (IfStmt Expr) where
-    checkAlgebraM (IfStmt cond ifblk elseblk) = do 
-        condType <- checkExpr cond
-
-        assertEqualTypes condType KBool
-        assertEqualTypes ifblk elseblk
-        return ifblk
+    return checkedBody
 
 ------------- Expressions -------------
-checkExpr :: Expr -> KTypeM KType
-checkExpr (Expr expr) = cataM checkAlgebraM expr
+-- | Check a stmt while applying any effects it has to the typing context (binding new variables etc.)
+checkStmt :: P.Stmt -> KTypeM T.Stmt
+checkStmt (P.BlockStmt stmts) = checkBlockStmt <$> mapM checkStmt stmts >>= id
+checkStmt (P.LetStmt name tExpr expr) = checkLetStmt <$> pure name <*> resolveTypeExpr tExpr <*> checkExpr expr >>= id
+checkStmt (P.VarStmt name tExpr expr) = checkVarStmt <$> pure name <*> resolveTypeExpr tExpr <*> checkExpr expr >>= id
+checkStmt (P.AssignStmt name expr) = checkAssignStmt <$> pure name <*> checkExpr expr >>= id
+checkStmt (P.ExprStmt expr) = checkExprStmt <$> checkExpr expr >>= id
+checkStmt (P.WhileStmt cond body) = checkWhileStmt <$> checkExpr cond <*> checkStmt body >>= id
+checkStmt (P.IfStmt cond ifBlk elseBlk) = checkIfStmt <$> checkExpr cond <*> checkStmt ifBlk <*> checkStmt elseBlk >>= id
 
-instance TypeCheckable Literal where
-    checkAlgebraM (IntExpr _)    = return KInt
-    checkAlgebraM (FloatExpr _)  = return KFloat
-    checkAlgebraM (BoolExpr _)   = return KBool
-    checkAlgebraM (StringExpr _) = return KString
+checkBlockStmt :: [T.Stmt] -> KTypeM T.Stmt
+checkBlockStmt = return . T.BlockStmt 
 
-instance TypeCheckable Identifier where
-    checkAlgebraM (IdentifierExpr name) = typeOf name
+checkLetStmt :: Name -> KType -> T.Expr -> KTypeM T.Stmt
+checkLetStmt name t expr = do 
+    checkBinding Constant name t expr 
+    return $ T.LetStmt name t expr
 
-instance TypeCheckable BinExpr where
-    checkAlgebraM (Add KInt KInt)     = return KInt
-    checkAlgebraM (Add KFloat KFloat) = return KFloat
-    checkAlgebraM (Add KFloat KInt)   = return KFloat
-    checkAlgebraM (Add KInt KFloat)   = return KFloat
-    checkAlgebraM (Add lType rType)   = throwError $ BinOpTypeError 
-        [ (KInt, KInt)
-        , (KFloat, KFloat)
-        , (KFloat, KInt)
-        , (KInt, KFloat)
-        ] (lType, rType)
+checkVarStmt :: Name -> KType -> T.Expr -> KTypeM T.Stmt
+checkVarStmt name t expr = do 
+    checkBinding Variable name t expr
+    return $ T.VarStmt name t expr
 
-    checkAlgebraM (Sub KInt KInt)     = return KInt
-    checkAlgebraM (Sub KFloat KFloat) = return KFloat
-    checkAlgebraM (Sub KFloat KInt)   = return KFloat
-    checkAlgebraM (Sub KInt KFloat)   = return KFloat
-    checkAlgebraM (Sub lType rType)   = throwError $ BinOpTypeError 
-        [ (KInt, KInt)
-        , (KFloat, KFloat)
-        , (KFloat, KInt)
-        , (KInt, KFloat)
-        ] (lType, rType)
+checkAssignStmt :: Name -> T.Expr -> KTypeM T.Stmt
+checkAssignStmt name expr = do 
+    assertEqualTypes <$> resolveIdentifier name <*> pure (exprType expr) >>= id
+    return $ T.AssignStmt name expr
 
-    checkAlgebraM (Mul KInt KInt)     = return KInt
-    checkAlgebraM (Mul KFloat KFloat) = return KFloat
-    checkAlgebraM (Mul KFloat KInt)   = return KFloat
-    checkAlgebraM (Mul KInt KFloat)   = return KFloat
-    checkAlgebraM (Mul lType rType)   = throwError $ BinOpTypeError 
-        [ (KInt, KInt)
-        , (KFloat, KFloat)
-        , (KFloat, KInt)
-        , (KInt, KFloat)
-        ] (lType, rType)
+checkExprStmt :: T.Expr -> KTypeM T.Stmt
+checkExprStmt e = return $ T.ExprStmt e
 
-    checkAlgebraM (Div KInt KInt)     = return KInt
-    checkAlgebraM (Div KFloat KFloat) = return KFloat
-    checkAlgebraM (Div KFloat KInt)   = return KFloat
-    checkAlgebraM (Div KInt KFloat)   = return KFloat
-    checkAlgebraM (Div lType rType)   = throwError $ BinOpTypeError 
-        [ (KInt, KInt)
-        , (KFloat, KFloat)
-        , (KFloat, KInt)
-        , (KInt, KFloat)
-        ] (lType, rType)
+checkWhileStmt :: T.Expr -> T.Stmt -> KTypeM T.Stmt
+checkWhileStmt cond body = do assertEqualTypes (exprType cond) KBool
+                              return $ T.WhileStmt cond body
 
-    checkAlgebraM (Mod KInt KInt)     = return KInt
-    checkAlgebraM (Mod KFloat KFloat) = return KFloat
-    checkAlgebraM (Mod KFloat KInt)   = return KFloat
-    checkAlgebraM (Mod KInt KFloat)   = return KFloat
-    checkAlgebraM (Mod lType rType)   = throwError $ BinOpTypeError 
-        [ (KInt, KInt)
-        , (KFloat, KFloat)
-        , (KFloat, KInt)
-        , (KInt, KFloat)
-        ] (lType, rType)
+checkIfStmt :: T.Expr -> T.Stmt -> T.Stmt -> KTypeM T.Stmt
+checkIfStmt cond tBranch fBranch = do assertEqualTypes (exprType cond) KBool
+                                      assertEqualTypes (stmtRetType tBranch) (stmtRetType fBranch)
+                                      return $ T.IfStmt cond tBranch fBranch
 
-instance TypeCheckable UnaryExpr where
-    checkAlgebraM (Negate KInt) = return KInt
-    checkAlgebraM (Negate KFloat) = return KFloat
-    checkAlgebraM (Negate eType) = throwError $ UnaryOpTypeError
-        [KInt, KFloat] eType
+stmtRetType :: T.Stmt -> KType
+stmtRetType (T.ExprStmt e) = exprType e
+stmtRetType (T.IfStmt _ tBranch _) = stmtRetType tBranch
+stmtRetType (T.BlockStmt blk) = case lastMay blk of
+    Just stmt -> stmtRetType stmt
+    Nothing -> KUnit
+stmtRetType T.WhileStmt{}  = KUnit
+stmtRetType T.AssignStmt{} = KUnit
+stmtRetType T.VarStmt{}    = KUnit
+stmtRetType T.LetStmt{}    = KUnit
 
-    checkAlgebraM (Invert KBool) = return KBool
-    checkAlgebraM (Invert eType) = throwError $ UnaryOpTypeError
-        [KBool] eType
-    
-instance TypeCheckable (FuncExpr Stmt) where
-    checkAlgebraM (FuncExpr sig body) = do
-        checkedSig <- checkFunc sig body
-        return $ KFunc [checkedSig]
+------------- Expressions -------------
+-- | Check an expression
+checkExpr :: P.Expr -> KTypeM T.Expr
+checkExpr (P.Identifier name) = checkIdentifier name 
+checkExpr (P.FuncExpr sig body) = checkFuncExpr <$> mapM resolveTypeExpr sig <*> pure body >>= id
+checkExpr (P.Call callee args) = checkCall <$> checkExpr callee <*> (checkExpr `mapM` args) >>= id
+checkExpr (P.LiteralExpr lit) = checkLiteral lit
+checkExpr (P.BinExpr binary) = checkBinary =<< mapM checkExpr binary
+checkExpr (P.UnaryExpr unary) = checkUnary =<< mapM checkExpr unary
 
-instance TypeCheckable Call where
-    checkAlgebraM (CallExpr calleeType argTypes) = checkCall calleeType argTypes
+checkIdentifier :: Name -> KTypeM T.Expr
+checkIdentifier name = T.Identifier <$> pure name <*> resolveIdentifier name 
 
-checkCall :: KType -> [KType] -> KTypeM KType
-checkCall (KFunc sigs) args = foldl @[] checkSig (throwError $ NoMatchingSignature "__missing_name" args) sigs
-    where 
-        checkSig :: KTypeM KType -> Signature -> KTypeM KType
-        checkSig _   sig | T.arguments sig == args = return $ T.returnType sig
-        checkSig def _                              = def
-checkCall callee _= throwError $ NotAFunctionError callee
+checkCall :: T.Expr -> [T.Expr] -> KTypeM T.Expr
+checkCall callee args = case exprType callee of
+    (KFunc sigs) -> case matchingSignature of
+        Just sig -> return $ T.Call callee args (KT.returnType sig)
+        Nothing -> throwError $ NoMatchingSignature "__missing_name" argTypes
+        where
+            argTypes = exprType <$> args
+            matchingSignature = find (\sig -> KT.arguments sig == argTypes) sigs
+    t -> throwError $ NotAFunctionError t
 
-------------- Helpers -------------
--- |Get the binding of an identifier in the current context. May raise a LookupError
-bindingOf :: Name -> KTypeM TypeBinding
-bindingOf name = Map.lookup name . bindings <$> getCtx >>= \case
-    Just binding -> return binding
-    Nothing      -> lookupError name
+checkBinary :: Binary T.Expr -> KTypeM T.Expr
+checkBinary binary = T.BinExpr binary <$> binaryType (exprType <$> binary)
 
--- |Get the type of an identifier in the current context. May raise a LookupError
-typeOf :: Name -> KTypeM KType
-typeOf name = kType <$> bindingOf name
+checkUnary :: Unary T.Expr -> KTypeM T.Expr
+checkUnary unary = T.UnaryExpr unary <$> unaryType (exprType <$> unary)
 
-namedSigEnvironment :: AST.NamedSignature -> KTypeM TypeCtx
-namedSigEnvironment sig = do
-    typedSig <- resolveNamedSig sig
+checkLiteral :: Literal -> KTypeM T.Expr
+checkLiteral l = return $ T.LiteralExpr l (literalType l)
 
-    let argNames    = fst <$> AST.arguments sig
-    let argBindings = Constant <$> T.arguments typedSig
-    let bindings    = Map.fromList (zip argNames argBindings)
+checkFuncExpr :: NamedSignature KType -> P.Stmt -> KTypeM T.Expr
+checkFuncExpr sig body = T.FuncExpr sig <$> checkFunc sig body
 
-    return $ TypeCtx mempty bindings
-
-
-resolveNamedSig :: AST.NamedSignature -> KTypeM T.Signature
-resolveNamedSig NamedSignature { arguments, returnType } =
-    resolveSig (snd <$> arguments) returnType
-
--- |Lookup all TypeExprs in a parsed signature and return a typed Signature
-resolveSig :: [TypeExpr] -> TypeExpr -> KTypeM T.Signature
-resolveSig argTypeExprs returnTypeExpr = do
-    returnType <- resolveTypeExpr returnTypeExpr
-    argTypes   <- resolveTypeExpr `mapM` argTypeExprs
-    return (argTypes $-> returnType)
+------------- Type Expressions -------------
 
 -- |Resolve a TypeExpr in the current typing context
 resolveTypeExpr :: TypeExpr -> KTypeM KType
@@ -199,27 +139,119 @@ resolveTypeExpr (AST.SignatureType args rt) = do
     sig <- resolveSig args rt
     return $ KFunc [sig]
 
-checkBinding :: (KType -> TypeBinding) -> Name -> TypeExpr -> Expr -> KTypeM ()
-checkBinding bind name tExpr expr = do
-    expectedType <- resolveTypeExpr tExpr
-    exprType     <- checkExpr expr
-    assertEqualTypes expectedType exprType
-    bindName (bind exprType) name
+-- |Lookup all TypeExprs in a parsed signature and return a typed Signature
+resolveSig :: [TypeExpr] -> TypeExpr -> KTypeM KT.Signature
+resolveSig argTypeExprs returnTypeExpr = do
+    returnType <- resolveTypeExpr returnTypeExpr
+    argTypes   <- resolveTypeExpr `mapM` argTypeExprs
+    return (argTypes $-> returnType)
 
-checkFunc :: NamedSignature -> Stmt -> KTypeM T.Signature
-checkFunc sig body = do
-    typedSig        <- resolveNamedSig sig
-    funcEnvironment <- namedSigEnvironment sig
+exprType :: T.Expr -> KType
+exprType (T.Identifier _ t) = t
+exprType (T.FuncExpr sig _) = AST.returnType sig
+exprType (T.Call _ _ t) = t
+exprType (T.LiteralExpr _ t) = t
+exprType (T.BinExpr _ t) = t
+exprType (T.UnaryExpr _ t) = t
 
-    bodyRetType     <- withState (<> funcEnvironment) (checkStmt body)
-    assertEqualTypes bodyRetType (T.returnType typedSig)
+literalType :: Literal -> KType
+literalType (IntExpr _) = KInt
+literalType (FloatExpr _) = KFloat
+literalType (BoolExpr _) = KBool
+literalType (StringExpr _) = KString
 
-    return typedSig
+binaryType :: MonadError TypeError m => Binary KType -> m KType
+binaryType (Add KFloat KFloat) = return KFloat
+binaryType (Add KFloat KInt)   = return KFloat
+binaryType (Add KInt KFloat)   = return KFloat
+binaryType (Add lType rType)   = throwError $ BinOpTypeError 
+    [ (KInt, KInt)
+    , (KFloat, KFloat)
+    , (KFloat, KInt)
+    , (KInt, KFloat)
+    ] (lType, rType)
 
-checkFuncDef :: FuncDef Stmt -> KTypeM ()
-checkFuncDef FuncDef {name, signature, body} = do 
-    typedSig <- checkFunc signature body
-    bindName (Constant . KFunc $ [typedSig]) name
+binaryType (Sub KInt KInt)     = return KInt
+binaryType (Sub KFloat KFloat) = return KFloat
+binaryType (Sub KFloat KInt)   = return KFloat
+binaryType (Sub KInt KFloat)   = return KFloat
+binaryType (Sub lType rType)   = throwError $ BinOpTypeError 
+    [ (KInt, KInt)
+    , (KFloat, KFloat)
+    , (KFloat, KInt)
+    , (KInt, KFloat)
+    ] (lType, rType)
+
+binaryType (Mul KInt KInt)     = return KInt
+binaryType (Mul KFloat KFloat) = return KFloat
+binaryType (Mul KFloat KInt)   = return KFloat
+binaryType (Mul KInt KFloat)   = return KFloat
+binaryType (Mul lType rType)   = throwError $ BinOpTypeError 
+    [ (KInt, KInt)
+    , (KFloat, KFloat)
+    , (KFloat, KInt)
+    , (KInt, KFloat)
+    ] (lType, rType)
+
+binaryType (Div KInt KInt)     = return KInt
+binaryType (Div KFloat KFloat) = return KFloat
+binaryType (Div KFloat KInt)   = return KFloat
+binaryType (Div KInt KFloat)   = return KFloat
+binaryType (Div lType rType)   = throwError $ BinOpTypeError 
+    [ (KInt, KInt)
+    , (KFloat, KFloat)
+    , (KFloat, KInt)
+    , (KInt, KFloat)
+    ] (lType, rType)
+
+binaryType (Mod KInt KInt)     = return KInt
+binaryType (Mod KFloat KFloat) = return KFloat
+binaryType (Mod KFloat KInt)   = return KFloat
+binaryType (Mod KInt KFloat)   = return KFloat
+binaryType (Mod lType rType)   = throwError $ BinOpTypeError 
+    [ (KInt, KInt)
+    , (KFloat, KFloat)
+    , (KFloat, KInt)
+    , (KInt, KFloat)
+    ] (lType, rType)
+
+unaryType :: MonadError TypeError m => Unary KType -> m KType
+unaryType (Negate KInt) = return KInt
+unaryType (Negate KFloat) = return KFloat
+unaryType (Negate eType) = throwError $ UnaryOpTypeError
+    [KInt, KFloat] eType
+
+unaryType (Invert KBool) = return KBool
+unaryType (Invert eType) = throwError $ UnaryOpTypeError
+    [KBool] eType
+
+------------- Helpers -------------
+-- |Get the binding of an identifier in the current context. May raise a LookupError
+bindingOf :: Name -> KTypeM TypeBinding
+bindingOf name = Map.lookup name . bindings <$> getCtx >>= \case
+    Just binding -> return binding
+    Nothing      -> lookupError name
+
+resolveIdentifier :: Name -> KTypeM KType
+resolveIdentifier name = kType <$> bindingOf name
+
+namedSigEnvironment :: NamedSignature KType -> KTypeM TypeCtx
+namedSigEnvironment sig = do
+    let (argNames, argTypes) = unzip $ AST.arguments sig
+    let argBindings = Constant <$> argTypes
+
+    return $ TypeCtx mempty (Map.fromList $ zip argNames argBindings)
+
+getError :: MonadError err m => m a -> m (Maybe err)
+getError action = (const Nothing <$> action) `catchError` (return . Just)
+
+checkBinding :: (KType -> TypeBinding) -> Name -> KType -> T.Expr -> KTypeM ()
+-- If bindingOf throws an error then it the name is not bound and we can proceed
+checkBinding bind name expectedType expr = getError (bindingOf name) >>= \case
+    Just (LookupError _) -> do
+        assertEqualTypes expectedType (exprType expr)
+        bindName (bind expectedType) name
+    _ -> throwError $ NameAlreadyBoundError name
 
 envFromList :: [(Name, TypeBinding)] -> Map Name TypeBinding
 envFromList = Map.fromListWith comb
@@ -231,11 +263,22 @@ envFromList = Map.fromListWith comb
         comb Variable { kType = KFunc sigl } Variable { kType = KFunc sigr } = Variable $ KFunc (sigl ++ sigr)
         comb _ r = r
 
--- |Typecheck a block, return its return type
-checkProgram :: Program Stmt -> KTypeM ()
-checkProgram (Program funcDefs) = do 
+resolveNamedSig :: NamedSignature TypeExpr -> KTypeM KT.Signature
+resolveNamedSig NamedSignature { arguments, returnType=returnTypeExpr } =
+    Signature <$> argTypes <*> returnType
+    where
+        argTypes :: KTypeM [KType]
+        argTypes = mapM resolveTypeExpr (snd <$> arguments)
+
+        returnType :: KTypeM KType
+        returnType = resolveTypeExpr returnTypeExpr
+        
+
+checkProgram :: P.Program -> KTypeM T.Program
+checkProgram (P.Program funcDefs) = do 
     funcSignatures <- forM funcDefs $ \funcDef -> do 
         typedSig <- resolveNamedSig (signature funcDef)
         return (name funcDef, Constant $ KFunc [typedSig])
+
     let hoistedCtx = TypeCtx mempty (envFromList funcSignatures)
-    withState (<> hoistedCtx) (mapM_ checkFuncDef funcDefs)
+    T.Program <$> withState (<> hoistedCtx) (mapM checkFuncDef funcDefs)

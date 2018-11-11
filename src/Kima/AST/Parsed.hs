@@ -1,51 +1,25 @@
 module Kima.AST.Parsed where
 
-import Control.Newtype.Generics
-
-import Data.Bifunctor
-import Data.Comp
-import Data.Comp.Desugar
-import Data.Comp.Show()
-
-import GHC.Generics hiding ((:+:))
-
-import Kima.AST.Common
-import Kima.AST.Desugared
+import Kima.AST.Common as Common
 import Kima.AST.Expression
-import Kima.AST.Statement
 
-type StmtF e = (BlockStmt :+: QualifiedAssignment e :+: WhileLoop e :+: ExprStmt e :+: IfStmt e)
-type ExprF s = (Literal :+: Identifier :+: FuncExpr s :+: Call :+: BinExpr :+: UnaryExpr)
+newtype Program = Program [Kima.AST.Parsed.FuncDef] deriving Show
+type FuncDef = Common.FuncDef TypeExpr Stmt
 
-type ExprTerm = Term (ExprF Stmt)
-type StmtTerm = Term (StmtF Expr)
+data Stmt = BlockStmt [Stmt] 
+          | WhileStmt Expr Stmt
+          | ExprStmt Expr 
+          | IfStmt Expr Stmt Stmt
+          | AssignStmt Name Expr
+          | VarStmt Name TypeExpr Expr
+          | LetStmt Name TypeExpr Expr          
+    deriving Show
 
-newtype Stmt = Stmt StmtTerm deriving (Show, Generic)
-newtype Expr = Expr ExprTerm deriving (Show, Generic)
+data Expr = Identifier Name
+          | FuncExpr (NamedSignature TypeExpr) Stmt
+          | Call Expr [Expr]
 
-instance Newtype Stmt
-instance Newtype Expr
-
-instance (Functor g, (SimpleAssignment DesugaredExpr) :<: g) => Desugar (QualifiedAssignment Expr) g where
-    desugHom (LetStmt name _ expr)  = iSimpleAssignStmt name (desugarExpr expr)
-    desugHom (VarStmt name _ expr)  = iSimpleAssignStmt name (desugarExpr expr)
-    desugHom (AssignStmt name expr) = iSimpleAssignStmt name (desugarExpr expr)
-
-instance {-# OVERLAPPABLE #-} (Bifunctor f, Functor g, Functor (f Expr), Functor (f DesugaredExpr), (f DesugaredExpr) :<: g) => Desugar (f Expr) g where
-    desugHom stmt = deepInject (simpCxt desugaredStmt)
-        where
-            desugaredStmt = desugarExpr `first` stmt
-
-instance {-# OVERLAPPABLE #-} (Bifunctor f, Functor g, Functor (f Stmt), Functor (f DesugaredStmt), (f DesugaredStmt) :<: g) => Desugar (f Stmt) g where
-    desugHom expr = deepInject (simpCxt desugaredExpr)
-        where
-            desugaredExpr = desugarStmt `first` expr
-
-desugarExpr :: Expr -> DesugaredExpr
-desugarExpr (Expr expr) = DesugaredExpr (desugar expr)
-
-desugarStmt :: Stmt -> DesugaredStmt
-desugarStmt (Stmt stmt) = DesugaredStmt (desugar stmt)
-
-desugarFuncDef :: FuncDef Stmt -> FuncDef DesugaredStmt
-desugarFuncDef FuncDef { name, signature, body} = FuncDef name signature (desugarStmt body)
+          | LiteralExpr Literal
+          | BinExpr (Binary Expr)
+          | UnaryExpr (Unary Expr)
+    deriving Show

@@ -24,7 +24,6 @@ library
         Kima.AST
         Kima.AST.Common
         Kima.AST.Expression
-        Kima.AST.Statement
         Kima.AST.Desugared
         Kima.AST.Parsed
         Kima.AST.Typed
@@ -69,7 +68,6 @@ library
         safe -any,
         megaparsec >= 6.5 && < 7,
         optparse-applicative -any,
-        compdata >= 0.12,
         newtype-generics >= 0.5.3
 
 executable kima

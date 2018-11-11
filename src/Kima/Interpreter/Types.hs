@@ -2,14 +2,14 @@ module Kima.Interpreter.Types where
 
 import Prelude hiding (lookup)
 
-import Kima.AST
+import Kima.AST.Common
+import Kima.AST.Desugared
 
 import Control.Newtype.Generics
 
 import Control.Monad.Except
 import Control.Monad.State
 
-import Data.Comp.Algebra
 import Data.Map hiding (toList, fromList)
 
 import GHC.Generics
@@ -25,15 +25,11 @@ data RuntimeError = RuntimeError
 runtimeError :: MonadRE m => m a
 runtimeError = throwError RuntimeError
 
-type EvalAlg f = Alg f Value
-type EvalAlgM m f = AlgM m f Value
-type EvalRAlgM m f = RAlgM m f Value
-
 data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           | Function [Name] DesugaredStmt
+           | Function [Name] Stmt
            | BuiltinFunction1 (forall m. MonadInterpreter m => Value -> m Value)
            | BuiltinFunction2 (forall m. MonadInterpreter m => Value -> Value -> m Value)
            | BuiltinFunction3 (forall m. MonadInterpreter m => Value -> Value -> Value -> m Value)

@@ -1,19 +1,18 @@
 module Kima.AST.Desugared where
 
 import Kima.AST.Expression
-import Kima.AST.Statement
-import Control.Newtype.Generics
-import Data.Comp
-import Data.Comp.Show()
-import GHC.Generics hiding ((:+:))
+import Kima.AST.Common as Common
 
-type DesugaredExprF s = (Literal :+: Identifier :+: FuncExpr s :+: Call)
-type DesugaredExprTerm = Term (DesugaredExprF DesugaredStmt)
-newtype DesugaredExpr = DesugaredExpr DesugaredExprTerm deriving (Show, Generic)
+newtype Program = Program [Kima.AST.Desugared.FuncDef]
+type FuncDef = Common.FuncDef () Stmt
 
-type DesugaredStmtF e = (BlockStmt :+: SimpleAssignment e :+: WhileLoop e :+: ExprStmt e :+: IfStmt e)
-type DesugaredStmtTerm = Term (DesugaredStmtF DesugaredExpr)
-newtype DesugaredStmt = DesugaredStmt DesugaredStmtTerm deriving (Show, Generic)
+data Expr = LiteralExpr Literal 
+          | Identifier Name
+          | FuncExpr (NamedSignature ()) Stmt
+          | Call Expr [Expr]
 
-instance Newtype DesugaredExpr
-instance Newtype DesugaredStmt
+data Stmt = BlockStmt [Stmt]
+          | Assign Name Expr
+          | WhileStmt Expr Stmt
+          | ExprStmt Expr 
+          | IfStmt Expr Stmt Stmt

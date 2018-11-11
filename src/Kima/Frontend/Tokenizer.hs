@@ -3,7 +3,7 @@ module Kima.Frontend.Tokenizer where
 import Control.Monad
 import Data.Char
 
-import Kima.AST hiding (Mod)
+import Kima.AST.Common
 import Kima.Frontend.Types
 
 import Text.Megaparsec

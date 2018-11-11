@@ -3,98 +3,49 @@ module Kima.Interpreter.Interpreter where
 import Prelude hiding ( lookup )
 
 import Control.Newtype.Generics
-import Data.Comp.Algebra
-import Data.Comp.Sum
-import Data.Comp.Term
 
-import Kima.AST
+import Kima.AST.Desugared as Desugared
+import Kima.AST.Common
+import Kima.AST.Expression
 import Kima.Control.Monad.State.Extended
 import Kima.Interpreter.Types
 
 import Safe
 import qualified Data.Map as Map
 
--- | Types that can be evaluated to a value using a monadic catamorphism
-class (Monad m, Traversable f) => Eval m f where
-    -- | The monadic Algebra that can evaluate f
-    evalAlgM :: AlgM m f Value
-
-    cataEval :: Term f -> m Value
-    cataEval = cataM evalAlgM
-
--- | Types that can be recursively run inside a monad
--- | Here we use a plain algebra (f (m Value) -> m Value) instead
--- | of a monadic algebra (f Value -> m Value) so that we can control 
--- | the sequencing of operations. This allows for control flow.
-class (Monad m, Functor f) => Run m f where
-    -- | The Algebra that can run f
-    runAlg :: Alg f (m Value)
-
-    run :: Term f -> m Value
-    run = cata runAlg
-
-instance (Eval m f, Eval m g) => Eval m (f :+: g) where
-    evalAlgM = caseF evalAlgM evalAlgM
-
-instance (Functor f, Functor g, Run m f, Run m g) => Run m (f :+: g) where
-    runAlg = caseF runAlg runAlg
-
-
 ---------- Expressions ----------
-evalExpr :: (MonadInterpreter m) => DesugaredExpr -> m Value
-evalExpr (DesugaredExpr expr) = cataEval expr
+evalExpr :: (MonadInterpreter m) => Expr -> m Value
+evalExpr (LiteralExpr l) = return $ evalLiteral l
+evalExpr (Identifier name) = getName name
+evalExpr (FuncExpr sig body) = return $ Function (fst <$> arguments sig) body
+evalExpr (Call callee args) = runFunc <$> evalExpr callee <*> (evalExpr `mapM` args) >>= id
 
-instance Monad m => Eval m Literal where
-    evalAlgM (IntExpr n) = return $ Integer n
-    evalAlgM (FloatExpr n)  = return $ Float n
-    evalAlgM (BoolExpr b) = return $ Bool b
-    evalAlgM (StringExpr s) = return $ String s
+evalLiteral :: Literal -> Value
+evalLiteral (IntExpr i) = Integer i
+evalLiteral (FloatExpr f) = Float f
+evalLiteral (BoolExpr b) = Bool b
+evalLiteral (StringExpr s) = String s
 
-instance (Monad m, MonadEnv m, MonadRE m) => Eval m Identifier where
-    evalAlgM (IdentifierExpr name) = getName name
-
-instance (MonadEnv m) => Eval m (FuncExpr DesugaredStmt) where
-    evalAlgM (FuncExpr sig body) = return $ Function (fst <$> arguments sig) body
-
-instance (MonadInterpreter m) => Eval m Call where
-    evalAlgM (CallExpr (BuiltinFunction1 f) [arg]) = f arg
-    evalAlgM (CallExpr (BuiltinFunction2 f) [arg1, arg2]) = f arg1 arg2
-    evalAlgM (CallExpr (BuiltinFunction3 f) [arg1, arg2, arg3]) = f arg1 arg2 arg3
-    evalAlgM (CallExpr callee args) = runFunc callee args
-
----------- Expressions ----------
-runStmt :: MonadInterpreter m => DesugaredStmt -> m Value
-runStmt (DesugaredStmt stmt) = run stmt
-
-instance (Monad m, MonadEnv m, MonadRE m) => Run m BlockStmt where
-    runAlg (BlockStmt stmts) = do 
-        vals <- sequence stmts
-        return (lastDef Unit vals)
-
-instance MonadInterpreter m => Run m (SimpleAssignment DesugaredExpr) where
-    runAlg (SimpleAssignStmt name expr) = Unit <$ (evalExpr expr >>= bind name)
-
-instance MonadInterpreter m => Run m (ExprStmt DesugaredExpr) where
-    runAlg (ExprStmt expr) = evalExpr expr
-
--- You just need a plain (non-monadic) catamorphism!
--- You can then do the sequencing yourself
-instance MonadInterpreter m => Run m (WhileLoop DesugaredExpr) where
-    runAlg loop@(WhileStmt cond body) = evalExpr cond >>= \case
-        (Bool True) -> do
-            _ <- body
-            runAlg loop
-        (Bool False) -> return Unit
-        _ -> runtimeError
-
-instance MonadInterpreter m => Run m (IfStmt DesugaredExpr) where
-    runAlg (IfStmt cond ifblk elseblk) = evalExpr cond >>= \case
-        (Bool True) -> ifblk
-        (Bool False) -> elseblk
-        _ -> runtimeError
+---------- Statements ----------
+runStmt :: MonadInterpreter m => Stmt -> m Value
+runStmt (BlockStmt stmts) = do 
+    vals <- runStmt `mapM` stmts
+    return (lastDef Unit vals)
+runStmt (Assign name expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (ExprStmt expr) = evalExpr expr
+runStmt loop@(WhileStmt cond body) = evalExpr cond >>= \case
+    (Bool True) -> do
+        _ <- runStmt body
+        runStmt loop
+    (Bool False) -> return Unit
+    _ -> runtimeError
+runStmt (IfStmt cond ifblk elseblk) = evalExpr cond >>= \case
+    (Bool True) -> runStmt ifblk
+    (Bool False) -> runStmt elseblk
+    _ -> runtimeError
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
-runFunc (Function argNames (DesugaredStmt body)) args = withState (<> argEnv) (run body)
+runFunc (Function argNames body) args = withState (<> argEnv) (runStmt body)
   where
     argEnv :: Environment Value
     argEnv = Environment $ Map.fromList (zip argNames args)
@@ -111,11 +62,11 @@ getName name = gets (Map.lookup name . unEnv) >>= \case
     Just val -> return val
     Nothing  -> runtimeError
 
-evalFuncDef :: FuncDef DesugaredStmt -> Value
+evalFuncDef :: Desugared.FuncDef -> Value
 evalFuncDef FuncDef { signature, body } =
     Function (fst <$> arguments signature) body
 
-runProgram :: MonadInterpreter m => Program DesugaredStmt -> m ()
+runProgram :: MonadInterpreter m => Desugared.Program -> m ()
 runProgram (Program functions) = do
     forM_ functions $ \f -> bind (name f) (evalFuncDef f)
     mainFunc <- getName "main"
