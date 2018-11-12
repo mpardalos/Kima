@@ -2,16 +2,17 @@ module Kima.Interpreter.Builtins where
 
 import Control.Monad.IO.Class
 import Kima.Interpreter.Types
+import Kima.AST.Desugared
 import Data.Map
 
 baseEnv :: Environment Value
 baseEnv = Environment $ fromList
-    [ ("b__add", BuiltinFunction2 $ liftNumOp (+))
-    , ("b__sub", BuiltinFunction2 $ liftNumOp (-))
-    , ("b__mul", BuiltinFunction2 $ liftNumOp (*))
-    , ("b__mod", BuiltinFunction2 $ liftIntegralOp mod)
-    , ("b__div", BuiltinFunction2 $ kimaDivision)
-    , ("print", BuiltinFunction1 kimaPrint)
+    [ (Builtin AddOp, BuiltinFunction2 $ liftNumOp (+))
+    , (Builtin SubOp, BuiltinFunction2 $ liftNumOp (-))
+    , (Builtin MulOp, BuiltinFunction2 $ liftNumOp (*))
+    , (Builtin ModOp, BuiltinFunction2 $ liftIntegralOp mod)
+    , (Builtin DivOp, BuiltinFunction2 $ kimaDivision)
+    , (Builtin PrintFunc, BuiltinFunction1 kimaPrint)
     ]
 
 kimaPrint :: (MonadRE m, MonadIO m) => Value -> m Value

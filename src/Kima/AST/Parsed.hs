@@ -3,11 +3,13 @@ module Kima.AST.Parsed where
 import GHC.Generics
 import Control.Newtype.Generics
 
-import Kima.AST.Common as Common
+import Kima.AST.Common hiding (NamedSignature, FuncDef)
+import qualified Kima.AST.Common as Common
 import Kima.AST.Expression
 
-newtype Program = Program [Kima.AST.Parsed.FuncDef] deriving (Show, Generic)
-type FuncDef = Common.FuncDef TypeExpr Stmt
+newtype Program = Program [FuncDef] deriving (Show, Generic)
+type FuncDef = Common.FuncDef Name NamedSignature Stmt
+type NamedSignature = Common.NamedSignature Name TypeExpr
 
 data Stmt = BlockStmt [Stmt] 
           | WhileStmt Expr Stmt
@@ -19,7 +21,7 @@ data Stmt = BlockStmt [Stmt]
     deriving Show
 
 data Expr = Identifier Name
-          | FuncExpr (NamedSignature TypeExpr) Stmt
+          | FuncExpr NamedSignature Stmt
           | Call Expr [Expr]
 
           | LiteralExpr Literal

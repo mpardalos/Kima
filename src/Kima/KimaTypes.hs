@@ -1,12 +1,12 @@
 module Kima.KimaTypes where
 
 data KType = KString | KUnit | KBool | KInt | KFloat | KFunc [Signature] 
-  deriving (Eq, Show)
+  deriving (Show, Eq, Ord)
 
 data Signature = Signature {
   arguments :: [KType],
   returnType :: KType
-} deriving Eq
+} deriving (Eq, Ord)
 ($->) = Signature
 
 instance Show Signature where

@@ -1,5 +1,6 @@
 module Kima.AST.Common where
 
+import GHC.Records
 import Data.Bifunctor
 import Data.String
 
@@ -14,15 +15,17 @@ data TypeExpr = TypeName Name
               | SignatureType [TypeExpr] TypeExpr
     deriving Eq
 
-data FuncDef t s = FuncDef {
-    name :: Name,
-    signature :: NamedSignature t,
-    body :: s
+type FuncDefRecord r name signature stmt = (HasField "name" r name, HasField "signature" r signature, HasField "body" r stmt)
+data FuncDef name signature stmt = FuncDef {
+    name :: name,
+    signature :: signature,
+    body :: stmt
 }
 
-data NamedSignature t = NamedSignature {
-    arguments :: [(Name, t)],
-    returnType :: t
+type NamedSignatureRecord r name typeann = (HasField "arguments" r [(name, typeann)], HasField "returnType" r typeann)
+data NamedSignature name typeann = NamedSignature {
+    arguments :: [(name, typeann)],
+    returnType :: typeann
 } deriving (Eq, Functor, Foldable, Traversable)
 
 instance Show EffectExpr where
@@ -32,7 +35,7 @@ instance Show TypeExpr where
     show (TypeName (Name str)) = "#" ++ str
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
 
-instance Show t => Show (NamedSignature t) where
+instance (Show n, Show t) => Show (NamedSignature n t) where
     show NamedSignature {arguments, returnType} =
            show arguments
         ++ " -> " ++ show returnType
@@ -43,12 +46,15 @@ instance Show Name where
 instance IsString Name where
     fromString = Name
 
-instance (Show t, Show s) => Show (FuncDef t s) where
+instance {-# Overlappable #-} (Show n, NamedSignatureRecord sig n t, Show t, Show s) => Show (FuncDef n sig s) where
     show FuncDef { name, signature, body } =
         "fun " ++ show name 
-        ++ " " ++ show (arguments signature)  
-        ++ " -> " ++ show (returnType signature) 
+        ++ " " ++ show (getField @"arguments" signature)  
+        ++ " -> " ++ show (getField @"returnType" signature) 
         ++ " " ++ show body
 
-instance Bifunctor FuncDef where
-    bimap f g FuncDef { name, signature, body } = FuncDef name (f <$> signature) (g body)
+instance Bifunctor (FuncDef n) where
+    bimap f g FuncDef { name, signature, body } = FuncDef name (f signature) (g body)
+
+instance Bifunctor NamedSignature where
+    bimap f g NamedSignature { arguments, returnType } = NamedSignature (bimap f g <$> arguments) (g returnType)

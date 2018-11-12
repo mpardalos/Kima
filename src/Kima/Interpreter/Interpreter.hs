@@ -1,14 +1,17 @@
 module Kima.Interpreter.Interpreter where
 
+import Debug.Trace
+
 import Prelude hiding ( lookup )
 
 import Control.Newtype.Generics
 
 import Kima.AST.Desugared as Desugared
-import Kima.AST.Common
+import Kima.AST.Common hiding (Name)
 import Kima.AST.Expression
 import Kima.Control.Monad.State.Extended
 import Kima.Interpreter.Types
+import Kima.KimaTypes(KType(..), ($->))
 
 import Safe
 import qualified Data.Map as Map
@@ -17,7 +20,7 @@ import qualified Data.Map as Map
 evalExpr :: (MonadInterpreter m) => Expr -> m Value
 evalExpr (LiteralExpr l) = return $ evalLiteral l
 evalExpr (Identifier name) = getName name
-evalExpr (FuncExpr sig body) = return $ Function (fst <$> arguments sig) body
+evalExpr (FuncExpr sig body) = return $ Function sig body
 evalExpr (Call callee args) = runFunc <$> evalExpr callee <*> (evalExpr `mapM` args) >>= id
 
 evalLiteral :: Literal -> Value
@@ -54,21 +57,20 @@ runFunc (BuiltinFunction2 f) [arg1, arg2] = f arg1 arg2
 runFunc (BuiltinFunction3 f) [arg1, arg2, arg3] = f arg1 arg2 arg3
 runFunc _ _ = runtimeError
 
-bind :: (MonadEnv m) => Name -> Value -> m ()
+bind :: (MonadEnv m) => RuntimeName -> Value -> m ()
 bind name val = modify (over Environment $ Map.insert name val) 
 
-getName :: (MonadEnv m, MonadRE m) => Name -> m Value
+getName :: (MonadEnv m, MonadRE m) => RuntimeName -> m Value
 getName name = gets (Map.lookup name . unEnv) >>= \case
     Just val -> return val
-    Nothing  -> runtimeError
+    Nothing  -> traceShow name runtimeError
 
 evalFuncDef :: Desugared.FuncDef -> Value
-evalFuncDef FuncDef { signature, body } =
-    Function (fst <$> arguments signature) body
+evalFuncDef FuncDef { signature, body } = Function signature body
 
 runProgram :: MonadInterpreter m => Desugared.Program -> m ()
 runProgram (Program functions) = do
     forM_ functions $ \f -> bind (name f) (evalFuncDef f)
-    mainFunc <- getName "main"
+    mainFunc <- getName (TypedName "main" (KFunc [[] $-> KUnit]))
     _ <- runFunc mainFunc [] 
     return ()

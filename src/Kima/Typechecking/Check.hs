@@ -19,8 +19,6 @@ import Kima.KimaTypes as KT
 import Kima.Typechecking.Monad
 import Kima.Typechecking.Types
 
-import Safe
-
 -- | Check a parsed function definition and return a typed function definition.
 -- | It also binds the function name
 checkFuncDef :: P.FuncDef -> KTypeM T.FuncDef
@@ -31,7 +29,7 @@ checkFuncDef FuncDef {name, signature, body} = do
 
 -- | Check a parsed function against a resolved signature and return the typed 
 -- | body of the function
-checkFunc :: NamedSignature KType -> P.Stmt -> KTypeM T.Stmt
+checkFunc :: T.NamedSignature -> P.Stmt -> KTypeM T.Stmt
 checkFunc sig body = do
     funcEnvironment <- namedSigEnvironment sig
 
@@ -82,17 +80,6 @@ checkIfStmt cond tBranch fBranch = do assertEqualTypes (exprType cond) KBool
                                       assertEqualTypes (stmtRetType tBranch) (stmtRetType fBranch)
                                       return $ T.IfStmt cond tBranch fBranch
 
-stmtRetType :: T.Stmt -> KType
-stmtRetType (T.ExprStmt e) = exprType e
-stmtRetType (T.IfStmt _ tBranch _) = stmtRetType tBranch
-stmtRetType (T.BlockStmt blk) = case lastMay blk of
-    Just stmt -> stmtRetType stmt
-    Nothing -> KUnit
-stmtRetType T.WhileStmt{}  = KUnit
-stmtRetType T.AssignStmt{} = KUnit
-stmtRetType T.VarStmt{}    = KUnit
-stmtRetType T.LetStmt{}    = KUnit
-
 ------------- Expressions -------------
 -- | Check an expression
 checkExpr :: P.Expr -> KTypeM T.Expr
@@ -125,7 +112,7 @@ checkUnary unary = T.UnaryExpr unary <$> unaryType (exprType <$> unary)
 checkLiteral :: Literal -> KTypeM T.Expr
 checkLiteral l = return $ T.LiteralExpr l (literalType l)
 
-checkFuncExpr :: NamedSignature KType -> P.Stmt -> KTypeM T.Expr
+checkFuncExpr :: T.NamedSignature -> P.Stmt -> KTypeM T.Expr
 checkFuncExpr sig body = T.FuncExpr sig <$> checkFunc sig body
 
 ------------- Type Expressions -------------
@@ -145,14 +132,6 @@ resolveSig argTypeExprs returnTypeExpr = do
     returnType <- resolveTypeExpr returnTypeExpr
     argTypes   <- resolveTypeExpr `mapM` argTypeExprs
     return (argTypes $-> returnType)
-
-exprType :: T.Expr -> KType
-exprType (T.Identifier _ t) = t
-exprType (T.FuncExpr sig _) = AST.returnType sig
-exprType (T.Call _ _ t) = t
-exprType (T.LiteralExpr _ t) = t
-exprType (T.BinExpr _ t) = t
-exprType (T.UnaryExpr _ t) = t
 
 literalType :: Literal -> KType
 literalType (IntExpr _) = KInt
@@ -220,7 +199,6 @@ unaryType (Negate KInt) = return KInt
 unaryType (Negate KFloat) = return KFloat
 unaryType (Negate eType) = throwError $ UnaryOpTypeError
     [KInt, KFloat] eType
-
 unaryType (Invert KBool) = return KBool
 unaryType (Invert eType) = throwError $ UnaryOpTypeError
     [KBool] eType
@@ -235,7 +213,7 @@ bindingOf name = Map.lookup name . bindings <$> getCtx >>= \case
 resolveIdentifier :: Name -> KTypeM KType
 resolveIdentifier name = kType <$> bindingOf name
 
-namedSigEnvironment :: NamedSignature KType -> KTypeM TypeCtx
+namedSigEnvironment :: T.NamedSignature -> KTypeM TypeCtx
 namedSigEnvironment sig = do
     let (argNames, argTypes) = unzip $ AST.arguments sig
     let argBindings = Constant <$> argTypes
@@ -263,7 +241,7 @@ envFromList = Map.fromListWith comb
         comb Variable { kType = KFunc sigl } Variable { kType = KFunc sigr } = Variable $ KFunc (sigl ++ sigr)
         comb _ r = r
 
-resolveNamedSig :: NamedSignature TypeExpr -> KTypeM KT.Signature
+resolveNamedSig :: P.NamedSignature -> KTypeM KT.Signature
 resolveNamedSig NamedSignature { arguments, returnType=returnTypeExpr } =
     Signature <$> argTypes <*> returnType
     where

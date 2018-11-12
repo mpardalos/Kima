@@ -2,7 +2,6 @@ module Kima (
     module K
 ) where
 
-import Kima.AST as K
 import Kima.Desugar as K
 import Kima.Frontend as K
 import Kima.Interpreter as K
