@@ -31,7 +31,7 @@ runStmt :: MonadInterpreter m => Stmt -> m Value
 runStmt (BlockStmt stmts) = do 
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
-runStmt (Assign name expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (AssignStmt name expr) = Unit <$ (evalExpr expr >>= bind name)
 runStmt (ExprStmt expr) = evalExpr expr
 runStmt loop@(WhileStmt cond body) = evalExpr cond >>= \case
     (Bool True) -> do

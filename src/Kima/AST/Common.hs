@@ -1,5 +1,6 @@
 module Kima.AST.Common where
 
+import Data.Bifunctor
 import Data.String
 
 newtype Name = Name String
@@ -48,3 +49,6 @@ instance (Show t, Show s) => Show (FuncDef t s) where
         ++ " " ++ show (arguments signature)  
         ++ " -> " ++ show (returnType signature) 
         ++ " " ++ show body
+
+instance Bifunctor FuncDef where
+    bimap f g FuncDef { name, signature, body } = FuncDef name (f <$> signature) (g body)

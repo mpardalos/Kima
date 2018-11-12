@@ -1,9 +1,12 @@
 module Kima.AST.Parsed where
 
+import GHC.Generics
+import Control.Newtype.Generics
+
 import Kima.AST.Common as Common
 import Kima.AST.Expression
 
-newtype Program = Program [Kima.AST.Parsed.FuncDef] deriving Show
+newtype Program = Program [Kima.AST.Parsed.FuncDef] deriving (Show, Generic)
 type FuncDef = Common.FuncDef TypeExpr Stmt
 
 data Stmt = BlockStmt [Stmt] 
@@ -23,3 +26,5 @@ data Expr = Identifier Name
           | BinExpr (Binary Expr)
           | UnaryExpr (Unary Expr)
     deriving Show
+
+instance Newtype Program

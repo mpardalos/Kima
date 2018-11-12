@@ -6,6 +6,7 @@ import Data.Bifunctor
 import Kima.AST.Parsed as Parsed
 import Kima.AST.Typed as Typed
 import Kima.AST.Desugared as Desugared
+import Kima.Desugar
 import Kima.Interface.Types
 import qualified Kima.Frontend as F
 import qualified Kima.Interpreter as I
@@ -33,13 +34,16 @@ parseFile' fn = do
     runEither (F.runParser F.program fn src)
 
 typecheckFile = runMonadInterface . (parseFile' >=> typecheckAST')
-
 typecheckAST = runMonadInterface . typecheckAST'
 typecheckAST' :: MonadInterface m => Parsed.Program -> m Typed.Program
 typecheckAST' = runEither . T.runTypeChecking T.baseCtx . T.checkProgram
 
-runFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> _desugarAST' >=> runAST')
+desugarFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST')
+desugarAST = runMonadInterface . desugarAST'
+desugarAST' :: MonadInterface m => Typed.Program -> m Desugared.Program
+desugarAST' = return . desugarProgram
 
+runFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST' >=> runAST')
 runAST = runMonadInterface . runAST'
 runAST' :: MonadInterface m => Desugared.Program -> m ()
 runAST' src = liftIO (I.runProgram src) >>= runEither 

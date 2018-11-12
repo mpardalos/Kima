@@ -1,10 +1,13 @@
 module Kima.AST.Typed where
 
+import GHC.Generics
+import Control.Newtype.Generics
+
 import Kima.AST.Common as Common
 import Kima.AST.Expression
 import Kima.KimaTypes
 
-newtype Program = Program [Kima.AST.Typed.FuncDef] deriving Show
+newtype Program = Program [Kima.AST.Typed.FuncDef] deriving (Show, Generic)
 type FuncDef = Common.FuncDef KType Stmt
 
 data Stmt = BlockStmt [Stmt]
@@ -23,3 +26,5 @@ data Expr = Identifier Name KType
           | BinExpr (Binary Expr) KType
           | UnaryExpr (Unary Expr) KType
     deriving Show
+
+instance Newtype Program

@@ -28,6 +28,8 @@ library
         Kima.AST.Parsed
         Kima.AST.Typed
 
+        Kima.Desugar
+
         Kima.Frontend
         Kima.Frontend.Types
         Kima.Frontend.Tokenizer
