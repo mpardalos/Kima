@@ -8,7 +8,7 @@ import Kima.AST.Common
 import Kima.KimaTypes
 import Kima.Typechecking.Types
 
-newtype KTypeM a = KTypeM { runKTypeM :: StateT TypeCtx (Either TypeError) a}
+newtype KTypeM a = KTypeM { runKTypeM :: StateT (TypeCtx (KType 'Overload)) (Either TypeError) a}
   deriving (Functor, Applicative, Monad, MonadError TypeError, MonadState TypeCtx)
 
 runTypeChecking :: TypeCtx -> KTypeM a -> Either TypeError a
@@ -32,13 +32,13 @@ typeMismatchError e a = throwError (TypeMismatchError e a)
 getCtx :: KTypeM TypeCtx
 getCtx = get
 
-getBindings :: KTypeM (Map Name TypeBinding)
+getBindings :: KTypeM (Map Name (Binding t))
 getBindings = gets bindings
 
 getTypes :: KTypeM (Map Name KType)
 getTypes = gets types
 
-bindName :: TypeBinding -> Name -> KTypeM ()
+bindName :: Binding t -> Name -> KTypeM ()
 bindName b name = do
   ctx <- getCtx
   put (ctx { bindings = insert name b (bindings ctx) })

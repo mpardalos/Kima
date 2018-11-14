@@ -5,25 +5,25 @@ import Data.Map.Lazy
 import Kima.AST.Common
 import Kima.KimaTypes
 
-data TypeBinding = Constant { kType :: KType }
-                 | Variable { kType :: KType }
+data Binding t = Constant { kType :: t }
+               | Variable { kType :: t }
   deriving Show
                  
-data TypeCtx = TypeCtx {
-  types :: Map Name KType,
-  bindings :: Map Name TypeBinding
+data TypeCtx t = TypeCtx {
+  types :: Map Name t,
+  bindings :: Map Name (Binding t)
 }
 
-data TypeError = NoMatchingSignature Name [KType]
-               | TypeMismatchError KType KType
-               | NotAFunctionError KType
-               | LookupError Name
-               | TypeLookupError Name
-               | NameAlreadyBoundError Name
-               | BinOpTypeError [(KType, KType)] (KType, KType)
-               | UnaryOpTypeError [KType] KType
+data TypeError t = NoMatchingSignature Name [t]
+                 | TypeMismatchError t t
+                 | NotAFunctionError t
+                 | LookupError Name
+                 | TypeLookupError Name
+                 | NameAlreadyBoundError Name
+                 | BinOpTypeError [(t, t)] (t, t)
+                 | UnaryOpTypeError [t] t
 
-instance Show TypeError where
+instance Show t => Show (TypeError t) where
   show (NoMatchingSignature funcName args) = "No implementation of " ++ show funcName ++ " accepts the types " ++ show args
   show (TypeMismatchError expected actual) = "Expected " ++ show expected ++ ", got " ++ show actual
   show (NotAFunctionError  t) = "Expected a function but got " ++ show t
@@ -33,8 +33,8 @@ instance Show TypeError where
   show (UnaryOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
   show (NameAlreadyBoundError name) = "The variable " ++ show name ++ " is already bound."
 
-instance Show TypeCtx where 
+instance Show t => Show (TypeCtx t) where 
   show TypeCtx { types, bindings } = "TypeCtx " ++ show types ++ " | " ++ show bindings
 
-instance Semigroup TypeCtx where
+instance Semigroup (TypeCtx t) where
   l <> r = TypeCtx (types l <> types r) (bindings l <> bindings r)

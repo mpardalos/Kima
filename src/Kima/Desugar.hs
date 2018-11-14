@@ -13,11 +13,11 @@ desugarProgram = over T.Program (fmap desugarFuncDef)
 
 desugarFuncDef :: T.FuncDef -> D.FuncDef
 desugarFuncDef FuncDef{ name, signature, body } = FuncDef 
-    (TypedName name (KFunc [argTypes $-> returnType signature])) 
+    (TypedName name (KFunc (argTypes $-> returnType signature))) 
     (desugarNamedSignature signature)
     (desugarStmt body)
     where
-        argTypes :: [KType]
+        -- argTypes :: [KType]
         argTypes = snd <$> arguments signature
 
 
@@ -26,7 +26,7 @@ desugarNamedSignature NamedSignature { arguments } = uncurry TypedName <$> argum
 
 desugarExpr :: T.Expr -> D.Expr
 desugarExpr (T.Identifier "print" _) = D.Identifier (Builtin PrintFunc)
-desugarExpr (T.Identifier name t)    = D.Identifier (TypedName name t)
+desugarExpr (T.Identifier name t)    = D.Identifier (TypedName name _t)
 desugarExpr (T.FuncExpr sig body)    = D.FuncExpr (desugarNamedSignature sig) (desugarStmt body)
 desugarExpr (T.Call callee args _)   = D.Call (desugarExpr callee) (desugarExpr <$> args)
 desugarExpr (T.LiteralExpr lit _)    = D.LiteralExpr lit

@@ -13,7 +13,7 @@ data BuiltinName = AddOp | SubOp | DivOp | MulOp | ModOp
                  | PrintFunc
     deriving (Show, Eq, Ord)
 
-data RuntimeName = TypedName Name KType
+data RuntimeName = TypedName Name (KType 'NoOverload)
                  | Builtin BuiltinName
     deriving (Show, Eq, Ord)
 

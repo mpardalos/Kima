@@ -11,7 +11,7 @@ import Kima.AST.Common hiding (Name)
 import Kima.AST.Expression
 import Kima.Control.Monad.State.Extended
 import Kima.Interpreter.Types
-import Kima.KimaTypes(KType(..), ($->))
+import Kima.KimaTypes
 
 import Safe
 import qualified Data.Map as Map
@@ -71,6 +71,6 @@ evalFuncDef FuncDef { signature, body } = Function signature body
 runProgram :: MonadInterpreter m => Desugared.Program -> m ()
 runProgram (Program functions) = do
     forM_ functions $ \f -> bind (name f) (evalFuncDef f)
-    mainFunc <- getName (TypedName "main" (KFunc [[] $-> KUnit]))
+    mainFunc <- getName (TypedName "main" (KFunc ([] $-> KUnit)))
     _ <- runFunc mainFunc [] 
     return ()
