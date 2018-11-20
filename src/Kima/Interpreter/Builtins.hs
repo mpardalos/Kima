@@ -2,17 +2,39 @@ module Kima.Interpreter.Builtins where
 
 import Control.Monad.IO.Class
 import Kima.Interpreter.Types
-import Kima.AST.Desugared
+import Kima.AST
+import Kima.KimaTypes
 import Data.Map
 
 baseEnv :: Environment Value
 baseEnv = Environment $ fromList
-    [ (Builtin AddOp, BuiltinFunction2 $ liftNumOp (+))
-    , (Builtin SubOp, BuiltinFunction2 $ liftNumOp (-))
-    , (Builtin MulOp, BuiltinFunction2 $ liftNumOp (*))
-    , (Builtin ModOp, BuiltinFunction2 $ liftIntegralOp mod)
-    , (Builtin DivOp, BuiltinFunction2 $ kimaDivision)
-    , (Builtin PrintFunc, BuiltinFunction1 kimaPrint)
+    [ (Builtin AddOp (KFunc ([KInt, KInt] $-> KInt)), BuiltinFunction2 $ liftNumOp (+))
+    , (Builtin AddOp (KFunc ([KInt, KFloat] $-> KInt)), BuiltinFunction2 $ liftNumOp (+))
+    , (Builtin AddOp (KFunc ([KFloat, KInt] $-> KFloat)), BuiltinFunction2 $ liftNumOp (+))
+    , (Builtin AddOp (KFunc ([KFloat, KFloat] $-> KInt)), BuiltinFunction2 $ liftNumOp (+))
+
+    , (Builtin SubOp (KFunc ([KInt, KInt] $-> KInt)), BuiltinFunction2 $ liftNumOp (-))
+    , (Builtin SubOp (KFunc ([KInt, KFloat] $-> KInt)), BuiltinFunction2 $ liftNumOp (-))
+    , (Builtin SubOp (KFunc ([KFloat, KInt] $-> KFloat)), BuiltinFunction2 $ liftNumOp (-))
+    , (Builtin SubOp (KFunc ([KFloat, KFloat] $-> KInt)), BuiltinFunction2 $ liftNumOp (-))
+
+    , (Builtin MulOp (KFunc ([KInt, KInt] $-> KInt)), BuiltinFunction2 $ liftNumOp (*))
+    , (Builtin MulOp (KFunc ([KInt, KFloat] $-> KInt)), BuiltinFunction2 $ liftNumOp (*))
+    , (Builtin MulOp (KFunc ([KFloat, KInt] $-> KFloat)), BuiltinFunction2 $ liftNumOp (*))
+    , (Builtin MulOp (KFunc ([KFloat, KFloat] $-> KInt)), BuiltinFunction2 $ liftNumOp (*))
+
+    , (Builtin DivOp (KFunc ([KInt, KInt] $-> KInt)), BuiltinFunction2 $ kimaDivision)
+    , (Builtin DivOp (KFunc ([KInt, KFloat] $-> KInt)), BuiltinFunction2 $ kimaDivision)
+    , (Builtin DivOp (KFunc ([KFloat, KInt] $-> KFloat)), BuiltinFunction2 $ kimaDivision)
+    , (Builtin DivOp (KFunc ([KFloat, KFloat] $-> KInt)), BuiltinFunction2 $ kimaDivision)
+
+    , (Builtin ModOp (KFunc ([KInt, KInt] $-> KInt)), BuiltinFunction2 $ liftIntegralOp mod)
+
+    , (Builtin PrintFunc (KFunc ([KString] $-> KString)), BuiltinFunction1 kimaPrint)
+    , (Builtin PrintFunc (KFunc ([KInt] $-> KString)), BuiltinFunction1 kimaPrint)
+    , (Builtin PrintFunc (KFunc ([KFloat] $-> KString)), BuiltinFunction1 kimaPrint)
+    , (Builtin PrintFunc (KFunc ([KBool] $-> KString)), BuiltinFunction1 kimaPrint)
+    , (Builtin PrintFunc (KFunc ([KUnit] $-> KString)), BuiltinFunction1 kimaPrint)
     ]
 
 kimaPrint :: (MonadRE m, MonadIO m) => Value -> m Value

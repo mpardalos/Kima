@@ -22,11 +22,6 @@ library
         Kima.Control.Monad.State.Extended
 
         Kima.AST
-        Kima.AST.Common
-        Kima.AST.Expression
-        Kima.AST.Desugared
-        Kima.AST.Parsed
-        Kima.AST.Typed
 
         Kima.Desugar
 
@@ -39,9 +34,10 @@ library
 
         Kima.Typechecking
         Kima.Typechecking.Builtins
-        Kima.Typechecking.Types
         Kima.Typechecking.Check
         Kima.Typechecking.Monad
+        Kima.Typechecking.TypeCalculation
+        Kima.Typechecking.Types
 
         Kima.Interpreter
         Kima.Interpreter.Types
@@ -58,11 +54,11 @@ library
         DeriveFunctor DeriveGeneric DeriveTraversable DuplicateRecordFields
         ExistentialQuantification FlexibleContexts FlexibleInstances
         FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs
-        KindSignatures LambdaCase MultiParamTypeClasses NamedFieldPuns
-        OverloadedStrings PartialTypeSignatures RankNTypes
+        KindSignatures LambdaCase LiberalTypeSynonyms MultiParamTypeClasses
+        NamedFieldPuns OverloadedStrings PartialTypeSignatures RankNTypes
         ScopedTypeVariables StandaloneDeriving TemplateHaskell
         TypeApplications TypeFamilies TypeInType TypeOperators
-        UndecidableInstances
+        UndecidableInstances EmptyCase
     build-depends:
         base >=4.7 && <5,
         containers -any,

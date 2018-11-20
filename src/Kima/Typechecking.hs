@@ -1,8 +1,6 @@
 module Kima.Typechecking(
     module Kima.Typechecking.Types,
-    checkStmt,
-    checkExpr,
-    checkProgram,
+    check,
     KTypeM,
     runTypeChecking,
     builtinTypes, baseCtx

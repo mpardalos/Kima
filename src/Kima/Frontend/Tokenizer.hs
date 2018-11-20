@@ -3,7 +3,7 @@ module Kima.Frontend.Tokenizer where
 import Control.Monad
 import Data.Char
 
-import Kima.AST.Common
+import Kima.AST hiding (Mod)
 import Kima.Frontend.Types
 
 import Text.Megaparsec
@@ -44,7 +44,7 @@ intLiteral = L.decimal
 floatLiteral :: Parser Double
 floatLiteral = L.signed inlineWhitespace L.float
 
-identifier :: Parser Name
+identifier :: Parser ParsedName
 identifier = do
     idName <- lexeme ((:) <$> satisfy isIdentifierStartChar <*> takeWhileP Nothing isIdentifierChar)
     if idName `elem` reservedWords

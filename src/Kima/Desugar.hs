@@ -1,54 +1,77 @@
-module Kima.Desugar where
+module Kima.Desugar (desugar) where
 
-import Control.Newtype.Generics
+import Data.Bifunctor
 
-import Kima.AST.Common
-import Kima.AST.Desugared as D
-import Kima.AST.Expression
-import Kima.AST.Typed as T
-import Kima.KimaTypes(KType(..), ($->))
+import Kima.AST
+import Kima.KimaTypes
 
-desugarProgram :: T.Program -> D.Program
-desugarProgram = over T.Program (fmap desugarFuncDef)
+desugarName :: TypedName -> DesugaredName
+desugarName (TypedName "print" t) = Builtin PrintFunc t
+desugarName (TypedName n t) = TypedName n t
 
-desugarFuncDef :: T.FuncDef -> D.FuncDef
-desugarFuncDef FuncDef{ name, signature, body } = FuncDef 
-    (TypedName name (KFunc (argTypes $-> returnType signature))) 
-    (desugarNamedSignature signature)
-    (desugarStmt body)
-    where
-        -- argTypes :: [KType]
-        argTypes = snd <$> arguments signature
+desugar :: AST p sug TypedName 'Nothing -> DesugaredAST p
+desugar (Program ast) = Program (desugar <$> ast) 
+desugar (FuncDef name sig body) = FuncDef (desugarName name) (desugarName <$> sig) (desugar body)
+desugar (LiteralE lit) = LiteralE lit
+desugar (Identifier name) = Identifier (desugarName name)
+desugar (FuncExpr sig body) = FuncExpr (desugarName <$> sig) (desugar body)
+desugar (Call callee args) = Call (desugar callee) (desugar <$> args)
+desugar (BinE bin) = desugarBinary (desugar <$> bin)
+desugar (UnaryE unary) = desugarUnary (desugar <$> unary)
+desugar (ExprStmt expr) = ExprStmt (desugar expr) 
+desugar (Block stmts) = Block (desugar <$> stmts)
+desugar (Assign name expr) = Assign (desugarName name) (desugar expr) 
+desugar (While stmt) = While (bimap desugar desugar stmt)
+desugar (If stmt) = If (bimap desugar desugar stmt)
 
+typedBuiltin :: BuiltinName -> DesugaredName
+typedBuiltin AddOp = Builtin AddOp (KFuncOv 
+    [ [KInt, KInt] $-> KInt
+    , [KInt, KFloat] $-> KInt
+    , [KFloat, KInt] $-> KInt
+    , [KFloat, KFloat] $-> KInt
+    ])
+typedBuiltin SubOp = Builtin SubOp (KFuncOv 
+    [ [KInt, KInt] $-> KInt
+    , [KInt, KFloat] $-> KInt
+    , [KFloat, KInt] $-> KInt
+    , [KFloat, KFloat] $-> KInt
+    ])
+typedBuiltin MulOp = Builtin MulOp (KFuncOv 
+    [ [KInt, KInt] $-> KInt
+    , [KInt, KFloat] $-> KInt
+    , [KFloat, KInt] $-> KInt
+    , [KFloat, KFloat] $-> KInt
+    ])
+typedBuiltin ModOp = Builtin ModOp (KFuncOv 
+    [ [KInt, KInt] $-> KInt ])
+typedBuiltin DivOp = Builtin DivOp (KFuncOv 
+    [ [KInt, KInt] $-> KInt
+    , [KInt, KFloat] $-> KInt
+    , [KFloat, KInt] $-> KInt
+    , [KFloat, KFloat] $-> KInt
+    ])
+typedBuiltin InvertOp = Builtin InvertOp (KFuncOv
+    [ [KBool] $-> KBool ])
+typedBuiltin NegateOp = Builtin NegateOp (KFuncOv 
+    [ [KInt] $-> KInt 
+    , [KFloat] $-> KFloat 
+    ])
+typedBuiltin PrintFunc = Builtin PrintFunc (KFuncOv 
+    [ [KString] $-> KString
+    , [KInt] $-> KString
+    , [KFloat] $-> KString
+    , [KBool] $-> KString
+    , [KUnit] $-> KString
+    ])
 
-desugarNamedSignature :: T.NamedSignature -> D.NamedSignature
-desugarNamedSignature NamedSignature { arguments } = uncurry TypedName <$> arguments
+desugarBinary :: Binary (DesugaredAST 'Expr) -> DesugaredAST 'Expr
+desugarBinary (Add l r) = Call (Identifier (typedBuiltin AddOp)) [l, r]
+desugarBinary (Sub l r) = Call (Identifier (typedBuiltin SubOp)) [l, r]
+desugarBinary (Div l r) = Call (Identifier (typedBuiltin DivOp)) [l, r]
+desugarBinary (Mul l r) = Call (Identifier (typedBuiltin MulOp)) [l, r]
+desugarBinary (Mod l r) = Call (Identifier (typedBuiltin ModOp)) [l, r]
 
-desugarExpr :: T.Expr -> D.Expr
-desugarExpr (T.Identifier "print" _) = D.Identifier (Builtin PrintFunc)
-desugarExpr (T.Identifier name t)    = D.Identifier (TypedName name _t)
-desugarExpr (T.FuncExpr sig body)    = D.FuncExpr (desugarNamedSignature sig) (desugarStmt body)
-desugarExpr (T.Call callee args _)   = D.Call (desugarExpr callee) (desugarExpr <$> args)
-desugarExpr (T.LiteralExpr lit _)    = D.LiteralExpr lit
-desugarExpr (T.BinExpr bin _)        = desugarBinary (desugarExpr <$> bin)
-desugarExpr (T.UnaryExpr unary _)    = desugarUnary (desugarExpr <$> unary)
-
-desugarStmt :: T.Stmt -> D.Stmt
-desugarStmt (T.BlockStmt body)            = D.BlockStmt (desugarStmt <$> body)
-desugarStmt (T.WhileStmt cond body)       = D.WhileStmt (desugarExpr cond) (desugarStmt body)
-desugarStmt (T.ExprStmt expr)             = D.ExprStmt (desugarExpr expr)
-desugarStmt (T.IfStmt cond ifBlk elseBlk) = D.IfStmt (desugarExpr cond) (desugarStmt ifBlk) (desugarStmt elseBlk)
-desugarStmt (T.AssignStmt name expr)      = D.AssignStmt (TypedName name (exprType expr)) (desugarExpr expr)
-desugarStmt (T.VarStmt name _ expr)       = D.AssignStmt (TypedName name (exprType expr)) (desugarExpr expr)
-desugarStmt (T.LetStmt name _ expr)       = D.AssignStmt (TypedName name (exprType expr)) (desugarExpr expr)
-
-desugarBinary :: Binary D.Expr -> D.Expr
-desugarBinary (Add l r) = D.Call (D.Identifier (Builtin AddOp)) [l, r]
-desugarBinary (Sub l r) = D.Call (D.Identifier (Builtin SubOp)) [l, r]
-desugarBinary (Div l r) = D.Call (D.Identifier (Builtin DivOp)) [l, r]
-desugarBinary (Mul l r) = D.Call (D.Identifier (Builtin MulOp)) [l, r]
-desugarBinary (Mod l r) = D.Call (D.Identifier (Builtin ModOp)) [l, r]
-
-desugarUnary :: Unary D.Expr -> D.Expr
-desugarUnary (Negate e) = D.Call (D.Identifier (Builtin NegateOp)) [e]
-desugarUnary (Invert e) = D.Call (D.Identifier (Builtin InvertOp)) [e]
+desugarUnary :: Unary (DesugaredAST 'Expr)-> DesugaredAST 'Expr
+desugarUnary (Negate e) = Call (Identifier (typedBuiltin NegateOp)) [e]
+desugarUnary (Invert e) = Call (Identifier (typedBuiltin InvertOp)) [e]

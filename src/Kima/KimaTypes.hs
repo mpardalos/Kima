@@ -7,13 +7,16 @@ data Overloaded = Overload | NoOverload
 -- | The ov type parameter defines whether functions are overloaded
 -- | If yes, then functions can have multiple (possible) signatures.
 data KType (ov :: Overloaded) where
-  KFuncOverloaded :: [Signature (KType 'Overload)] -> KType 'Overload
+  KFuncOv         :: [Signature (KType 'Overload)] -> KType 'Overload
   KString         :: KType o  
   KUnit           :: KType o
   KBool           :: KType o
   KInt            :: KType o
   KFloat          :: KType o
   KFunc           :: Signature (KType 'NoOverload) -> KType 'NoOverload
+
+type KTypeOv = KType 'Overload
+type KTypeNoOv = KType 'NoOverload
 
 deriving instance Show (KType o)
 deriving instance Eq (KType o)

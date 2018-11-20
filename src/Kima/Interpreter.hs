@@ -10,7 +10,7 @@ import Kima.Interpreter.Interpreter as E
 import Kima.Interpreter.Types as E
 import Kima.Interpreter.Monad as E
 
-import Kima.AST.Desugared as Desugared
+import Kima.AST
 
-runProgram :: Desugared.Program -> IO (Either RuntimeError ())
+runProgram :: RuntimeAST 'TopLevel -> IO (Either RuntimeError ())
 runProgram = execInterpreter . E.runProgram 

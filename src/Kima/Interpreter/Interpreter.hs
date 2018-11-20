@@ -6,9 +6,7 @@ import Prelude hiding ( lookup )
 
 import Control.Newtype.Generics
 
-import Kima.AST.Desugared as Desugared
-import Kima.AST.Common hiding (Name)
-import Kima.AST.Expression
+import Kima.AST
 import Kima.Control.Monad.State.Extended
 import Kima.Interpreter.Types
 import Kima.KimaTypes
@@ -17,8 +15,8 @@ import Safe
 import qualified Data.Map as Map
 
 ---------- Expressions ----------
-evalExpr :: (MonadInterpreter m) => Expr -> m Value
-evalExpr (LiteralExpr l) = return $ evalLiteral l
+evalExpr :: (MonadInterpreter m) => RuntimeAST 'Expr -> m Value
+evalExpr (LiteralE l) = return $ evalLiteral l
 evalExpr (Identifier name) = getName name
 evalExpr (FuncExpr sig body) = return $ Function sig body
 evalExpr (Call callee args) = runFunc <$> evalExpr callee <*> (evalExpr `mapM` args) >>= id
@@ -30,21 +28,21 @@ evalLiteral (BoolExpr b) = Bool b
 evalLiteral (StringExpr s) = String s
 
 ---------- Statements ----------
-runStmt :: MonadInterpreter m => Stmt -> m Value
-runStmt (BlockStmt stmts) = do 
+runStmt :: MonadInterpreter m => RuntimeAST 'Stmt -> m Value
+runStmt (Block stmts) = do 
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
-runStmt (AssignStmt name expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (Assign name expr) = Unit <$ (evalExpr expr >>= bind name)
 runStmt (ExprStmt expr) = evalExpr expr
-runStmt loop@(WhileStmt cond body) = evalExpr cond >>= \case
+runStmt loop@(While WhileStmt {cond, body}) = evalExpr cond >>= \case
     (Bool True) -> do
         _ <- runStmt body
         runStmt loop
     (Bool False) -> return Unit
     _ -> runtimeError
-runStmt (IfStmt cond ifblk elseblk) = evalExpr cond >>= \case
-    (Bool True) -> runStmt ifblk
-    (Bool False) -> runStmt elseblk
+runStmt (If IfStmt {cond, ifBlk, elseBlk}) = evalExpr cond >>= \case
+    (Bool True) -> runStmt ifBlk
+    (Bool False) -> runStmt elseBlk
     _ -> runtimeError
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
@@ -65,12 +63,12 @@ getName name = gets (Map.lookup name . unEnv) >>= \case
     Just val -> return val
     Nothing  -> traceShow name runtimeError
 
-evalFuncDef :: Desugared.FuncDef -> Value
-evalFuncDef FuncDef { signature, body } = Function signature body
+evalFuncDef :: RuntimeAST 'FunctionDef -> Value
+evalFuncDef (FuncDef _ signature body) = Function signature body
 
-runProgram :: MonadInterpreter m => Desugared.Program -> m ()
+runProgram :: MonadInterpreter m => RuntimeAST 'TopLevel -> m ()
 runProgram (Program functions) = do
-    forM_ functions $ \f -> bind (name f) (evalFuncDef f)
+    forM_ functions $ \f@(FuncDef name _ _) -> bind name (evalFuncDef f)
     mainFunc <- getName (TypedName "main" (KFunc ([] $-> KUnit)))
     _ <- runFunc mainFunc [] 
     return ()

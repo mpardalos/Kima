@@ -3,9 +3,7 @@ module Kima.Interface.Runners where
 import Control.Monad.Except
 import Data.Bifunctor
 
-import Kima.AST.Parsed as Parsed
-import Kima.AST.Typed as Typed
-import Kima.AST.Desugared as Desugared
+import Kima.AST
 import Kima.Desugar
 import Kima.Interface.Types
 import qualified Kima.Frontend as F
@@ -28,24 +26,29 @@ parseRepl = do
     parseRepl
 
 parseFile = runMonadInterface . parseFile'
-parseFile' :: MonadInterface m => FilePath -> m Parsed.Program
+parseFile' :: MonadInterface m => FilePath -> m ParsedProgram
 parseFile' fn = do 
     src <- liftIO (readFile fn)
     runEither (F.runParser F.program fn src)
 
 typecheckFile = runMonadInterface . (parseFile' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'
-typecheckAST' :: MonadInterface m => Parsed.Program -> m Typed.Program
-typecheckAST' = runEither . T.runTypeChecking T.baseCtx . T.checkProgram
+typecheckAST' :: MonadInterface m => ParsedProgram -> m TypedProgram
+typecheckAST' = runEither . T.runTypeChecking T.baseCtx . T.check
 
 desugarFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST')
 desugarAST = runMonadInterface . desugarAST'
-desugarAST' :: MonadInterface m => Typed.Program -> m Desugared.Program
-desugarAST' = return . desugarProgram
+desugarAST' :: MonadInterface m => TypedProgram -> m DesugaredProgram
+desugarAST' = return . desugar
 
-runFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST' >=> runAST')
+disambiguateFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST')
+disambiguateAST = runMonadInterface . desugarAST'
+disambiguateAST' :: MonadInterface m => DesugaredProgram -> m RuntimeProgram
+disambiguateAST' = return . _disambiguate
+
+runFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST' >=> disambiguateAST' >=> runAST')
 runAST = runMonadInterface . runAST'
-runAST' :: MonadInterface m => Desugared.Program -> m ()
+runAST' :: MonadInterface m => RuntimeProgram -> m ()
 runAST' src = liftIO (I.runProgram src) >>= runEither 
 
 userThrow :: (MonadInterface m, UserThrowable err) => err -> m a

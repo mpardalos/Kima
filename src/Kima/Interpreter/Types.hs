@@ -2,7 +2,7 @@ module Kima.Interpreter.Types where
 
 import Prelude hiding (lookup)
 
-import Kima.AST.Desugared
+import Kima.AST
 
 import Control.Newtype.Generics
 
@@ -12,6 +12,8 @@ import Control.Monad.State
 import Data.Map hiding (toList, fromList)
 
 import GHC.Generics
+
+type RuntimeName = UnambiguousName
 
 type MonadRE m = (Monad m, MonadError RuntimeError m)
 type MonadEnv m = (Monad m, MonadState (Environment Value) m)
@@ -27,7 +29,7 @@ data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           | Function [RuntimeName] Stmt
+           | Function [RuntimeName] (RuntimeAST 'Stmt)
            | BuiltinFunction1 (forall m. MonadInterpreter m => Value -> m Value)
            | BuiltinFunction2 (forall m. MonadInterpreter m => Value -> Value -> m Value)
            | BuiltinFunction3 (forall m. MonadInterpreter m => Value -> Value -> Value -> m Value)
