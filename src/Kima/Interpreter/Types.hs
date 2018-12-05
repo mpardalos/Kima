@@ -13,7 +13,9 @@ import Data.Map hiding (toList, fromList)
 
 import GHC.Generics
 
-type RuntimeName = UnambiguousName
+type RuntimeName = TypedName
+type RuntimeAST p = TypedAST p
+type RuntimeProgram = TypedProgram
 
 type MonadRE m = (Monad m, MonadError RuntimeError m)
 type MonadEnv m = (Monad m, MonadState (Environment Value) m)
