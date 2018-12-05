@@ -1,26 +1,8 @@
 module Kima.KimaTypes where
 
--- | Whether a KType is overloaded. Refer to the documentation of KType
-data Overloaded = Overload | NoOverload
-
 -- | The types of the kima programming language
--- | The ov type parameter defines whether functions are overloaded
--- | If yes, then functions can have multiple (possible) signatures.
-data KType (ov :: Overloaded) where
-  KFuncOv         :: [Signature (KType 'Overload)] -> KType 'Overload
-  KString         :: KType o  
-  KUnit           :: KType o
-  KBool           :: KType o
-  KInt            :: KType o
-  KFloat          :: KType o
-  KFunc           :: Signature (KType 'NoOverload) -> KType 'NoOverload
-
-type KTypeOv = KType 'Overload
-type KTypeNoOv = KType 'NoOverload
-
-deriving instance Show (KType o)
-deriving instance Eq (KType o)
-deriving instance Ord (KType o)
+data KType = KString | KUnit | KBool | KInt | KFloat | KFunc (Signature KType)
+  deriving (Show, Eq, Ord)
 
 data Signature kt = Signature {
   arguments :: [kt],
@@ -28,6 +10,6 @@ data Signature kt = Signature {
 } deriving (Eq, Ord)
 ($->) = Signature
 
-instance Show kt => Show (Signature kt) where
+instance Show t => Show (Signature t) where
   show Signature{arguments, returnType} = "(" ++ show arguments ++ ") -> " ++ show returnType
 

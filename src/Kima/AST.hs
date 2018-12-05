@@ -16,15 +16,19 @@ data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
     deriving (Show, Eq, Ord)
 
 type TypeName        = GenericName 'Nothing                    'False
-type ParsedName      = GenericName 'Nothing                    'False
-type TypedName       = GenericName ('Just (KType 'Overload))   'False
-type DesugaredName   = GenericName ('Just (KType 'Overload))   'True
-type UnambiguousName = GenericName ('Just (KType 'NoOverload)) 'True
+
+type ParsedName      = GenericName 'Nothing      'False
+type DesugaredName   = GenericName 'Nothing      'True
+type TypedName       = GenericName ('Just KType) 'True
 
 data GenericName :: Maybe Type -> Bool -> Type where
+    -- Strings
     Name        :: String      -> GenericName 'Nothing b
     TypedName   :: String -> t -> GenericName ('Just t) b
-    Builtin     :: BuiltinName -> KType ov -> GenericName ('Just (KType ov)) 'True
+
+    -- Builtins
+    Builtin     :: BuiltinName -> GenericName 'Nothing 'True
+    TBuiltin    :: BuiltinName -> t -> GenericName ('Just t) 'True
     
 ---------- AST ----------  
 data Sugar = Sugar | NoSugar
@@ -84,21 +88,18 @@ data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Typ
     Assign   :: name -> AST 'Expr sug name t                      -> AST 'Stmt sug name t
 
     -- Typed versions
-    -- The constraint seems useless, but it silences the warning asking us to pattern match
-    -- on these constructors when t ~ Void
-    Var      :: name -> t -> AST 'Expr 'Sugar name ('Just t) -> AST 'Stmt 'Sugar name ('Just t)
-    Let      :: name -> t -> AST 'Expr 'Sugar name ('Just t) -> AST 'Stmt 'Sugar name ('Just t)
+    Var      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
+    Let      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
 
 ------ Type synonyms for different phases -----
-type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName      ('Just TypeExpr)
-type TypedAST     (p :: ASTPart) = AST p 'Sugar   TypedName       'Nothing
-type DesugaredAST (p :: ASTPart) = AST p 'NoSugar DesugaredName   'Nothing
-type RuntimeAST   (p :: ASTPart) = AST p 'NoSugar UnambiguousName 'Nothing
+-- Parse ->
+type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName    ('Just TypeExpr) -- Desugar ->
+type DesugaredAST (p :: ASTPart) = AST p 'NoSugar DesugaredName ('Just TypeExpr) -- Typecheck ->
+type TypedAST     (p :: ASTPart) = AST p 'NoSugar TypedName     'Nothing
 
-type ParsedProgram    = AST 'TopLevel 'Sugar   ParsedName      ('Just TypeExpr)
-type TypedProgram     = AST 'TopLevel 'Sugar   TypedName       'Nothing
-type DesugaredProgram = AST 'TopLevel 'NoSugar DesugaredName   'Nothing
-type RuntimeProgram   = AST 'TopLevel 'NoSugar UnambiguousName 'Nothing
+type ParsedProgram    = AST 'TopLevel 'Sugar   ParsedName    ('Just TypeExpr)
+type DesugaredProgram = AST 'TopLevel 'NoSugar DesugaredName 'Nothing
+type TypedProgram     = AST 'TopLevel 'NoSugar TypedName     'Nothing
 
 -- Types
 data TypeExpr = TypeName (GenericName 'Nothing 'False)
@@ -161,7 +162,7 @@ instance Show ParsedName where
 
 instance Show t => Show (GenericName ('Just t) ov) where
     show (TypedName str t) = "{" ++ str ++ " : " ++ show t ++ "}"
-    show (Builtin n t) = "{" ++ show n ++ " : " ++ show t ++ "}"
+    show (TBuiltin n t) = "{" ++ show n ++ " : " ++ show t ++ "}"
 
 
 --------------- Boring instances ---------------------
@@ -192,13 +193,13 @@ instance Eq ParsedName where
     (Name l) == (Name r) = l == r
 instance Eq t => Eq (GenericName ('Just t) b) where
     TypedName n1 t1 == TypedName n2 t2 = n1 == n2 && t1 == t2
-    Builtin l t1 == Builtin r t2 = l == r && t1 == t2
+    TBuiltin l t1 == TBuiltin r t2 = l == r && t1 == t2
     _ == _ = False
 
 instance Ord ParsedName where
     Name l <= Name r = l <= r
 instance Ord t => Ord (GenericName ('Just t) b) where
-    TypedName{} `compare` Builtin{} = LT
-    Builtin{} `compare` TypedName{} = GT
+    TypedName{} `compare` TBuiltin{} = LT
+    TBuiltin{} `compare` TypedName{} = GT
     TypedName n1 t1 `compare` TypedName n2 t2 = compare n1 n2 <> compare t1 t2
-    Builtin l t1 `compare` Builtin r t2 = compare l r <> compare t1 t2
+    TBuiltin l t1 `compare` TBuiltin r t2 = compare l r <> compare t1 t2

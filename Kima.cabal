@@ -17,13 +17,14 @@ library
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     hs-source-dirs: src
     exposed-modules:
-
         Kima
         Kima.Control.Monad.State.Extended
 
         Kima.AST
 
         Kima.Desugar
+
+        Kima.Disambiguate
 
         Kima.Frontend
         Kima.Frontend.Types
@@ -33,11 +34,6 @@ library
         Kima.KimaTypes
 
         Kima.Typechecking
-        Kima.Typechecking.Builtins
-        Kima.Typechecking.Check
-        Kima.Typechecking.Monad
-        Kima.Typechecking.TypeCalculation
-        Kima.Typechecking.Types
 
         Kima.Interpreter
         Kima.Interpreter.Types
