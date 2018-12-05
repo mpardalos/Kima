@@ -8,7 +8,6 @@ import Kima.Desugar
 import Kima.Interface.Types
 import qualified Kima.Frontend as F
 import qualified Kima.Interpreter as I
-import qualified Kima.Typechecking as T
 
 import System.IO
 import Text.Megaparsec
@@ -31,24 +30,19 @@ parseFile' fn = do
     src <- liftIO (readFile fn)
     runEither (F.runParser F.program fn src)
 
-typecheckFile = runMonadInterface . (parseFile' >=> typecheckAST')
+typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'
-typecheckAST' :: MonadInterface m => ParsedProgram -> m TypedProgram
-typecheckAST' = runEither . T.runTypeChecking T.baseCtx . T.check
+typecheckAST' :: MonadInterface m => DesugaredProgram -> m TypedProgram
+typecheckAST' = _ --runEither . _typecheck --T.runTypeChecking T.baseCtx . T.check
 
-desugarFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST')
+desugarFile = runMonadInterface . (parseFile' >=> desugarAST')
 desugarAST = runMonadInterface . desugarAST'
-desugarAST' :: MonadInterface m => TypedProgram -> m DesugaredProgram
+desugarAST' :: MonadInterface m => ParsedProgram -> m DesugaredProgram
 desugarAST' = return . desugar
 
-disambiguateFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST')
-disambiguateAST = runMonadInterface . desugarAST'
-disambiguateAST' :: MonadInterface m => DesugaredProgram -> m RuntimeProgram
-disambiguateAST' = return . _disambiguate
-
-runFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST' >=> disambiguateAST' >=> runAST')
+runFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST' >=> runAST')
 runAST = runMonadInterface . runAST'
-runAST' :: MonadInterface m => RuntimeProgram -> m ()
+runAST' :: MonadInterface m => TypedProgram -> m ()
 runAST' src = liftIO (I.runProgram src) >>= runEither 
 
 userThrow :: (MonadInterface m, UserThrowable err) => err -> m a

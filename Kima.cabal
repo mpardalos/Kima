@@ -24,16 +24,12 @@ library
 
         Kima.Desugar
 
-        Kima.Disambiguate
-
         Kima.Frontend
         Kima.Frontend.Types
         Kima.Frontend.Tokenizer
         Kima.Frontend.Parser
 
         Kima.KimaTypes
-
-        Kima.Typechecking
 
         Kima.Interpreter
         Kima.Interpreter.Types

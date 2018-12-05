@@ -97,9 +97,9 @@ type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName    ('Just TypeExpr)
 type DesugaredAST (p :: ASTPart) = AST p 'NoSugar DesugaredName ('Just TypeExpr) -- Typecheck ->
 type TypedAST     (p :: ASTPart) = AST p 'NoSugar TypedName     'Nothing
 
-type ParsedProgram    = AST 'TopLevel 'Sugar   ParsedName    ('Just TypeExpr)
-type DesugaredProgram = AST 'TopLevel 'NoSugar DesugaredName 'Nothing
-type TypedProgram     = AST 'TopLevel 'NoSugar TypedName     'Nothing
+type ParsedProgram    = ParsedAST 'TopLevel
+type DesugaredProgram = DesugaredAST 'TopLevel
+type TypedProgram     = TypedAST 'TopLevel
 
 -- Types
 data TypeExpr = TypeName (GenericName 'Nothing 'False)
@@ -157,13 +157,17 @@ instance Show TypeExpr where
         (Name s) -> "#" ++ s
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
 
-instance Show ParsedName where
-    show (Name n) = "{" ++ show n ++ "}"
+-- instance Show ParsedName where
+--     show (Name n) = "{" ++ show n ++ "}"
 
-instance Show t => Show (GenericName ('Just t) ov) where
+
+instance Show t => Show (GenericName ('Just t) b) where
     show (TypedName str t) = "{" ++ str ++ " : " ++ show t ++ "}"
     show (TBuiltin n t) = "{" ++ show n ++ " : " ++ show t ++ "}"
 
+instance Show (GenericName 'Nothing b) where
+    show (Name n) = "{" ++ show n ++ "}"
+    show (Builtin n) = "{" ++ show n ++ "}"
 
 --------------- Boring instances ---------------------
 

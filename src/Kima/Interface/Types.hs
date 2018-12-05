@@ -3,7 +3,6 @@ module Kima.Interface.Types where
 import Control.Arrow hiding (first)
 import Control.Monad.Except
 
-import Kima.Typechecking
 import Kima.Frontend
 import Kima.Interpreter
 
@@ -16,7 +15,7 @@ class UserThrowable err where
 instance UserThrowable ParseError where
     userShow = parseErrorPretty
 
-instance Show t => UserThrowable (TypeError t)
+-- instance Show t => UserThrowable (TypeError t)
 instance UserThrowable RuntimeError
 
 data UserThrowableError = forall err. UserThrowable err => UserThrowableError err
