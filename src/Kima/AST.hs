@@ -1,5 +1,8 @@
 module Kima.AST where
 
+import Control.Applicative
+import Control.Monad.Identity
+import Data.Coerce
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
@@ -107,8 +110,13 @@ data TypeExpr = TypeName (GenericName 'Nothing 'False)
     deriving Eq
 
 --------- Useful functions ----------
-typeAnnotate :: t -> GenericName 'Nothing 'False -> GenericName ('Just t) 'False
+typeAnnotate :: t -> GenericName 'Nothing b -> GenericName ('Just t) b
 typeAnnotate t (Name n) = TypedName n t
+typeAnnotate t (Builtin n) = TBuiltin n t
+
+nameType :: GenericName ('Just t) b -> t
+nameType (TypedName _ t) = t
+nameType (TBuiltin _ t) = t
 
 --------------- Show instances ---------------------
 
@@ -207,3 +215,50 @@ instance Ord t => Ord (GenericName ('Just t) b) where
     TBuiltin{} `compare` TypedName{} = GT
     TypedName n1 t1 `compare` TypedName n2 t2 = compare n1 n2 <> compare t1 t2
     TBuiltin l t1 `compare` TBuiltin r t2 = compare l r <> compare t1 t2
+
+-- Traverals
+
+mapTypeAnnotations :: forall n t1 t2 p sug. (t1 -> t2) -> AST p sug n ('Just t1) -> AST p sug n ('Just t2)
+mapTypeAnnotations = coerce (traverseTypeAnnotations :: (t1 -> Identity t2) -> AST p sug n ('Just t1) -> Identity (AST p sug n ('Just t2)))
+
+traverseTypeAnnotations :: Applicative m => (t1 -> m t2) -> AST p sug n ('Just t1) -> m (AST p sug n ('Just t2))
+traverseTypeAnnotations f (Program ast)            = Program <$> traverse (traverseTypeAnnotations f) ast
+traverseTypeAnnotations f (FuncDefAnn n args rt b) = FuncDefAnn n <$> traverse (traverse f) args <*> f rt <*> traverseTypeAnnotations f b
+traverseTypeAnnotations _ (LiteralE lit)           = pure $ LiteralE lit
+traverseTypeAnnotations _ (Identifier n)           = pure $ Identifier n
+traverseTypeAnnotations f (FuncExprAnn args rt b)  = FuncExprAnn <$> traverse (traverse f) args       <*> f rt <*> traverseTypeAnnotations f b
+traverseTypeAnnotations f (Call callee args)       = Call        <$> traverseTypeAnnotations f callee <*> traverse (traverseTypeAnnotations f) args
+traverseTypeAnnotations f (BinE bin)               = BinE        <$> traverse (traverseTypeAnnotations f) bin
+traverseTypeAnnotations f (UnaryE unary)           = UnaryE      <$> traverse (traverseTypeAnnotations f) unary
+traverseTypeAnnotations f (ExprStmt e)             = ExprStmt    <$> traverseTypeAnnotations f e
+traverseTypeAnnotations f (Block blk)              = Block       <$> traverse (traverseTypeAnnotations f) blk
+traverseTypeAnnotations f (While stmt)             = While       <$> bitraverse (traverseTypeAnnotations f) (traverseTypeAnnotations f) stmt
+traverseTypeAnnotations f (If stmt)                = If          <$> bitraverse (traverseTypeAnnotations f) (traverseTypeAnnotations f) stmt
+traverseTypeAnnotations f (Assign n e)             = Assign n    <$> traverseTypeAnnotations f e
+traverseTypeAnnotations f (Var n t e)              = Var n       <$> f t <*> traverseTypeAnnotations f e
+traverseTypeAnnotations f (Let n t e)              = Let n       <$> f t <*> traverseTypeAnnotations f e
+
+mapNames :: forall n1 n2 p sug t. (n1 -> n2) -> AST p sug n1 t -> AST p sug n2 t
+mapNames = coerce (traverseNames :: (n1 -> Identity n2) -> AST p sug n1 t -> Identity (AST p sug n2 t))
+
+traverseNames :: Applicative m => (n1 -> m n2) -> AST p sug n1 t -> m (AST p sug n2 t)
+traverseNames f (Program ast)            = Program <$> traverse (traverseNames f) ast
+traverseNames f (ExprStmt e)             = ExprStmt <$> traverseNames f e
+traverseNames _ (LiteralE lit)           = pure $ LiteralE lit
+traverseNames f (Identifier n)           = Identifier <$> f n
+traverseNames f (BinE bin)               = BinE       <$> traverse (traverseNames f) bin
+traverseNames f (UnaryE unary)           = UnaryE     <$> traverse (traverseNames f) unary
+traverseNames f (While stmt)             = While <$> bitraverse (traverseNames f) (traverseNames f) stmt
+traverseNames f (If stmt)                = If    <$> bitraverse (traverseNames f) (traverseNames f) stmt
+traverseNames f (Block blk)              = Block <$> traverse   (traverseNames f)                   blk
+traverseNames f (FuncDef n args b)       = FuncDef     <$> f n <*> traverse f args                              <*> traverseNames f b
+traverseNames f (FuncExpr    args    b)  = FuncExpr    <$>         traverse f args                              <*> traverseNames f b
+traverseNames f (FuncDefAnn n args rt b) = FuncDefAnn  <$> f n <*> traverse (traverseTuple1 f) args <*> pure rt <*> traverseNames f b
+traverseNames f (FuncExprAnn args rt b)  = FuncExprAnn <$>         traverse (traverseTuple1 f) args <*> pure rt <*> traverseNames f b
+traverseNames f (Call callee args)       = Call        <$> traverseNames f callee                               <*> traverse (traverseNames f) args
+traverseNames f (Assign n e)             = Assign <$> f n            <*> traverseNames f e
+traverseNames f (Var n t e)              = Var    <$> f n <*> pure t <*> traverseNames f e
+traverseNames f (Let n t e)              = Let    <$> f n <*> pure t <*> traverseNames f e
+
+traverseTuple1 :: Applicative m => (a -> m c) -> (a, b) -> m (c, b)
+traverseTuple1 f (a, b) = liftA2 (,) (f a) (pure b)

@@ -29,6 +29,8 @@ library
         Kima.Frontend.Tokenizer
         Kima.Frontend.Parser
 
+        Kima.Typechecking
+
         Kima.KimaTypes
 
         Kima.Interpreter
