@@ -8,6 +8,7 @@ import Kima.Desugar
 import Kima.Interface.Types
 import qualified Kima.Frontend as F
 import qualified Kima.Interpreter as I
+import qualified Kima.Typechecking as T
 
 import System.IO
 import Text.Megaparsec
@@ -30,6 +31,11 @@ parseFile' fn = do
     src <- liftIO (readFile fn)
     runEither (F.runParser F.program fn src)
 
+constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> constraintAST')
+constraintAST = runMonadInterface . constraintAST'
+constraintAST' :: MonadInterface m => DesugaredProgram -> m (T.HoleProgram, [T.Constraint])
+constraintAST' = runMaybe (CustomError "Couldn't resolve type expressions") . T.makeConstraints
+
 typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'
 typecheckAST' :: MonadInterface m => DesugaredProgram -> m TypedProgram
@@ -50,3 +56,7 @@ userThrow = throwError . UserThrowableError
 
 runEither :: (MonadInterface m, UserThrowable err) => Either err a -> m a
 runEither = liftEither . bimap UserThrowableError id 
+
+runMaybe :: (UserThrowable err, MonadInterface m) => err -> Maybe a -> m a
+runMaybe _   (Just a) = pure a 
+runMaybe err Nothing  = userThrow err
