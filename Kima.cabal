@@ -73,11 +73,11 @@ executable kima
         DeriveFunctor DeriveGeneric DeriveTraversable DuplicateRecordFields
         ExistentialQuantification FlexibleContexts FlexibleInstances
         FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs
-        KindSignatures LambdaCase MultiParamTypeClasses NamedFieldPuns
-        OverloadedStrings PartialTypeSignatures RankNTypes
+        KindSignatures LambdaCase LiberalTypeSynonyms MultiParamTypeClasses
+        NamedFieldPuns OverloadedStrings PartialTypeSignatures RankNTypes
         ScopedTypeVariables StandaloneDeriving TemplateHaskell
         TypeApplications TypeFamilies TypeInType TypeOperators
-        UndecidableInstances
+        UndecidableInstances EmptyCase
     build-depends:
         base >=4.7 && <5,
         Kima == 0.1.0.0,
