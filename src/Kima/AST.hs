@@ -165,16 +165,12 @@ instance Show TypeExpr where
         (Name s) -> "#" ++ s
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
 
--- instance Show ParsedName where
---     show (Name n) = "{" ++ show n ++ "}"
-
-
 instance Show t => Show (GenericName ('Just t) b) where
     show (TypedName str t) = "{" ++ str ++ " : " ++ show t ++ "}"
     show (TBuiltin n t) = "{" ++ show n ++ " : " ++ show t ++ "}"
 
 instance Show (GenericName 'Nothing b) where
-    show (Name n) = "{" ++ show n ++ "}"
+    show (Name str) = "{" ++ str ++ "}"
     show (Builtin n) = "{" ++ show n ++ "}"
 
 --------------- Boring instances ---------------------
@@ -201,15 +197,21 @@ instance Bitraversable WhileStmt where
 instance IsString ParsedName where
     fromString = Name
 
-instance Eq ParsedName where
+instance Eq (GenericName 'Nothing b) where
     (Name l) == (Name r) = l == r
+    (Builtin l) == (Builtin r) = l == r
+    _ == _ = False
 instance Eq t => Eq (GenericName ('Just t) b) where
     TypedName n1 t1 == TypedName n2 t2 = n1 == n2 && t1 == t2
     TBuiltin l t1 == TBuiltin r t2 = l == r && t1 == t2
     _ == _ = False
 
-instance Ord ParsedName where
-    Name l <= Name r = l <= r
+instance Ord (GenericName 'Nothing b) where
+    Name{} `compare` Builtin{} = LT
+    Builtin{} `compare` Name{} = GT
+    Name n1 `compare` Name n2 = compare n1 n2
+    Builtin l `compare` Builtin r = compare l r
+
 instance Ord t => Ord (GenericName ('Just t) b) where
     TypedName{} `compare` TBuiltin{} = LT
     TBuiltin{} `compare` TypedName{} = GT
