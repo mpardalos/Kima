@@ -44,7 +44,6 @@ data Unary e = Negate e | Invert e
     deriving (Show, Functor, Foldable, Traversable)
 
 data Literal = IntExpr Integer | FloatExpr Double | BoolExpr Bool | StringExpr String 
-    deriving Show
 
 data IfStmt cond body = IfStmt {
     cond :: cond,
@@ -56,6 +55,8 @@ data WhileStmt cond body = WhileStmt {
     cond :: cond,
     body :: body
 }
+
+newtype ArgList a = ArgList [a]
 
 -- | A Unified AST for all compilation/interpretation phases.
 -- | The type parameters specify which constructors are available.
@@ -69,7 +70,7 @@ data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Typ
     Program      :: [AST 'FunctionDef sug n t] -> AST 'TopLevel sug n t
 
     ----------------------- Top-level function definitions ----------------------- 
-    FuncDef      ::  name -> [name]           -> AST 'Stmt sug name 'Nothing -> AST 'FunctionDef sug name 'Nothing
+    FuncDef      ::  name -> [name] -> AST 'Stmt sug name 'Nothing -> AST 'FunctionDef sug name 'Nothing
     FuncDefAnn   ::  name -> [(name, t)] -> t -> AST 'Stmt sug name ('Just t)-> AST 'FunctionDef sug name ('Just t)
 
     ----------------------- Expressions ----------------------- 
@@ -126,6 +127,15 @@ instance (Show cond, Show stmt) => Show (IfStmt cond stmt) where
 instance (Show cond, Show stmt) => Show (WhileStmt cond stmt) where
     show WhileStmt { cond, body } = "while (" ++ show cond ++ ") " ++ show body
 
+instance Show a => Show (ArgList a) where
+    show (ArgList args) = "(" <> intercalate ", " (show <$> args) <> ")"
+
+instance Show Literal where
+    show (IntExpr n    ) = "i" <> show n
+    show (FloatExpr f  ) = "f" <> show f
+    show (BoolExpr b   ) = show b
+    show (StringExpr s ) = "s" <> show s
+
 instance (Show n) => Show (AST p sug n 'Nothing) where
     show (Assign name expr) = show name ++ " = " ++ show expr
     show (BinE bin) = show bin
@@ -133,8 +143,8 @@ instance (Show n) => Show (AST p sug n 'Nothing) where
         where indented = concat . fmap ("\n\t"++)
     show (Call callee args) = show callee ++ "(" ++ intercalate "," (show <$> args) ++ ")"
     show (ExprStmt expr) = show expr
-    show (FuncDef name sig body) = "fun " ++ show name ++ " " ++ show sig ++ " " ++ show body
-    show (FuncExpr sig body) = show sig ++ " " ++ show body
+    show (FuncDef name sig body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " " ++ show body
+    show (FuncExpr sig body) = show (ArgList sig) ++ " " ++ show body
     show (Identifier name) = show name
     show (If stmt) = show stmt 
     show (LiteralE lit) = show lit
@@ -143,8 +153,8 @@ instance (Show n) => Show (AST p sug n 'Nothing) where
     show (While stmt) = show stmt 
 
 instance (Show n, Show t) => Show (AST p sug n ('Just t)) where
-    show (FuncDefAnn name sig rt body) = "fun " ++ show name ++ " " ++ show sig ++ " -> " ++ show rt ++ show body
-    show (FuncExprAnn sig rt body) = show sig ++ " -> " ++ show rt ++ show body
+    show (FuncDefAnn name sig rt body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show body
+    show (FuncExprAnn sig rt body) = show (ArgList sig) ++ " -> " ++ show rt ++ show body
     show (Var name t expr) = "var " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
     show (Let name t expr) = "let " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
     show (Program ast) = intercalate "\n" (show <$> ast)
@@ -161,8 +171,7 @@ instance (Show n, Show t) => Show (AST p sug n ('Just t)) where
     show (If stmt) = show stmt 
 
 instance Show TypeExpr where
-    show (TypeName name) = case name of 
-        (Name s) -> "#" ++ s
+    show (TypeName (Name s)) = "#\"" ++ s ++ "\""
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
 
 instance Show t => Show (GenericName ('Just t) b) where
