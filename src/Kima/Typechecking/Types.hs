@@ -10,8 +10,6 @@ import           Kima.KimaTypes
 
 data Constraint = Equal TypeHole TypeHole
                 | AcceptsArgs TypeHole [TypeHole]
-                | IsConstant DesugaredName
-                | IsVariable DesugaredName
     deriving (Eq, Ord)
 (=#=) = Equal
 
@@ -45,8 +43,6 @@ instance Show ConstraintSet where
 instance Show Constraint where
     show (Equal t1 t2) = show t1 <> " =#= " <> show t2
     show (AcceptsArgs callee args) = "Accepts(" <> show callee <> ", (" <> intercalate ", " (show <$> args) <> "))"
-    show (IsConstant c) = "IsConstant(" <> show c <> ")"
-    show (IsVariable c) = "IsVariable(" <> show c <> ")"
 
 instance Show TypeHole where
     show ( TypeHole        th          ) = "@" <> show th

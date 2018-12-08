@@ -108,14 +108,14 @@ addHoles (FuncExprAnn args rt b) = do
 addHoles (FuncDefAnn name args rt b) = do
     holeBody     <- addHoles b
     funcType     <- newHole
-    argHoleNames <- traverse withNewHole (fst <$> args)
+    argHoleNames <- traverse (withNewHole . fst) args
     let argHoles = nameType <$> argHoleNames
     let argTypes = snd <$> args
 
     let argConstraints =
             ConstraintSet $ zipWith Equal argHoles (TheType <$> argTypes)
     addConstraints
-        (  [IsConstant name, TheType rt =#= returnTypeHole holeBody]
+        (  [ TheType rt =#= returnTypeHole holeBody ]
         <> argConstraints
         )
 
@@ -144,8 +144,7 @@ addHoles (Var name declaredType expr) = do
     t        <- newHole
     holeExpr <- addHoles expr
     addConstraints
-        [ IsVariable name
-        , t =#= TheType declaredType
+        [ t =#= TheType declaredType
         , t =#= exprTypeHole holeExpr
         ]
     pure $ Assign (withHole t name) holeExpr
@@ -153,8 +152,7 @@ addHoles (Let name declaredType expr) = do
     t        <- newHole
     holeExpr <- addHoles expr
     addConstraints
-        [ IsVariable name
-        , t =#= TheType declaredType
+        [ t =#= TheType declaredType
         , t =#= exprTypeHole holeExpr
         ]
     pure $ Assign (withHole t name) holeExpr
