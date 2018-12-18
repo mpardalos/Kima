@@ -8,8 +8,9 @@ import           GHC.Exts                       ( IsList(..) )
 import           Kima.AST
 import           Kima.KimaTypes
 
-data Constraint = Equal TypeHole TypeHole
-                | AcceptsArgs TypeHole [TypeHole]
+data Constraint = Equal TypeVar TypeVar
+                | IsOneOf TypeVar [KType]
+                | Failure
     deriving (Eq, Ord)
 (=#=) = Equal
 
@@ -17,18 +18,18 @@ newtype ConstraintSet = ConstraintSet [Constraint]
     deriving (Semigroup, Monoid)
 
 -- Types we have to solve for
-data TypeHole = TypeHole Int
-              | TheType KType
-              | FuncHole [TypeHole] TypeHole
-              | ApplicationHole TypeHole [TypeHole]
+data TypeVar = TypeHole Int
+             | TheType KType
+             | FuncHole (Signature TypeVar)
+             | ApplicationHole TypeVar [TypeVar]
     deriving (Eq, Ord)
 
-type HoleMap          = Map DesugaredName TypeHole
-type HoleSubstitution = Map TypeHole      KType
+type HoleMap          = Map DesugaredName TypeVar
+type HoleSubstitution = Map TypeVar      KType
+type HoleName         = GenericName ('Just TypeVar) 'True
 
-type HoleName  = GenericName ('Just TypeHole) 'True
-type HoleAST p = AST p 'NoSugar HoleName      'Nothing
-type HoleProgram = HoleAST 'TopLevel
+type HoleAST p          = AST p 'NoSugar HoleName 'Nothing
+type HoleProgram        = HoleAST 'TopLevel
 
 -------------------- Instances -------------------------
 instance IsList ConstraintSet where
@@ -38,15 +39,17 @@ instance IsList ConstraintSet where
 
 ---------------------- Show -----------------------------
 instance Show ConstraintSet where
+    show (ConstraintSet []) = "{}"
     show (ConstraintSet constraints) = intercalate "\n" (show <$> constraints)
 
 instance Show Constraint where
-    show (Equal t1 t2) = show t1 <> " =#= " <> show t2
-    show (AcceptsArgs callee args) = "Accepts(" <> show callee <> ", (" <> intercalate ", " (show <$> args) <> "))"
+    show (Equal t1 t2) = show t1 <> " =#= " <> show t2 
+    show (IsOneOf t ts) = show t <> " ∈ {" ++ intercalate "," (show <$> ts) ++ "}"
+    show Failure = "Failure"
 
-instance Show TypeHole where
-    show ( TypeHole        th          ) = "@" <> show th
-    show ( TheType         t           ) = "#" <> show t
-    show ( FuncHole        args rt     ) = "(" <> intercalate ", " (show <$> args) <> ") -> " <> show rt
-    show ( ApplicationHole callee args ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
+instance Show TypeVar where
+    show ( TypeHole        th                  ) = "@" <> show th
+    show ( TheType         t                   ) = "#" <> show t
+    show ( FuncHole        (Signature args rt) ) = "(" <> intercalate ", " (show <$> args) <> ") -> " <> show rt
+    show ( ApplicationHole callee args         ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
 

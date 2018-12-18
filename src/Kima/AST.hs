@@ -115,6 +115,10 @@ typeAnnotate :: t -> GenericName 'Nothing b -> GenericName ('Just t) b
 typeAnnotate t (Name n) = TypedName n t
 typeAnnotate t (Builtin n) = TBuiltin n t
 
+deTypeAnnotate :: GenericName ('Just t) b -> GenericName 'Nothing b
+deTypeAnnotate (TypedName n _ ) = Name n
+deTypeAnnotate (TBuiltin  n _ ) = Builtin n
+
 nameType :: GenericName ('Just t) b -> t
 nameType (TypedName _ t) = t
 nameType (TBuiltin _ t) = t
@@ -248,6 +252,23 @@ traverseTypeAnnotations f (If stmt)                = If          <$> bitraverse 
 traverseTypeAnnotations f (Assign n e)             = Assign n    <$> traverseTypeAnnotations f e
 traverseTypeAnnotations f (Var n t e)              = Var n       <$> f t <*> traverseTypeAnnotations f e
 traverseTypeAnnotations f (Let n t e)              = Let n       <$> f t <*> traverseTypeAnnotations f e
+
+removeTypeAnnotations :: AST p sug n ('Just t) -> AST p sug n 'Nothing 
+removeTypeAnnotations (Program ast)           = Program (removeTypeAnnotations <$> ast) 
+removeTypeAnnotations (FuncDefAnn n args _ b) = FuncDef n (fst <$> args) (removeTypeAnnotations b)
+removeTypeAnnotations (LiteralE lit)          = LiteralE lit
+removeTypeAnnotations (Identifier n)          = Identifier n
+removeTypeAnnotations (FuncExprAnn args _ b)  = FuncExpr (fst <$> args) (removeTypeAnnotations b)
+removeTypeAnnotations (Call callee args)      = Call (removeTypeAnnotations callee) (removeTypeAnnotations <$> args)
+removeTypeAnnotations (BinE bin)              = BinE (removeTypeAnnotations <$> bin) 
+removeTypeAnnotations (UnaryE unary)          = UnaryE (removeTypeAnnotations <$> unary)
+removeTypeAnnotations (ExprStmt e)            = ExprStmt (removeTypeAnnotations e)
+removeTypeAnnotations (Block blk)             = Block (removeTypeAnnotations <$> blk)
+removeTypeAnnotations (While stmt)            = While (bimap removeTypeAnnotations removeTypeAnnotations stmt)
+removeTypeAnnotations (If stmt)               = If (bimap removeTypeAnnotations removeTypeAnnotations stmt)
+removeTypeAnnotations (Assign n e)            = Assign n (removeTypeAnnotations e)
+removeTypeAnnotations (Var n _ e)             = Assign n (removeTypeAnnotations e)
+removeTypeAnnotations (Let n _ e)             = Assign n (removeTypeAnnotations e)
 
 mapNames :: forall n1 n2 p sug t. (n1 -> n2) -> AST p sug n1 t -> AST p sug n2 t
 mapNames = coerce (traverseNames :: (n1 -> Identity n2) -> AST p sug n1 t -> Identity (AST p sug n2 t))
