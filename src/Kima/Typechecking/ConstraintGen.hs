@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE MonadComprehensions #-}
 module Kima.Typechecking.ConstraintGen where
 
 import           Kima.Typechecking.Types
@@ -18,54 +19,55 @@ import           Kima.AST
 import           Kima.Control.Monad.State.Extended
 import           Kima.KimaTypes
 
--- TODO: Fix confusing Hole/TypeVar terminology
 -- TODO: BaseCtx
 
-makeConstraints :: DesugaredAST 'TopLevel -> Maybe (HoleAST 'TopLevel, ConstraintSet)
-makeConstraints = 
+makeConstraints
+    :: DesugaredAST 'TopLevel
+    -> Maybe (TVarAST 'TopLevel, ConstraintSet)
+makeConstraints =
     resolveTypes                                                 -- Resolve types
-        >>> fmap (\annotatedAST -> do
-                annotatedHoleAST <- addHoles annotatedAST        -- Add holes 
-                addProgramConstraints annotatedHoleAST           -- Generate constraints
-                return (removeTypeAnnotations annotatedHoleAST)) -- Remove type annotations
+        >>> fmap
+                (\annotatedAST -> do
+                    annotatedTVarAST <- addTVar annotatedAST         -- Add type variables 
+                    writeProgramConstraints annotatedTVarAST           -- Generate constraints
+                    return (removeTypeAnnotations annotatedTVarAST)  -- Remove type annotations
+                )
         >>> fmap runConstraintGenerator                          -- Extract everything
 
 -------------- For supply of type variables -------------------
 class Monad m => MonadUniqueSupply s m | m -> s where
     -- Law:
-    -- pure False == do
-    --      a <- supply
-    --      b <- supply
-    --      pure (a == b)
+    -- liftA2 (==) supply supply == pure False
     supply :: m s
 
 instance MonadUniqueSupply TypeVar ConstraintGenerator where
-    supply = ConstraintGenerator . StateT $ \(ctx, hole) -> pure (TypeHole hole, (ctx, hole+1))
+    supply = ConstraintGenerator . StateT $ \(ctx, tvar) -> pure (TypeVar tvar, (ctx, tvar+1))
 ---------------------------------------------------------------
 
 -------------- Constraint generation Monad -----------------------------------------------
 type MonadConstraintWriter m = MonadWriter ConstraintSet m
 type MonadConstraintGenerator m = (MonadConstraintWriter m, MonadState TypeCtx m)
 
+-- For now, when a name is declared, it has to have an associated type, so this
+-- type is OK. If type inference is implemented to any degree, this will have to
+-- be changed to map to a [TypeVar]
 type TypeCtx = Map DesugaredName [KType]
 
 newtype ConstraintGenerator a = ConstraintGenerator (StateT (TypeCtx, Int) (Writer ConstraintSet) a)
     deriving (Functor, Applicative, Monad, MonadWriter ConstraintSet)
 
 instance MonadState TypeCtx ConstraintGenerator where
-    get     = ConstraintGenerator . StateT $ \(ctx, hole) -> pure (ctx, (ctx, hole))
-    put ctx = ConstraintGenerator . StateT $ \(_, hole)   -> pure ((), (ctx, hole))
+    get     = ConstraintGenerator . StateT $ \(ctx, tvar) -> pure (ctx, (ctx, tvar))
+    put ctx = ConstraintGenerator . StateT $ \(_, tvar)   -> pure ((), (ctx, tvar))
 
 runConstraintGenerator :: ConstraintGenerator a -> (a, ConstraintSet)
 runConstraintGenerator (ConstraintGenerator cg) =
     cg & (flip evalStateT (mempty, 0) >>> runWriter)
 
-newHole :: MonadHoleSupply m => m TypeVar
-addConstraint :: MonadConstraintWriter m => Constraint -> m ()
-addConstraints :: MonadConstraintWriter m => ConstraintSet -> m ()
-newHole = supply
-addConstraint c = tell [c]
-addConstraints = tell
+newTVar :: MonadTVarSupply m => m TypeVar
+newTVar = supply
+writeConstraint :: MonadConstraintWriter m => Constraint -> m ()
+writeConstraint c = tell [c]
 -------------------------------------------------------------------------------------------
 
 --------------------- Resolving TypeExprs ----------------------------------
@@ -77,114 +79,113 @@ resolveTypes = traverseTypeAnnotations resolveTypeExpr
 -- | Resolves a type expression. Since custom type don't exist yet, 
 -- | just has a hardcoded list of types
 resolveTypeExpr :: TypeExpr -> Maybe KType
-resolveTypeExpr (SignatureType argExprs rtExpr) = do
-    args <- traverse resolveTypeExpr argExprs
-    rt   <- resolveTypeExpr rtExpr
-    return $ KFunc (args $-> rt)
 resolveTypeExpr (TypeName "Int"   ) = Just KInt
 resolveTypeExpr (TypeName "String") = Just KString
 resolveTypeExpr (TypeName "Float" ) = Just KFloat
 resolveTypeExpr (TypeName "Bool"  ) = Just KBool
 resolveTypeExpr (TypeName "Unit"  ) = Just KUnit
 resolveTypeExpr (TypeName _       ) = Nothing
+resolveTypeExpr (SignatureType argExprs rtExpr) =
+    [ KFunc (args $-> rt)
+    | args <- traverse resolveTypeExpr argExprs
+    , rt   <- resolveTypeExpr rtExpr
+    ]
 ---------------------------------------------------------------------------
 
---------------------- Adding Holes ----------------------------------
-type MonadHoleSupply m = MonadUniqueSupply TypeVar m
-type AnnotatedHoleAST p = AST p 'NoSugar HoleName ('Just KType)
+--------------------- Adding Type variables ----------------------------------
+type MonadTVarSupply m = MonadUniqueSupply TypeVar m
+type AnnotatedTVarAST p = AST p 'NoSugar TVarName ('Just KType)
 
-withNewHole :: MonadHoleSupply m => DesugaredName -> m HoleName
-withNewHole = liftA2 typeAnnotate newHole . pure
+withNewTVar :: MonadTVarSupply m => DesugaredName -> m TVarName
+withNewTVar = liftA2 typeAnnotate newTVar . pure
 
-addHoles :: MonadHoleSupply m => TypeAnnotatedAST p -> m (AnnotatedHoleAST p)
-addHoles = traverseNames withNewHole
+addTVar :: MonadTVarSupply m => TypeAnnotatedAST p -> m (AnnotatedTVarAST p)
+addTVar = traverseNames withNewTVar
 ---------------------------------------------------------------------------
 
 --------------------- Making constraints ----------------------------------
-addProgramConstraints
-    :: MonadConstraintGenerator m => AnnotatedHoleAST 'TopLevel -> m ()
-addProgramConstraints (Program ast) = do 
-    let hoistedCtx = Map.fromList (funcTypeBinding <$> ast)
-    withState (<> hoistedCtx) (traverse_ addFuncDefConstraints ast)
-    where
-        funcTypeBinding :: AnnotatedHoleAST 'FunctionDef -> (DesugaredName, [KType])
-        funcTypeBinding (FuncDefAnn name args rt _) = 
-            ( deTypeAnnotate name
-            , [KFunc ((snd <$> args) $-> rt)]
-            )
+writeProgramConstraints
+    :: MonadConstraintGenerator m => AnnotatedTVarAST 'TopLevel -> m ()
+writeProgramConstraints (Program funcDefs) = do
+    let hoistedCtx = Map.fromList (funcTypeBinding <$> funcDefs)
+    withState (<> hoistedCtx) (traverse_ writeFuncDefConstraints funcDefs)
+  where
+    funcTypeBinding
+        :: AnnotatedTVarAST 'FunctionDef -> (DesugaredName, [KType])
+    funcTypeBinding (FuncDefAnn name args rt _) =
+        (deTypeAnnotate name, [KFunc ((snd <$> args) $-> rt)])
 
-
-addFuncDefConstraints
-    :: MonadConstraintGenerator m => AnnotatedHoleAST 'FunctionDef -> m ()
-addFuncDefConstraints (FuncDefAnn name args rt body) = do
+writeFuncDefConstraints
+    :: MonadConstraintGenerator m => AnnotatedTVarAST 'FunctionDef -> m ()
+writeFuncDefConstraints (FuncDefAnn name args rt body) = do
     funcType <- functionType args rt body
     modify (Map.insertWith (++) (deTypeAnnotate name) [funcType])
 
-stmtReturnTypeVar
-    :: MonadConstraintGenerator m => AnnotatedHoleAST 'Stmt -> m TypeVar
-stmtReturnTypeVar (ExprStmt expr) = exprTypeVar expr
-stmtReturnTypeVar (Block blk) =
-    lastDef (TheType KUnit) <$> traverse stmtReturnTypeVar blk
-stmtReturnTypeVar (While (WhileStmt cond body)) = do
-    condHole  <- exprTypeVar cond
-    _bodyHole <- withState id (stmtReturnTypeVar body)
+stmtReturnTVar
+    :: MonadConstraintGenerator m => AnnotatedTVarAST 'Stmt -> m TypeVar
+stmtReturnTVar (ExprStmt expr) = exprTVar expr
+stmtReturnTVar (Block blk) =
+    lastDef (TheType KUnit) <$> traverse stmtReturnTVar blk
+stmtReturnTVar (While (WhileStmt cond body)) = do
+    condT  <- exprTVar cond
+    _bodyT <- withState id (stmtReturnTVar body)
 
-    addConstraint $ condHole =#= TheType KBool
-
-    pure $ TheType KUnit
-stmtReturnTypeVar (If (IfStmt cond ifBlk elseBlk)) = do
-    condHole    <- exprTypeVar cond
-    ifBlkHole   <- withState id (stmtReturnTypeVar ifBlk)
-    elseBlkHole <- withState id (stmtReturnTypeVar elseBlk)
-
-    addConstraint $ condHole =#= TheType KBool
-    addConstraint $ ifBlkHole =#= elseBlkHole
+    writeConstraint $ condT =#= TheType KBool
 
     pure $ TheType KUnit
-stmtReturnTypeVar (Var n t expr) =
+stmtReturnTVar (If (IfStmt cond ifBlk elseBlk)) = do
+    condT    <- exprTVar cond
+    ifBlkT   <- withState id (stmtReturnTVar ifBlk)
+    elseBlkT <- withState id (stmtReturnTVar elseBlk)
+
+    writeConstraint $ condT =#= TheType KBool
+    writeConstraint $ ifBlkT =#= elseBlkT
+
+    pure $ TheType KUnit
+stmtReturnTVar (Var n t expr) =
     checkLocalAssignment n t expr *> pure (TheType KUnit)
-stmtReturnTypeVar (Let n t expr) =
+stmtReturnTVar (Let n t expr) =
     checkLocalAssignment n t expr *> pure (TheType KUnit)
-stmtReturnTypeVar (Assign name expr) = do
+stmtReturnTVar (Assign name expr) = do
     currentNameTypes <- gets $ Map.lookup (deTypeAnnotate name)
-    exprType         <- exprTypeVar expr
-    addConstraint $ case currentNameTypes of
+    exprType         <- exprTVar expr
+    writeConstraint $ case currentNameTypes of
         Just ts -> IsOneOf exprType ts
         Nothing -> Failure -- The name is unbount, so just fail
     pure $ TheType KUnit
 
-exprTypeVar
-    :: MonadConstraintGenerator m => AnnotatedHoleAST 'Expr -> m TypeVar
-exprTypeVar (LiteralE   l     ) = pure (TheType $ literalType l)
-exprTypeVar (Identifier idName) = do
+exprTVar
+    :: MonadConstraintGenerator m => AnnotatedTVarAST 'Expr -> m TypeVar
+exprTVar (LiteralE   l     ) = pure (TheType $ literalType l)
+exprTVar (Identifier idName) = do
     -- It must have one of the types that this name has in this scope
-    let nameHole = nameType idName
+    let nameT = nameType idName
     typesInScope <- gets (concat @Maybe . Map.lookup (deTypeAnnotate idName))
-    addConstraint $ IsOneOf nameHole typesInScope
-    pure nameHole
+    writeConstraint $ IsOneOf nameT typesInScope
+    pure nameT
 
-exprTypeVar (FuncExprAnn args rt body) = TheType <$> functionType args rt body
+exprTVar (FuncExprAnn args rt body) = TheType <$> functionType args rt body
 
-exprTypeVar (Call callee args        ) = do
-    calleeHole <- exprTypeVar callee
-    argHoles   <- traverse exprTypeVar args
-    let returnTypeHole = ApplicationHole calleeHole argHoles
+exprTVar (Call callee args        ) = do
+    calleeT <- exprTVar callee
+    argT   <- traverse exprTVar args
+    let returnT = ApplicationTVar calleeT argT
 
-    addConstraint $ calleeHole =#= FuncHole (argHoles $-> returnTypeHole)
+    writeConstraint $ calleeT =#= FuncTVar (argT $-> returnT)
 
-    pure returnTypeHole
+    pure returnT
 
 functionType
     :: MonadConstraintGenerator m
-    => [(HoleName, KType)]
+    => [(TVarName, KType)]
     -> KType
-    -> AnnotatedHoleAST 'Stmt
+    -> AnnotatedTVarAST 'Stmt
     -> m KType
 functionType args rt body = do
     let argCtx = Map.fromList (bimap deTypeAnnotate (pure @[]) <$> args)
 
-    rtHole <- withState (<> argCtx) (stmtReturnTypeVar body)
-    addConstraint $ rtHole =#= TheType rt
+    returnTVar <- withState (<> argCtx) (stmtReturnTVar body)
+    writeConstraint $ returnTVar =#= TheType rt
 
     pure . KFunc $ ((snd <$> args) $-> rt)
 
@@ -192,14 +193,14 @@ functionType args rt body = do
 -- | of the expression and add it to the TypeCtx.
 checkTopLevelAssignment
     :: MonadConstraintGenerator m
-    => HoleName
+    => TVarName
     -> KType
-    -> AnnotatedHoleAST 'Expr
+    -> AnnotatedTVarAST 'Expr
     -> m ()
 checkTopLevelAssignment name declaredType expr = do
-    exprType <- exprTypeVar expr
-    addConstraint $ nameType name =#= TheType declaredType
-    addConstraint $ exprType =#= TheType declaredType
+    exprType <- exprTVar expr
+    writeConstraint $ nameType name =#= TheType declaredType
+    writeConstraint $ exprType =#= TheType declaredType
     modify (Map.insertWith (++) (deTypeAnnotate name) [declaredType])
 
 -- | Assert that the declared type of an assignment matches the actual type
@@ -207,17 +208,17 @@ checkTopLevelAssignment name declaredType expr = do
 -- | only allowed at the top level.
 checkLocalAssignment
     :: MonadConstraintGenerator m
-    => HoleName
+    => TVarName
     -> KType
-    -> AnnotatedHoleAST 'Expr
+    -> AnnotatedTVarAST 'Expr
     -> m ()
 checkLocalAssignment name declaredType expr = do
-    exprType <- exprTypeVar expr
+    exprType <- exprTVar expr
     gets (Map.lookup (deTypeAnnotate name)) >>= \case
-        Just _  -> addConstraint Failure
+        Just _  -> writeConstraint Failure
         Nothing -> do
-            addConstraint $ nameType name =#= TheType declaredType
-            addConstraint $ exprType =#= TheType declaredType
+            writeConstraint $ nameType name =#= TheType declaredType
+            writeConstraint $ exprType =#= TheType declaredType
             modify (Map.insert (deTypeAnnotate name) [declaredType])
 
 literalType :: Literal -> KType

@@ -2,13 +2,12 @@ module Kima.Typechecking.Types where
 
 import           Data.Coerce
 import           Data.List
-import           Data.Map
 import           GHC.Exts                       ( IsList(..) )
 
 import           Kima.AST
 import           Kima.KimaTypes
 
-data Constraint = Equal TypeVar TypeVar
+data Constraint = Equal TypeVar TypeVar 
                 | IsOneOf TypeVar [KType]
                 | Failure
     deriving (Eq, Ord)
@@ -18,18 +17,16 @@ newtype ConstraintSet = ConstraintSet [Constraint]
     deriving (Semigroup, Monoid)
 
 -- Types we have to solve for
-data TypeVar = TypeHole Int
+data TypeVar = TypeVar Int
              | TheType KType
-             | FuncHole (Signature TypeVar)
-             | ApplicationHole TypeVar [TypeVar]
+             | FuncTVar (Signature TypeVar)
+             | ApplicationTVar TypeVar [TypeVar]
     deriving (Eq, Ord)
 
-type HoleMap          = Map DesugaredName TypeVar
-type HoleSubstitution = Map TypeVar      KType
-type HoleName         = GenericName ('Just TypeVar) 'True
+type TVarName         = GenericName ('Just TypeVar) 'True
 
-type HoleAST p          = AST p 'NoSugar HoleName 'Nothing
-type HoleProgram        = HoleAST 'TopLevel
+type TVarAST p          = AST p 'NoSugar TVarName 'Nothing
+type TVarProgram        = TVarAST 'TopLevel
 
 -------------------- Instances -------------------------
 instance IsList ConstraintSet where
@@ -48,8 +45,8 @@ instance Show Constraint where
     show Failure = "Failure"
 
 instance Show TypeVar where
-    show ( TypeHole        th                  ) = "@" <> show th
+    show ( TypeVar         th                  ) = "@" <> show th
     show ( TheType         t                   ) = "#" <> show t
-    show ( FuncHole        (Signature args rt) ) = "(" <> intercalate ", " (show <$> args) <> ") -> " <> show rt
-    show ( ApplicationHole callee args         ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
+    show ( FuncTVar        (Signature args rt) ) = "(" <> intercalate ", " (show <$> args) <> ") -> " <> show rt
+    show ( ApplicationTVar callee args         ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
 
