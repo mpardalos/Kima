@@ -10,8 +10,11 @@ import           Control.Monad.Writer
 import           Data.Bifunctor                as Bifunctor
 import           Data.Foldable
 import           Data.Function
+import           Data.Maybe
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
+import           Data.Set                       ( Set )
+import qualified Data.Set                      as Set
 
 import           Safe
 
@@ -19,11 +22,49 @@ import           Kima.AST
 import           Kima.Control.Monad.State.Extended
 import           Kima.KimaTypes
 
--- TODO: BaseCtx
+(-@>) = (,)
+
+baseCtx :: TypeCtx
+baseCtx =
+    [ Builtin PrintFunc
+        -@> [ KFunc ([KString] $-> KString)
+            , KFunc ([KInt] $-> KString)
+            , KFunc ([KFloat] $-> KString)
+            , KFunc ([KBool] $-> KString)
+            ]
+    , Builtin AddOp
+        -@> [ KFunc ([KString, KString] $-> KString)
+            , KFunc ([KInt, KInt] $-> KInt)
+            , KFunc ([KInt, KFloat] $-> KFloat)
+            , KFunc ([KFloat, KInt] $-> KFloat)
+            , KFunc ([KFloat, KFloat] $-> KFloat)
+            ]
+    , Builtin SubOp
+        -@> [ KFunc ([KInt, KInt] $-> KInt)
+            , KFunc ([KInt, KFloat] $-> KFloat)
+            , KFunc ([KFloat, KInt] $-> KFloat)
+            , KFunc ([KFloat, KFloat] $-> KFloat)
+            ]
+    , Builtin MulOp
+        -@> [ KFunc ([KInt, KInt] $-> KInt)
+            , KFunc ([KInt, KFloat] $-> KFloat)
+            , KFunc ([KFloat, KInt] $-> KFloat)
+            , KFunc ([KFloat, KFloat] $-> KFloat)
+            ]
+    , Builtin DivOp
+        -@> [ KFunc ([KInt, KInt] $-> KInt)
+            , KFunc ([KInt, KFloat] $-> KFloat)
+            , KFunc ([KFloat, KInt] $-> KFloat)
+            , KFunc ([KFloat, KFloat] $-> KFloat)
+            ]
+    , Builtin ModOp -@> [KFunc ([KInt, KInt] $-> KInt)]
+    , Builtin InvertOp -@> [KFunc ([KBool] $-> KBool)]
+    , Builtin NegateOp
+        -@> [KFunc ([KInt] $-> KInt), KFunc ([KFloat] $-> KFloat)]
+    ]
 
 makeConstraints
-    :: DesugaredAST 'TopLevel
-    -> Maybe (TVarAST 'TopLevel, ConstraintSet)
+    :: DesugaredAST 'TopLevel -> Maybe (TVarAST 'TopLevel, ConstraintSet)
 makeConstraints =
     resolveTypes                                                 -- Resolve types
         >>> fmap
@@ -51,7 +92,7 @@ type MonadConstraintGenerator m = (MonadConstraintWriter m, MonadState TypeCtx m
 -- For now, when a name is declared, it has to have an associated type, so this
 -- type is OK. If type inference is implemented to any degree, this will have to
 -- be changed to map to a [TypeVar]
-type TypeCtx = Map DesugaredName [KType]
+type TypeCtx = Map DesugaredName (Set KType)
 
 newtype ConstraintGenerator a = ConstraintGenerator (StateT (TypeCtx, Int) (Writer ConstraintSet) a)
     deriving (Functor, Applicative, Monad, MonadWriter ConstraintSet)
@@ -62,7 +103,7 @@ instance MonadState TypeCtx ConstraintGenerator where
 
 runConstraintGenerator :: ConstraintGenerator a -> (a, ConstraintSet)
 runConstraintGenerator (ConstraintGenerator cg) =
-    cg & (flip evalStateT (mempty, 0) >>> runWriter)
+    cg & (flip evalStateT (baseCtx, 0) >>> runWriter)
 
 newTVar :: MonadTVarSupply m => m TypeVar
 newTVar = supply
@@ -111,7 +152,7 @@ writeProgramConstraints (Program funcDefs) = do
     withState (<> hoistedCtx) (traverse_ writeFuncDefConstraints funcDefs)
   where
     funcTypeBinding
-        :: AnnotatedTVarAST 'FunctionDef -> (DesugaredName, [KType])
+        :: AnnotatedTVarAST 'FunctionDef -> (DesugaredName, Set KType)
     funcTypeBinding (FuncDefAnn name args rt _) =
         (deTypeAnnotate name, [KFunc ((snd <$> args) $-> rt)])
 
@@ -119,7 +160,7 @@ writeFuncDefConstraints
     :: MonadConstraintGenerator m => AnnotatedTVarAST 'FunctionDef -> m ()
 writeFuncDefConstraints (FuncDefAnn name args rt body) = do
     funcType <- functionType args rt body
-    modify (Map.insertWith (++) (deTypeAnnotate name) [funcType])
+    modify (Map.insertWith (<>) (deTypeAnnotate name) [funcType])
 
 stmtReturnTVar
     :: MonadConstraintGenerator m => AnnotatedTVarAST 'Stmt -> m TypeVar
@@ -151,16 +192,15 @@ stmtReturnTVar (Assign name expr) = do
     exprType         <- exprTVar expr
     writeConstraint $ case currentNameTypes of
         Just ts -> IsOneOf exprType ts
-        Nothing -> Failure -- The name is unbount, so just fail
+        Nothing -> Failure -- The name is unbound, so just fail
     pure $ TheType KUnit
 
-exprTVar
-    :: MonadConstraintGenerator m => AnnotatedTVarAST 'Expr -> m TypeVar
+exprTVar :: MonadConstraintGenerator m => AnnotatedTVarAST 'Expr -> m TypeVar
 exprTVar (LiteralE   l     ) = pure (TheType $ literalType l)
 exprTVar (Identifier idName) = do
     -- It must have one of the types that this name has in this scope
     let nameT = nameType idName
-    typesInScope <- gets (concat @Maybe . Map.lookup (deTypeAnnotate idName))
+    typesInScope <- fromMaybe [] <$> gets (Map.lookup (deTypeAnnotate idName))
     writeConstraint $ IsOneOf nameT typesInScope
     pure nameT
 
@@ -168,7 +208,7 @@ exprTVar (FuncExprAnn args rt body) = TheType <$> functionType args rt body
 
 exprTVar (Call callee args        ) = do
     calleeT <- exprTVar callee
-    argT   <- traverse exprTVar args
+    argT    <- traverse exprTVar args
     let returnT = ApplicationTVar calleeT argT
 
     writeConstraint $ calleeT =#= FuncTVar (argT $-> returnT)
@@ -182,7 +222,7 @@ functionType
     -> AnnotatedTVarAST 'Stmt
     -> m KType
 functionType args rt body = do
-    let argCtx = Map.fromList (bimap deTypeAnnotate (pure @[]) <$> args)
+    let argCtx = Map.fromList (bimap deTypeAnnotate Set.singleton <$> args)
 
     returnTVar <- withState (<> argCtx) (stmtReturnTVar body)
     writeConstraint $ returnTVar =#= TheType rt
@@ -201,7 +241,7 @@ checkTopLevelAssignment name declaredType expr = do
     exprType <- exprTVar expr
     writeConstraint $ nameType name =#= TheType declaredType
     writeConstraint $ exprType =#= TheType declaredType
-    modify (Map.insertWith (++) (deTypeAnnotate name) [declaredType])
+    modify (Map.insertWith (<>) (deTypeAnnotate name) [declaredType])
 
 -- | Assert that the declared type of an assignment matches the actual type
 -- | as well as that the binding does not shadow another name. Shadowing is 

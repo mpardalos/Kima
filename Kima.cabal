@@ -32,6 +32,7 @@ library
         Kima.Typechecking
         Kima.Typechecking.Types
         Kima.Typechecking.ConstraintGen
+        Kima.Typechecking.ConstraintSolving
 
         Kima.KimaTypes
 
@@ -45,51 +46,41 @@ library
         Kima.Interface.ArgumentParser
         Kima.Interface.Runners
         Kima.Interface.Types
-    default-extensions: 
-        BangPatterns ConstraintKinds DataKinds DefaultSignatures
-        DeriveFunctor DeriveGeneric DeriveTraversable DuplicateRecordFields
-        ExistentialQuantification FlexibleContexts FlexibleInstances
-        FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs
-        KindSignatures LambdaCase LiberalTypeSynonyms MultiParamTypeClasses
-        NamedFieldPuns OverloadedStrings PartialTypeSignatures RankNTypes
-        ScopedTypeVariables StandaloneDeriving TemplateHaskell
-        TypeApplications TypeFamilies TypeInType TypeOperators
-        UndecidableInstances EmptyCase
+    default-extensions: BangPatterns ConstraintKinds DataKinds
+                        DefaultSignatures DeriveFunctor DeriveGeneric DeriveTraversable
+                        DuplicateRecordFields ExistentialQuantification FlexibleContexts
+                        FlexibleInstances FunctionalDependencies GADTs
+                        GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase
+                        LiberalTypeSynonyms MultiParamTypeClasses NamedFieldPuns
+                        OverloadedStrings PartialTypeSignatures PatternSynonyms
+                        ViewPatterns RankNTypes ScopedTypeVariables StandaloneDeriving
+                        TemplateHaskell TypeApplications TypeFamilies TypeInType
+                        TypeOperators UndecidableInstances EmptyCase
+    ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,
         containers -any,
         mtl -any,
         safe -any,
-        megaparsec >= 6.5 && < 7,
+        megaparsec >=6.5 && <7,
         optparse-applicative -any,
-        newtype-generics >= 0.5.3
+        newtype-generics >=0.5.3
 
 executable kima
     default-language: Haskell2010
     main-is: Main.hs
     hs-source-dirs: app
-    default-extensions: 
-        BangPatterns ConstraintKinds DataKinds DefaultSignatures
-        DeriveFunctor DeriveGeneric DeriveTraversable DuplicateRecordFields
-        ExistentialQuantification FlexibleContexts FlexibleInstances
-        FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs
-        KindSignatures LambdaCase LiberalTypeSynonyms MultiParamTypeClasses
-        NamedFieldPuns OverloadedStrings PartialTypeSignatures RankNTypes
-        ScopedTypeVariables StandaloneDeriving TemplateHaskell
-        TypeApplications TypeFamilies TypeInType TypeOperators
-        UndecidableInstances EmptyCase
+    default-extensions: BangPatterns ConstraintKinds DataKinds
+                        DefaultSignatures DeriveFunctor DeriveGeneric DeriveTraversable
+                        DuplicateRecordFields ExistentialQuantification FlexibleContexts
+                        FlexibleInstances FunctionalDependencies GADTs
+                        GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase
+                        LiberalTypeSynonyms MultiParamTypeClasses NamedFieldPuns
+                        OverloadedStrings PartialTypeSignatures RankNTypes
+                        ScopedTypeVariables StandaloneDeriving TemplateHaskell
+                        TypeApplications TypeFamilies TypeInType TypeOperators
+                        UndecidableInstances EmptyCase
     build-depends:
         base >=4.7 && <5,
-        Kima == 0.1.0.0,
-        newtype-generics >= 0.5.3
-
--- Test-suite tests
---     type: exitcode-stdio-1.0
---     default-language: Haskell2010
---     hs-source-dirs: test, src
---     ghc-options: -Wall -fdefer-typed-holes -O0
---     main-is: Main.hs
---     build-depends:
---         base,
---         tasty,
---         tasty-hspec
+        Kima -any,
+        newtype-generics >=0.5.3
