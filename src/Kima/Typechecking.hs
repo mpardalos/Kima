@@ -1,4 +1,4 @@
 module Kima.Typechecking ( module E ) where 
 
-import Kima.Typechecking.ConstraintGen as E (makeConstraints) 
-import Kima.Typechecking.Types as E (Constraint, ConstraintSet, TVarAST, TVarProgram) 
+import Kima.Typechecking.ConstraintGen as E (makeConstraints, ConstraintGenerationError) 
+import Kima.Typechecking.Types as E (SomeConstraint, SomeConstraintSet, TVarAST, TVarProgram) 

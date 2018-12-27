@@ -30,6 +30,7 @@ library
         Kima.Frontend.Parser
 
         Kima.Typechecking
+        Kima.Typechecking.Builtins
         Kima.Typechecking.Types
         Kima.Typechecking.ConstraintGen
         Kima.Typechecking.ConstraintSolving

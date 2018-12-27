@@ -6,6 +6,7 @@ import Control.Exception
 
 import Kima.Frontend
 import Kima.Interpreter
+import Kima.Typechecking
 
 class UserThrowable err where
     userShow :: err -> String
@@ -20,7 +21,7 @@ instance UserThrowable CustomError where
 instance UserThrowable ParseError where
     userShow = parseErrorPretty
 
--- instance Show t => UserThrowable (TypeError t)
+instance UserThrowable ConstraintGenerationError
 instance UserThrowable RuntimeError
 
 data UserThrowableError = forall err. UserThrowable err => UserThrowableError err

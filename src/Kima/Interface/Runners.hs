@@ -33,8 +33,8 @@ parseFile' fn = do
 
 constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> constraintAST')
 constraintAST = runMonadInterface . constraintAST'
-constraintAST' :: MonadInterface m => DesugaredProgram -> m (T.TVarProgram, T.ConstraintSet)
-constraintAST' = runMaybe (CustomError "Couldn't resolve type expressions") . T.makeConstraints
+constraintAST' :: MonadInterface m => DesugaredProgram -> m (T.TVarProgram, T.SomeConstraintSet)
+constraintAST' =  runEither . T.makeConstraints
 
 typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'

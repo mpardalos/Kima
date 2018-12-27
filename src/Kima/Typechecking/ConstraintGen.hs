@@ -1,167 +1,147 @@
 {-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE MonadComprehensions #-}
-module Kima.Typechecking.ConstraintGen where
-
-import           Kima.Typechecking.Types
+module Kima.Typechecking.ConstraintGen
+    ( makeConstraints
+    , ConstraintGenerationError
+    )
+where
 
 import           Control.Applicative
-import           Control.Arrow
+import           Control.Arrow                 as Arrow
 import           Control.Monad.Writer
+import           Control.Monad.Except
 import           Data.Bifunctor                as Bifunctor
 import           Data.Foldable
 import           Data.Function
 import           Data.Maybe
-import           Data.Map                       ( Map )
-import qualified Data.Map                      as Map
 import           Data.Set                       ( Set )
+import qualified Data.Map                      as Map
 import qualified Data.Set                      as Set
 
 import           Safe
 
+import           Kima.Typechecking.Types
 import           Kima.AST
 import           Kima.Control.Monad.State.Extended
 import           Kima.KimaTypes
+import           Kima.Typechecking.Builtins
 
-(-@>) = (,)
+------------------------- Evaluation ------------------------------------------------
+-- Anything inside here should not be used in the rest of the module
 
-baseCtx :: TypeCtx
-baseCtx =
-    [ Builtin PrintFunc
-        -@> [ KFunc ([KString] $-> KString)
-            , KFunc ([KInt] $-> KString)
-            , KFunc ([KFloat] $-> KString)
-            , KFunc ([KBool] $-> KString)
-            ]
-    , Builtin AddOp
-        -@> [ KFunc ([KString, KString] $-> KString)
-            , KFunc ([KInt, KInt] $-> KInt)
-            , KFunc ([KInt, KFloat] $-> KFloat)
-            , KFunc ([KFloat, KInt] $-> KFloat)
-            , KFunc ([KFloat, KFloat] $-> KFloat)
-            ]
-    , Builtin SubOp
-        -@> [ KFunc ([KInt, KInt] $-> KInt)
-            , KFunc ([KInt, KFloat] $-> KFloat)
-            , KFunc ([KFloat, KInt] $-> KFloat)
-            , KFunc ([KFloat, KFloat] $-> KFloat)
-            ]
-    , Builtin MulOp
-        -@> [ KFunc ([KInt, KInt] $-> KInt)
-            , KFunc ([KInt, KFloat] $-> KFloat)
-            , KFunc ([KFloat, KInt] $-> KFloat)
-            , KFunc ([KFloat, KFloat] $-> KFloat)
-            ]
-    , Builtin DivOp
-        -@> [ KFunc ([KInt, KInt] $-> KInt)
-            , KFunc ([KInt, KFloat] $-> KFloat)
-            , KFunc ([KFloat, KInt] $-> KFloat)
-            , KFunc ([KFloat, KFloat] $-> KFloat)
-            ]
-    , Builtin ModOp -@> [KFunc ([KInt, KInt] $-> KInt)]
-    , Builtin InvertOp -@> [KFunc ([KBool] $-> KBool)]
-    , Builtin NegateOp
-        -@> [KFunc ([KInt] $-> KInt), KFunc ([KFloat] $-> KFloat)]
-    ]
+newtype ConstraintGenerator a = ConstraintGenerator (
+    StateT (TypeCtx, Int) (
+    WriterT SomeConstraintSet (
+    Either ConstraintGenerationError)) a)
+    deriving (
+        Functor,
+        Applicative,
+        Monad,
+        MonadWriter SomeConstraintSet,
+        MonadError ConstraintGenerationError)
 
+instance MonadState TypeCtx ConstraintGenerator where
+    get     = ConstraintGenerator . StateT $ \(ctx, tvar) -> pure (ctx, (ctx, tvar))
+    put ctx = ConstraintGenerator . StateT $ \(_,   tvar) -> pure ((), (ctx, tvar))
+
+instance ApplicativeSupply TypeVar ConstraintGenerator where
+    supply = ConstraintGenerator . StateT $ \(ctx, tvar) -> pure (TypeVar tvar, (ctx, tvar+1))
+
+-- | Try to assign a type to every identifier in an AST, and give the constraints between those identifiers
 makeConstraints
-    :: DesugaredAST 'TopLevel -> Maybe (TVarAST 'TopLevel, ConstraintSet)
-makeConstraints =
-    resolveTypes                                                 -- Resolve types
-        >>> fmap
-                (\annotatedAST -> do
-                    annotatedTVarAST <- addTVar annotatedAST         -- Add type variables 
-                    writeProgramConstraints annotatedTVarAST           -- Generate constraints
-                    return (removeTypeAnnotations annotatedTVarAST)  -- Remove type annotations
-                )
-        >>> fmap runConstraintGenerator                          -- Extract everything
+    :: DesugaredAST 'TopLevel
+    -> Either
+           ConstraintGenerationError
+           (TVarAST 'TopLevel, SomeConstraintSet)
+makeConstraints ast = runConstraintGenerator $ do
+    annotatedAST     <- resolveTypes ast
+    annotatedTVarAST <- addTVar annotatedAST         -- Add type variables 
+    writeProgramConstraints annotatedTVarAST           -- Generate constraints
+    return (removeTypeAnnotations annotatedTVarAST)  -- Remove type annotations
 
--------------- For supply of type variables -------------------
-class Monad m => MonadUniqueSupply s m | m -> s where
+runConstraintGenerator
+    :: ConstraintGenerator a
+    -> Either ConstraintGenerationError (a, SomeConstraintSet)
+runConstraintGenerator (ConstraintGenerator cg) =
+    cg & (flip evalStateT (baseCtx, 0) >>> runWriterT)
+
+-------------------------------------------------------------------------------------
+
+-------------- Constraint generation Monad -----------------------------------------------
+data ConstraintGenerationError = UnboundName TVarName
+                               | NameShadowed TVarName
+                               | TypeResolutionError TypeExpr
+    deriving Show
+
+class Applicative m => ApplicativeSupply s m | m -> s where
     -- Law:
     -- liftA2 (==) supply supply == pure False
     supply :: m s
 
-instance MonadUniqueSupply TypeVar ConstraintGenerator where
-    supply = ConstraintGenerator . StateT $ \(ctx, tvar) -> pure (TypeVar tvar, (ctx, tvar+1))
----------------------------------------------------------------
+type MonadConstraintWriter m = MonadWriter SomeConstraintSet m
+type MonadConstraintGenerator m = (MonadConstraintWriter m, MonadState TypeCtx m, MonadError ConstraintGenerationError m)
+type ApplicativeTVarSupply m = ApplicativeSupply TypeVar m
+type AnnotatedTVarAST p = AST p 'NoSugar TVarName ('Just KType)
 
--------------- Constraint generation Monad -----------------------------------------------
-type MonadConstraintWriter m = MonadWriter ConstraintSet m
-type MonadConstraintGenerator m = (MonadConstraintWriter m, MonadState TypeCtx m)
-
--- For now, when a name is declared, it has to have an associated type, so this
--- type is OK. If type inference is implemented to any degree, this will have to
--- be changed to map to a [TypeVar]
-type TypeCtx = Map DesugaredName (Set KType)
-
-newtype ConstraintGenerator a = ConstraintGenerator (StateT (TypeCtx, Int) (Writer ConstraintSet) a)
-    deriving (Functor, Applicative, Monad, MonadWriter ConstraintSet)
-
-instance MonadState TypeCtx ConstraintGenerator where
-    get     = ConstraintGenerator . StateT $ \(ctx, tvar) -> pure (ctx, (ctx, tvar))
-    put ctx = ConstraintGenerator . StateT $ \(_, tvar)   -> pure ((), (ctx, tvar))
-
-runConstraintGenerator :: ConstraintGenerator a -> (a, ConstraintSet)
-runConstraintGenerator (ConstraintGenerator cg) =
-    cg & (flip evalStateT (baseCtx, 0) >>> runWriter)
-
-newTVar :: MonadTVarSupply m => m TypeVar
+writeConstraint c = tell [SomeConstraint c]
+newTVar :: ApplicativeTVarSupply m => m TypeVar
 newTVar = supply
-writeConstraint :: MonadConstraintWriter m => Constraint -> m ()
-writeConstraint c = tell [c]
--------------------------------------------------------------------------------------------
+withNewTVar :: ApplicativeTVarSupply m => DesugaredName -> m TVarName
+withNewTVar = liftA2 typeAnnotate newTVar . pure
+addTVar
+    :: ApplicativeTVarSupply m => TypeAnnotatedAST p -> m (AnnotatedTVarAST p)
+addTVar = traverseNames withNewTVar
+---------------------------------------------------------------------------
 
 --------------------- Resolving TypeExprs ----------------------------------
 type TypeAnnotatedAST p = AST p 'NoSugar DesugaredName ('Just KType)
 
-resolveTypes :: DesugaredAST p -> Maybe (TypeAnnotatedAST p)
+resolveTypes
+    :: MonadError ConstraintGenerationError m
+    => DesugaredAST p
+    -> m (TypeAnnotatedAST p)
 resolveTypes = traverseTypeAnnotations resolveTypeExpr
 
 -- | Resolves a type expression. Since custom type don't exist yet, 
 -- | just has a hardcoded list of types
-resolveTypeExpr :: TypeExpr -> Maybe KType
-resolveTypeExpr (TypeName "Int"   ) = Just KInt
-resolveTypeExpr (TypeName "String") = Just KString
-resolveTypeExpr (TypeName "Float" ) = Just KFloat
-resolveTypeExpr (TypeName "Bool"  ) = Just KBool
-resolveTypeExpr (TypeName "Unit"  ) = Just KUnit
-resolveTypeExpr (TypeName _       ) = Nothing
-resolveTypeExpr (SignatureType argExprs rtExpr) =
-    [ KFunc (args $-> rt)
-    | args <- traverse resolveTypeExpr argExprs
-    , rt   <- resolveTypeExpr rtExpr
-    ]
----------------------------------------------------------------------------
-
---------------------- Adding Type variables ----------------------------------
-type MonadTVarSupply m = MonadUniqueSupply TypeVar m
-type AnnotatedTVarAST p = AST p 'NoSugar TVarName ('Just KType)
-
-withNewTVar :: MonadTVarSupply m => DesugaredName -> m TVarName
-withNewTVar = liftA2 typeAnnotate newTVar . pure
-
-addTVar :: MonadTVarSupply m => TypeAnnotatedAST p -> m (AnnotatedTVarAST p)
-addTVar = traverseNames withNewTVar
+resolveTypeExpr :: MonadError ConstraintGenerationError m => TypeExpr -> m KType
+resolveTypeExpr (TypeName "Int"   )             = pure KInt
+resolveTypeExpr (TypeName "String")             = pure KString
+resolveTypeExpr (TypeName "Float" )             = pure KFloat
+resolveTypeExpr (TypeName "Bool"  )             = pure KBool
+resolveTypeExpr (TypeName "Unit"  )             = pure KUnit
+resolveTypeExpr tExpr@TypeName{} = throwError (TypeResolutionError tExpr)
+resolveTypeExpr (SignatureType argExprs rtExpr) = do
+    args <- traverse resolveTypeExpr argExprs
+    rt   <- resolveTypeExpr rtExpr
+    return (KFunc (args $-> rt))
 ---------------------------------------------------------------------------
 
 --------------------- Making constraints ----------------------------------
+
+-- | Generate constraints for a top-level AST
 writeProgramConstraints
     :: MonadConstraintGenerator m => AnnotatedTVarAST 'TopLevel -> m ()
-writeProgramConstraints (Program funcDefs) = do
-    let hoistedCtx = Map.fromList (funcTypeBinding <$> funcDefs)
-    withState (<> hoistedCtx) (traverse_ writeFuncDefConstraints funcDefs)
+writeProgramConstraints (Program funcDefs) = withState
+    (<> hoistedCtx)
+    (traverse_ writeFuncDefConstraints funcDefs)
   where
+    hoistedCtx :: TypeCtx
+    hoistedCtx = Map.fromList (funcTypeBinding <$> funcDefs)
+
     funcTypeBinding
         :: AnnotatedTVarAST 'FunctionDef -> (DesugaredName, Set KType)
     funcTypeBinding (FuncDefAnn name args rt _) =
         (deTypeAnnotate name, [KFunc ((snd <$> args) $-> rt)])
 
+-- | Write the constraints for a function definition
 writeFuncDefConstraints
     :: MonadConstraintGenerator m => AnnotatedTVarAST 'FunctionDef -> m ()
 writeFuncDefConstraints (FuncDefAnn name args rt body) = do
     funcType <- functionType args rt body
     modify (Map.insertWith (<>) (deTypeAnnotate name) [funcType])
 
+-- | Compute the return type of a statement and write the constraints required
+-- | for typing it
 stmtReturnTVar
     :: MonadConstraintGenerator m => AnnotatedTVarAST 'Stmt -> m TypeVar
 stmtReturnTVar (ExprStmt expr) = exprTVar expr
@@ -183,18 +163,22 @@ stmtReturnTVar (If (IfStmt cond ifBlk elseBlk)) = do
     writeConstraint $ ifBlkT =#= elseBlkT
 
     pure $ TheType KUnit
-stmtReturnTVar (Var n t expr) =
-    checkLocalAssignment n t expr *> pure (TheType KUnit)
-stmtReturnTVar (Let n t expr) =
-    checkLocalAssignment n t expr *> pure (TheType KUnit)
+stmtReturnTVar (Var name declaredTyped expr) = do
+    checkLocalAssignment name declaredTyped expr
+    pure (TheType KUnit)
+stmtReturnTVar (Let name t expr) = do
+    checkLocalAssignment name t expr
+    pure (TheType KUnit)
 stmtReturnTVar (Assign name expr) = do
     currentNameTypes <- gets $ Map.lookup (deTypeAnnotate name)
     exprType         <- exprTVar expr
-    writeConstraint $ case currentNameTypes of
-        Just ts -> IsOneOf exprType ts
-        Nothing -> Failure -- The name is unbound, so just fail
+    case currentNameTypes of
+        Just ts -> writeConstraint (IsOneOf exprType ts)
+        Nothing -> throwError (UnboundName name)
     pure $ TheType KUnit
 
+-- | Compute the type of an expression and write the constraints required for
+-- | typing it
 exprTVar :: MonadConstraintGenerator m => AnnotatedTVarAST 'Expr -> m TypeVar
 exprTVar (LiteralE   l     ) = pure (TheType $ literalType l)
 exprTVar (Identifier idName) = do
@@ -230,20 +214,6 @@ functionType args rt body = do
     pure . KFunc $ ((snd <$> args) $-> rt)
 
 -- | Assert that the declared type of an assignment matches the actual type
--- | of the expression and add it to the TypeCtx.
-checkTopLevelAssignment
-    :: MonadConstraintGenerator m
-    => TVarName
-    -> KType
-    -> AnnotatedTVarAST 'Expr
-    -> m ()
-checkTopLevelAssignment name declaredType expr = do
-    exprType <- exprTVar expr
-    writeConstraint $ nameType name =#= TheType declaredType
-    writeConstraint $ exprType =#= TheType declaredType
-    modify (Map.insertWith (<>) (deTypeAnnotate name) [declaredType])
-
--- | Assert that the declared type of an assignment matches the actual type
 -- | as well as that the binding does not shadow another name. Shadowing is 
 -- | only allowed at the top level.
 checkLocalAssignment
@@ -255,7 +225,7 @@ checkLocalAssignment
 checkLocalAssignment name declaredType expr = do
     exprType <- exprTVar expr
     gets (Map.lookup (deTypeAnnotate name)) >>= \case
-        Just _  -> writeConstraint Failure
+        Just _  -> throwError (NameShadowed name)
         Nothing -> do
             writeConstraint $ nameType name =#= TheType declaredType
             writeConstraint $ exprType =#= TheType declaredType
