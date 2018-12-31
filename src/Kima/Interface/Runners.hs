@@ -39,7 +39,7 @@ constraintAST' =  runEither . T.makeConstraints
 typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'
 typecheckAST' :: MonadInterface m => DesugaredProgram -> m TypedProgram
-typecheckAST' = _ --runEither . _typecheck --T.runTypeChecking T.baseCtx . T.check
+typecheckAST' = runEither . T.typecheck
 
 desugarFile = runMonadInterface . (parseFile' >=> desugarAST')
 desugarAST = runMonadInterface . desugarAST'

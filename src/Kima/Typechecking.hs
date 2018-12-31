@@ -33,7 +33,7 @@ data TypecheckingError = UnificationError UnificationError
     deriving Show
 
 typecheck
-    :: DesugaredAST 'TopLevel -> Either TypecheckingError (TypedAST 'TopLevel)
+    :: DesugaredProgram -> Either TypecheckingError TypedProgram
 typecheck dAST = do
     (tVarAST, constraints) <- first ConstraintGenerationError
                                     (makeConstraints dAST)

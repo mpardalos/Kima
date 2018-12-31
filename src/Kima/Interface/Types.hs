@@ -22,6 +22,7 @@ instance UserThrowable ParseError where
     userShow = parseErrorPretty
 
 instance UserThrowable ConstraintGenerationError
+instance UserThrowable TypecheckingError
 instance UserThrowable RuntimeError
 
 data UserThrowableError = forall err. UserThrowable err => UserThrowableError err
