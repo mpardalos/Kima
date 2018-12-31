@@ -7,6 +7,9 @@ where
 
 import           Control.Applicative
 import           Control.Arrow                 as Arrow
+                                         hiding ( first
+                                                , second
+                                                )
 import           Control.Monad.Writer
 import           Control.Monad.Except
 import           Data.Bifunctor                as Bifunctor
@@ -138,13 +141,17 @@ writeFuncDefConstraints
     :: MonadConstraintGenerator m => AnnotatedTVarAST 'FunctionDef -> m ()
 writeFuncDefConstraints (FuncDefAnn name args rt body) = do
     funcType <- functionType args rt body
+    writeConstraint $ nameType name `IsOneOf` [funcType]
+    traverse_ -- Write the domains of the arguments
+        ((nameType *** Set.singleton) >>> uncurry IsOneOf >>> writeConstraint)
+        args
     modify (Map.insertWith (<>) (deTypeAnnotate name) [funcType])
 
 -- | Compute the return type of a statement and write the constraints required
 -- | for typing it
 stmtReturnTVar
     :: MonadConstraintGenerator m => AnnotatedTVarAST 'Stmt -> m TypeVar
-stmtReturnTVar (ExprStmt expr) = do 
+stmtReturnTVar (ExprStmt expr) = do
     tvar <- exprTVar expr
     writeConstraint (tvar =#= tvar)
     return tvar
