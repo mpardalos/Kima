@@ -111,9 +111,11 @@ data TypeExpr = TypeName (GenericName 'Nothing 'False)
     deriving Eq
 
 --------- Useful functions ----------
-typeAnnotate :: t -> GenericName 'Nothing b -> GenericName ('Just t) b
+typeAnnotate :: t -> GenericName a b -> GenericName ('Just t) b
 typeAnnotate t (Name n) = TypedName n t
 typeAnnotate t (Builtin n) = TBuiltin n t
+typeAnnotate t (TypedName n _) = TypedName n t
+typeAnnotate t (TBuiltin n _) = TBuiltin n t
 
 deTypeAnnotate :: GenericName ('Just t) b -> GenericName 'Nothing b
 deTypeAnnotate (TypedName n _ ) = Name n

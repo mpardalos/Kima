@@ -60,7 +60,7 @@ domainOf tvar@(ApplicationTVar callee args) = do
     argDomains   <- toList <$> domainOf `traverse` args
     calleeDomain <- toList <$> domainOf callee
     case filter (matches argDomains) calleeDomain of
-        [t@(KFunc (Signature _ rt))] -> setDomain tvar [t] *> pure [rt]
+        [t@(KFunc (Signature _ rt))] -> unifyVarToType callee t *> pure [rt]
         [t] -> throwError (CantUnify (TheType t) callee)
         []                           -> throwError (CantUnifyCall tvar args)
         ts                           -> throwError (AmbiguousVariable tvar ts)
@@ -104,12 +104,12 @@ unifyEquality (Equal var         (TheType t)) = unifyVarToType var t
 unifyEquality (Equal (TheType t) var        ) = unifyVarToType var t
 -- Unify typevars
 unifyEquality (Equal var1        var2       ) = do
-    domain1 <- domainOf var1
-    domain2 <- domainOf var2
-    case (domain1, domain2) of
-        (dom1, dom2) | dom1 `isSubset` dom2 -> setDomain var2 dom1
-                     | dom2 `isSubset` dom1 -> setDomain var1 dom2
-                     | otherwise            -> throwError (CantUnify var1 var2)
+    dom1 <- domainOf var1
+    dom2 <- domainOf var2
+    case () of
+        () | dom1 `isSubset` dom2 -> setDomain var2 dom1
+           | dom2 `isSubset` dom1 -> setDomain var1 dom2
+           | otherwise            -> throwError (CantUnify var1 var2)
 
 unifyVarToType :: MonadUnify m => TypeVar -> KType -> m ()
 unifyVarToType tvar KUnit = do

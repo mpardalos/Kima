@@ -10,10 +10,10 @@ import Kima.Typechecking.Types
 baseCtx :: TypeCtx
 baseCtx =
     [ Builtin PrintFunc
-        -@> [ KFunc ([KString] $-> KString)
-            , KFunc ([KInt] $-> KString)
-            , KFunc ([KFloat] $-> KString)
-            , KFunc ([KBool] $-> KString)
+        -@> [ KFunc ([KString] $-> KUnit)
+            , KFunc ([KInt] $-> KUnit)
+            , KFunc ([KFloat] $-> KUnit)
+            , KFunc ([KBool] $-> KUnit)
             ]
     , Builtin AddOp
         -@> [ KFunc ([KString, KString] $-> KString)
