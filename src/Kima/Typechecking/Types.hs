@@ -32,16 +32,6 @@ deriving instance Ord (Constraint a)
 
 (=#=) :: TypeVar -> TypeVar -> EqConstraint
 (=#=) = Equal
-
--- extractEqual :: Constraint a -> Maybe (Constraint 'OnlyEq)
--- extractEqual IsOneOf{}  = Nothing
--- -- Ew, but at least it's not exported.
--- -- There has to be some way to convice GHC that a matching an Equal refines the
--- -- type parameter to an OnlyEq
--- extractEqual eq@Equal{} = Just (unsafeCoerce eq) 
-
--- pattern AsEquality :: Constraint 'OnlyEq -> Constraint a
--- pattern AsEquality c <- (extractEqual -> Just c)
 -----------------------------------------------------------------------------------
 
 -- For now, when a name is declared, it has to have an associated type, so this
@@ -54,7 +44,6 @@ type Substitution = Map TypeVar KType
 -- Types we have to solve for
 data TypeVar = TypeVar Int
              | TheType KType
-             | FuncTVar (Signature TypeVar)
              | ApplicationTVar TypeVar [TypeVar]
     deriving (Eq, Ord)
 
@@ -81,6 +70,5 @@ instance Show SomeConstraint where
 instance Show TypeVar where
     show ( TypeVar         th                  ) = "@" <> show th
     show ( TheType         t                   ) = "#" <> show t
-    show ( FuncTVar        (Signature args rt) ) = "(" <> intercalate ", " (show <$> args) <> ") -> " <> show rt
     show ( ApplicationTVar callee args         ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
 

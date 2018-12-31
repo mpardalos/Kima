@@ -126,7 +126,7 @@ writeProgramConstraints (Program funcDefs) = withState
     (traverse_ writeFuncDefConstraints funcDefs)
   where
     hoistedCtx :: TypeCtx
-    hoistedCtx = Map.fromList (funcTypeBinding <$> funcDefs)
+    hoistedCtx = Map.fromListWith (<>) (funcTypeBinding <$> funcDefs)
 
     funcTypeBinding
         :: AnnotatedTVarAST 'FunctionDef -> (DesugaredName, Set KType)
@@ -144,7 +144,10 @@ writeFuncDefConstraints (FuncDefAnn name args rt body) = do
 -- | for typing it
 stmtReturnTVar
     :: MonadConstraintGenerator m => AnnotatedTVarAST 'Stmt -> m TypeVar
-stmtReturnTVar (ExprStmt expr) = exprTVar expr
+stmtReturnTVar (ExprStmt expr) = do 
+    tvar <- exprTVar expr
+    writeConstraint (tvar =#= tvar)
+    return tvar
 stmtReturnTVar (Block blk) =
     lastDef (TheType KUnit) <$> traverse stmtReturnTVar blk
 stmtReturnTVar (While (WhileStmt cond body)) = do
@@ -187,17 +190,11 @@ exprTVar (Identifier idName) = do
     typesInScope <- fromMaybe [] <$> gets (Map.lookup (deTypeAnnotate idName))
     writeConstraint $ IsOneOf nameT typesInScope
     pure nameT
-
 exprTVar (FuncExprAnn args rt body) = TheType <$> functionType args rt body
-
 exprTVar (Call callee args        ) = do
     calleeT <- exprTVar callee
     argT    <- traverse exprTVar args
-    let returnT = ApplicationTVar calleeT argT
-
-    writeConstraint $ calleeT =#= FuncTVar (argT $-> returnT)
-
-    pure returnT
+    pure (ApplicationTVar calleeT argT)
 
 functionType
     :: MonadConstraintGenerator m
