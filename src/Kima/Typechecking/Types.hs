@@ -1,43 +1,74 @@
-module Kima.Typechecking.Types where
+module Kima.Typechecking.Types(
+    EqConstraint, Constraint(..), (=#=), SomeConstraint(..),
+    WhichConstraints(..),
+    ConstraintSet, SomeConstraintSet, EqConstraintSet,
+    Substitution, TypeVar(..), TVarAST, TVarProgram, TVarName,
+    TypeCtx
+) where
 
-import Data.Map.Lazy
+import           Data.Kind hiding (Constraint)
+import           Data.List
+import           Data.Map                       ( Map )
+import           Data.Set                       ( Set )
+import qualified Data.Set as Set
 
-import Kima.AST
-import Kima.KimaTypes
+import           Kima.AST
+import           Kima.KimaTypes
 
-type TypeBinding = Binding KTypeOv
-data Binding t = Constant { kType :: t }
-              |  Variable { kType :: t }
-  deriving Show
-                 
-data TypeCtx = TypeCtx {
-  types :: Map TypeName KTypeOv,
-  bindings :: Map ParsedName (Binding KTypeOv)
-}
+-------------------------------- Constraints ---------------------------------------
+type EqConstraint = Constraint 'OnlyEq
 
-data TypeError t = NoMatchingSignature ParsedName [t]
-                 | TypeMismatchError t t
-                 | NotAFunctionError t
-                 | LookupError ParsedName
-                 | TypeLookupError ParsedName
-                 | NameAlreadyBoundError ParsedName
-                 | BinOpTypeError [(t, t)] (t, t)
-                 | UnaryOpTypeError [t] t
-                 | ArgumentCountError Int Int
+type ConstraintSet a = [Constraint a] 
+type SomeConstraintSet = [SomeConstraint] 
+type EqConstraintSet = ConstraintSet 'OnlyEq
 
-instance Show t => Show (TypeError t) where
-  show (NoMatchingSignature funcName args) = "No implementation of " ++ show funcName ++ " accepts the types " ++ show args
-  show (TypeMismatchError expected actual) = "Expected " ++ show expected ++ ", got " ++ show actual
-  show (NotAFunctionError  t) = "Expected a function but got " ++ show t
-  show (LookupError     name) = "Name " ++ show name ++ " is not in scope"
-  show (TypeLookupError name) = "Type name " ++ show name ++ " is not in scope"
-  show (BinOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
-  show (UnaryOpTypeError expected actual) = "Invalid types for operator. Expected one of " ++ show expected ++ " but received " ++ show actual
-  show (NameAlreadyBoundError name) = "The variable " ++ show name ++ " is already bound."
-  show (ArgumentCountError expected actual) = "Expected " ++ show expected ++ "arguments, but got " ++ show actual
+data SomeConstraint = forall a. SomeConstraint { unpackSomeConstraint :: Constraint a }
+data WhichConstraints = OnlyEq | OnlyOneOf
+data Constraint :: WhichConstraints -> Type where
+    Equal :: TypeVar -> TypeVar -> Constraint 'OnlyEq
+    IsOneOf :: TypeVar -> Set KType -> Constraint 'OnlyOneOf
+deriving instance Eq (Constraint a)
+deriving instance Ord (Constraint a)
 
-instance Show TypeCtx where 
-  show TypeCtx { types, bindings } = "TypeCtx " ++ show types ++ " | " ++ show bindings
+(=#=) :: TypeVar -> TypeVar -> EqConstraint
+(=#=) = Equal
+-----------------------------------------------------------------------------------
 
-instance Semigroup TypeCtx where
-  l <> r = TypeCtx (types l <> types r) (bindings l <> bindings r)
+-- For now, when a name is declared, it has to have an associated type, so this
+-- type is OK. If type inference is implemented to any degree, this will have to
+-- be changed to map to a [TypeVar]
+type TypeCtx = Map DesugaredName (Set KType)
+
+type Substitution = Map TypeVar KType
+
+-- Types we have to solve for
+data TypeVar = TypeVar Int
+             | TheType KType
+             | ApplicationTVar TypeVar [TypeVar]
+    deriving (Eq, Ord)
+
+type TVarName         = GenericName ('Just TypeVar) 'True
+
+type TVarAST p          = AST p 'NoSugar TVarName 'Nothing
+type TVarProgram        = TVarAST 'TopLevel
+
+---------------------- Show -----------------------------
+instance Show (Constraint a) where
+    show (Equal t1 t2) = show t1 <> " =#= " <> show t2
+    show (IsOneOf t ts) = show t <> " ∈ {" ++ intercalate "," (show <$> Set.toList ts) ++ "}"
+
+    showList [] = ("{}" <>)
+    showList constraints = (intercalate "\n" (show <$> constraints) <>)
+
+instance Show SomeConstraint where
+    show (SomeConstraint c) = show c
+
+    showList [] = ("{}" <>)
+    showList constraints = (intercalate "\n" (show <$> constraints) <>)
+
+
+instance Show TypeVar where
+    show ( TypeVar         th                  ) = "@" <> show th
+    show ( TheType         t                   ) = "#" <> show t
+    show ( ApplicationTVar callee args         ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
+

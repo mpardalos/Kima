@@ -1,5 +1,8 @@
 module Kima.AST where
 
+import Control.Applicative
+import Control.Monad.Identity
+import Data.Coerce
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
@@ -16,15 +19,19 @@ data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
     deriving (Show, Eq, Ord)
 
 type TypeName        = GenericName 'Nothing                    'False
-type ParsedName      = GenericName 'Nothing                    'False
-type TypedName       = GenericName ('Just (KType 'Overload))   'False
-type DesugaredName   = GenericName ('Just (KType 'Overload))   'True
-type UnambiguousName = GenericName ('Just (KType 'NoOverload)) 'True
+
+type ParsedName      = GenericName 'Nothing      'False
+type DesugaredName   = GenericName 'Nothing      'True
+type TypedName       = GenericName ('Just KType) 'True
 
 data GenericName :: Maybe Type -> Bool -> Type where
+    -- Strings
     Name        :: String      -> GenericName 'Nothing b
     TypedName   :: String -> t -> GenericName ('Just t) b
-    Builtin     :: BuiltinName -> KType ov -> GenericName ('Just (KType ov)) 'True
+
+    -- Builtins
+    Builtin     :: BuiltinName -> GenericName 'Nothing 'True
+    TBuiltin    :: BuiltinName -> t -> GenericName ('Just t) 'True
     
 ---------- AST ----------  
 data Sugar = Sugar | NoSugar
@@ -37,7 +44,6 @@ data Unary e = Negate e | Invert e
     deriving (Show, Functor, Foldable, Traversable)
 
 data Literal = IntExpr Integer | FloatExpr Double | BoolExpr Bool | StringExpr String 
-    deriving Show
 
 data IfStmt cond body = IfStmt {
     cond :: cond,
@@ -49,6 +55,8 @@ data WhileStmt cond body = WhileStmt {
     cond :: cond,
     body :: body
 }
+
+newtype ArgList a = ArgList [a]
 
 -- | A Unified AST for all compilation/interpretation phases.
 -- | The type parameters specify which constructors are available.
@@ -62,7 +70,7 @@ data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Typ
     Program      :: [AST 'FunctionDef sug n t] -> AST 'TopLevel sug n t
 
     ----------------------- Top-level function definitions ----------------------- 
-    FuncDef      ::  name -> [name]           -> AST 'Stmt sug name 'Nothing -> AST 'FunctionDef sug name 'Nothing
+    FuncDef      ::  name -> [name] -> AST 'Stmt sug name 'Nothing -> AST 'FunctionDef sug name 'Nothing
     FuncDefAnn   ::  name -> [(name, t)] -> t -> AST 'Stmt sug name ('Just t)-> AST 'FunctionDef sug name ('Just t)
 
     ----------------------- Expressions ----------------------- 
@@ -84,21 +92,18 @@ data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Typ
     Assign   :: name -> AST 'Expr sug name t                      -> AST 'Stmt sug name t
 
     -- Typed versions
-    -- The constraint seems useless, but it silences the warning asking us to pattern match
-    -- on these constructors when t ~ Void
-    Var      :: name -> t -> AST 'Expr 'Sugar name ('Just t) -> AST 'Stmt 'Sugar name ('Just t)
-    Let      :: name -> t -> AST 'Expr 'Sugar name ('Just t) -> AST 'Stmt 'Sugar name ('Just t)
+    Var      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
+    Let      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
 
 ------ Type synonyms for different phases -----
-type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName      ('Just TypeExpr)
-type TypedAST     (p :: ASTPart) = AST p 'Sugar   TypedName       'Nothing
-type DesugaredAST (p :: ASTPart) = AST p 'NoSugar DesugaredName   'Nothing
-type RuntimeAST   (p :: ASTPart) = AST p 'NoSugar UnambiguousName 'Nothing
+-- Parse ->
+type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName    ('Just TypeExpr) -- Desugar ->
+type DesugaredAST (p :: ASTPart) = AST p 'NoSugar DesugaredName ('Just TypeExpr) -- Typecheck ->
+type TypedAST     (p :: ASTPart) = AST p 'NoSugar TypedName     'Nothing
 
-type ParsedProgram    = AST 'TopLevel 'Sugar   ParsedName      ('Just TypeExpr)
-type TypedProgram     = AST 'TopLevel 'Sugar   TypedName       'Nothing
-type DesugaredProgram = AST 'TopLevel 'NoSugar DesugaredName   'Nothing
-type RuntimeProgram   = AST 'TopLevel 'NoSugar UnambiguousName 'Nothing
+type ParsedProgram    = ParsedAST 'TopLevel
+type DesugaredProgram = DesugaredAST 'TopLevel
+type TypedProgram     = TypedAST 'TopLevel
 
 -- Types
 data TypeExpr = TypeName (GenericName 'Nothing 'False)
@@ -106,8 +111,19 @@ data TypeExpr = TypeName (GenericName 'Nothing 'False)
     deriving Eq
 
 --------- Useful functions ----------
-typeAnnotate :: t -> GenericName 'Nothing 'False -> GenericName ('Just t) 'False
+typeAnnotate :: t -> GenericName a b -> GenericName ('Just t) b
 typeAnnotate t (Name n) = TypedName n t
+typeAnnotate t (Builtin n) = TBuiltin n t
+typeAnnotate t (TypedName n _) = TypedName n t
+typeAnnotate t (TBuiltin n _) = TBuiltin n t
+
+deTypeAnnotate :: GenericName ('Just t) b -> GenericName 'Nothing b
+deTypeAnnotate (TypedName n _ ) = Name n
+deTypeAnnotate (TBuiltin  n _ ) = Builtin n
+
+nameType :: GenericName ('Just t) b -> t
+nameType (TypedName _ t) = t
+nameType (TBuiltin _ t) = t
 
 --------------- Show instances ---------------------
 
@@ -117,6 +133,15 @@ instance (Show cond, Show stmt) => Show (IfStmt cond stmt) where
 instance (Show cond, Show stmt) => Show (WhileStmt cond stmt) where
     show WhileStmt { cond, body } = "while (" ++ show cond ++ ") " ++ show body
 
+instance Show a => Show (ArgList a) where
+    show (ArgList args) = "(" <> intercalate ", " (show <$> args) <> ")"
+
+instance Show Literal where
+    show (IntExpr n    ) = "i" <> show n
+    show (FloatExpr f  ) = "f" <> show f
+    show (BoolExpr b   ) = show b
+    show (StringExpr s ) = "s" <> show s
+
 instance (Show n) => Show (AST p sug n 'Nothing) where
     show (Assign name expr) = show name ++ " = " ++ show expr
     show (BinE bin) = show bin
@@ -124,8 +149,8 @@ instance (Show n) => Show (AST p sug n 'Nothing) where
         where indented = concat . fmap ("\n\t"++)
     show (Call callee args) = show callee ++ "(" ++ intercalate "," (show <$> args) ++ ")"
     show (ExprStmt expr) = show expr
-    show (FuncDef name sig body) = "fun " ++ show name ++ " " ++ show sig ++ " " ++ show body
-    show (FuncExpr sig body) = show sig ++ " " ++ show body
+    show (FuncDef name sig body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " " ++ show body
+    show (FuncExpr sig body) = show (ArgList sig) ++ " " ++ show body
     show (Identifier name) = show name
     show (If stmt) = show stmt 
     show (LiteralE lit) = show lit
@@ -134,8 +159,8 @@ instance (Show n) => Show (AST p sug n 'Nothing) where
     show (While stmt) = show stmt 
 
 instance (Show n, Show t) => Show (AST p sug n ('Just t)) where
-    show (FuncDefAnn name sig rt body) = "fun " ++ show name ++ " " ++ show sig ++ " -> " ++ show rt ++ show body
-    show (FuncExprAnn sig rt body) = show sig ++ " -> " ++ show rt ++ show body
+    show (FuncDefAnn name sig rt body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show body
+    show (FuncExprAnn sig rt body) = show (ArgList sig) ++ " -> " ++ show rt ++ show body
     show (Var name t expr) = "var " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
     show (Let name t expr) = "let " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
     show (Program ast) = intercalate "\n" (show <$> ast)
@@ -152,17 +177,16 @@ instance (Show n, Show t) => Show (AST p sug n ('Just t)) where
     show (If stmt) = show stmt 
 
 instance Show TypeExpr where
-    show (TypeName name) = case name of 
-        (Name s) -> "#" ++ s
+    show (TypeName (Name s)) = "#\"" ++ s ++ "\""
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
 
-instance Show ParsedName where
-    show (Name n) = "{" ++ show n ++ "}"
-
-instance Show t => Show (GenericName ('Just t) ov) where
+instance Show t => Show (GenericName ('Just t) b) where
     show (TypedName str t) = "{" ++ str ++ " : " ++ show t ++ "}"
-    show (Builtin n t) = "{" ++ show n ++ " : " ++ show t ++ "}"
+    show (TBuiltin n t) = "{" ++ show n ++ " : " ++ show t ++ "}"
 
+instance Show (GenericName 'Nothing b) where
+    show (Name str) = "{" ++ str ++ "}"
+    show (Builtin n) = "{" ++ show n ++ "}"
 
 --------------- Boring instances ---------------------
 
@@ -188,17 +212,87 @@ instance Bitraversable WhileStmt where
 instance IsString ParsedName where
     fromString = Name
 
-instance Eq ParsedName where
+instance Eq (GenericName 'Nothing b) where
     (Name l) == (Name r) = l == r
+    (Builtin l) == (Builtin r) = l == r
+    _ == _ = False
 instance Eq t => Eq (GenericName ('Just t) b) where
     TypedName n1 t1 == TypedName n2 t2 = n1 == n2 && t1 == t2
-    Builtin l t1 == Builtin r t2 = l == r && t1 == t2
+    TBuiltin l t1 == TBuiltin r t2 = l == r && t1 == t2
     _ == _ = False
 
-instance Ord ParsedName where
-    Name l <= Name r = l <= r
+instance Ord (GenericName 'Nothing b) where
+    Name{} `compare` Builtin{} = LT
+    Builtin{} `compare` Name{} = GT
+    Name n1 `compare` Name n2 = compare n1 n2
+    Builtin l `compare` Builtin r = compare l r
+
 instance Ord t => Ord (GenericName ('Just t) b) where
-    TypedName{} `compare` Builtin{} = LT
-    Builtin{} `compare` TypedName{} = GT
+    TypedName{} `compare` TBuiltin{} = LT
+    TBuiltin{} `compare` TypedName{} = GT
     TypedName n1 t1 `compare` TypedName n2 t2 = compare n1 n2 <> compare t1 t2
-    Builtin l t1 `compare` Builtin r t2 = compare l r <> compare t1 t2
+    TBuiltin l t1 `compare` TBuiltin r t2 = compare l r <> compare t1 t2
+
+-- Traverals
+
+mapTypeAnnotations :: forall n t1 t2 p sug. (t1 -> t2) -> AST p sug n ('Just t1) -> AST p sug n ('Just t2)
+mapTypeAnnotations = coerce (traverseTypeAnnotations :: (t1 -> Identity t2) -> AST p sug n ('Just t1) -> Identity (AST p sug n ('Just t2)))
+
+traverseTypeAnnotations :: Applicative m => (t1 -> m t2) -> AST p sug n ('Just t1) -> m (AST p sug n ('Just t2))
+traverseTypeAnnotations f (Program ast)            = Program <$> traverse (traverseTypeAnnotations f) ast
+traverseTypeAnnotations f (FuncDefAnn n args rt b) = FuncDefAnn n <$> traverse (traverse f) args <*> f rt <*> traverseTypeAnnotations f b
+traverseTypeAnnotations _ (LiteralE lit)           = pure $ LiteralE lit
+traverseTypeAnnotations _ (Identifier n)           = pure $ Identifier n
+traverseTypeAnnotations f (FuncExprAnn args rt b)  = FuncExprAnn <$> traverse (traverse f) args       <*> f rt <*> traverseTypeAnnotations f b
+traverseTypeAnnotations f (Call callee args)       = Call        <$> traverseTypeAnnotations f callee <*> traverse (traverseTypeAnnotations f) args
+traverseTypeAnnotations f (BinE bin)               = BinE        <$> traverse (traverseTypeAnnotations f) bin
+traverseTypeAnnotations f (UnaryE unary)           = UnaryE      <$> traverse (traverseTypeAnnotations f) unary
+traverseTypeAnnotations f (ExprStmt e)             = ExprStmt    <$> traverseTypeAnnotations f e
+traverseTypeAnnotations f (Block blk)              = Block       <$> traverse (traverseTypeAnnotations f) blk
+traverseTypeAnnotations f (While stmt)             = While       <$> bitraverse (traverseTypeAnnotations f) (traverseTypeAnnotations f) stmt
+traverseTypeAnnotations f (If stmt)                = If          <$> bitraverse (traverseTypeAnnotations f) (traverseTypeAnnotations f) stmt
+traverseTypeAnnotations f (Assign n e)             = Assign n    <$> traverseTypeAnnotations f e
+traverseTypeAnnotations f (Var n t e)              = Var n       <$> f t <*> traverseTypeAnnotations f e
+traverseTypeAnnotations f (Let n t e)              = Let n       <$> f t <*> traverseTypeAnnotations f e
+
+removeTypeAnnotations :: AST p sug n ('Just t) -> AST p sug n 'Nothing 
+removeTypeAnnotations (Program ast)           = Program (removeTypeAnnotations <$> ast) 
+removeTypeAnnotations (FuncDefAnn n args _ b) = FuncDef n (fst <$> args) (removeTypeAnnotations b)
+removeTypeAnnotations (LiteralE lit)          = LiteralE lit
+removeTypeAnnotations (Identifier n)          = Identifier n
+removeTypeAnnotations (FuncExprAnn args _ b)  = FuncExpr (fst <$> args) (removeTypeAnnotations b)
+removeTypeAnnotations (Call callee args)      = Call (removeTypeAnnotations callee) (removeTypeAnnotations <$> args)
+removeTypeAnnotations (BinE bin)              = BinE (removeTypeAnnotations <$> bin) 
+removeTypeAnnotations (UnaryE unary)          = UnaryE (removeTypeAnnotations <$> unary)
+removeTypeAnnotations (ExprStmt e)            = ExprStmt (removeTypeAnnotations e)
+removeTypeAnnotations (Block blk)             = Block (removeTypeAnnotations <$> blk)
+removeTypeAnnotations (While stmt)            = While (bimap removeTypeAnnotations removeTypeAnnotations stmt)
+removeTypeAnnotations (If stmt)               = If (bimap removeTypeAnnotations removeTypeAnnotations stmt)
+removeTypeAnnotations (Assign n e)            = Assign n (removeTypeAnnotations e)
+removeTypeAnnotations (Var n _ e)             = Assign n (removeTypeAnnotations e)
+removeTypeAnnotations (Let n _ e)             = Assign n (removeTypeAnnotations e)
+
+mapNames :: forall n1 n2 p sug t. (n1 -> n2) -> AST p sug n1 t -> AST p sug n2 t
+mapNames = coerce (traverseNames :: (n1 -> Identity n2) -> AST p sug n1 t -> Identity (AST p sug n2 t))
+
+traverseNames :: Applicative m => (n1 -> m n2) -> AST p sug n1 t -> m (AST p sug n2 t)
+traverseNames f (Program ast)            = Program <$> traverse (traverseNames f) ast
+traverseNames f (ExprStmt e)             = ExprStmt <$> traverseNames f e
+traverseNames _ (LiteralE lit)           = pure $ LiteralE lit
+traverseNames f (Identifier n)           = Identifier <$> f n
+traverseNames f (BinE bin)               = BinE       <$> traverse (traverseNames f) bin
+traverseNames f (UnaryE unary)           = UnaryE     <$> traverse (traverseNames f) unary
+traverseNames f (While stmt)             = While <$> bitraverse (traverseNames f) (traverseNames f) stmt
+traverseNames f (If stmt)                = If    <$> bitraverse (traverseNames f) (traverseNames f) stmt
+traverseNames f (Block blk)              = Block <$> traverse   (traverseNames f)                   blk
+traverseNames f (FuncDef n args b)       = FuncDef     <$> f n <*> traverse f args                              <*> traverseNames f b
+traverseNames f (FuncExpr    args    b)  = FuncExpr    <$>         traverse f args                              <*> traverseNames f b
+traverseNames f (FuncDefAnn n args rt b) = FuncDefAnn  <$> f n <*> traverse (traverseTuple1 f) args <*> pure rt <*> traverseNames f b
+traverseNames f (FuncExprAnn args rt b)  = FuncExprAnn <$>         traverse (traverseTuple1 f) args <*> pure rt <*> traverseNames f b
+traverseNames f (Call callee args)       = Call        <$> traverseNames f callee                               <*> traverse (traverseNames f) args
+traverseNames f (Assign n e)             = Assign <$> f n            <*> traverseNames f e
+traverseNames f (Var n t e)              = Var    <$> f n <*> pure t <*> traverseNames f e
+traverseNames f (Let n t e)              = Let    <$> f n <*> pure t <*> traverseNames f e
+
+traverseTuple1 :: Applicative m => (a -> m c) -> (a, b) -> m (c, b)
+traverseTuple1 f (a, b) = liftA2 (,) (f a) (pure b)

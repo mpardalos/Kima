@@ -31,24 +31,24 @@ parseFile' fn = do
     src <- liftIO (readFile fn)
     runEither (F.runParser F.program fn src)
 
-typecheckFile = runMonadInterface . (parseFile' >=> typecheckAST')
-typecheckAST = runMonadInterface . typecheckAST'
-typecheckAST' :: MonadInterface m => ParsedProgram -> m TypedProgram
-typecheckAST' = runEither . T.runTypeChecking T.baseCtx . T.check
+constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> constraintAST')
+constraintAST = runMonadInterface . constraintAST'
+constraintAST' :: MonadInterface m => DesugaredProgram -> m (T.TVarProgram, T.SomeConstraintSet)
+constraintAST' =  runEither . T.makeConstraints
 
-desugarFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST')
+typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
+typecheckAST = runMonadInterface . typecheckAST'
+typecheckAST' :: MonadInterface m => DesugaredProgram -> m TypedProgram
+typecheckAST' = runEither . T.typecheck
+
+desugarFile = runMonadInterface . (parseFile' >=> desugarAST')
 desugarAST = runMonadInterface . desugarAST'
-desugarAST' :: MonadInterface m => TypedProgram -> m DesugaredProgram
+desugarAST' :: MonadInterface m => ParsedProgram -> m DesugaredProgram
 desugarAST' = return . desugar
 
-disambiguateFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST')
-disambiguateAST = runMonadInterface . desugarAST'
-disambiguateAST' :: MonadInterface m => DesugaredProgram -> m RuntimeProgram
-disambiguateAST' = return . _disambiguate
-
-runFile = runMonadInterface . (parseFile' >=> typecheckAST' >=> desugarAST' >=> disambiguateAST' >=> runAST')
+runFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST' >=> runAST')
 runAST = runMonadInterface . runAST'
-runAST' :: MonadInterface m => RuntimeProgram -> m ()
+runAST' :: MonadInterface m => TypedProgram -> m ()
 runAST' src = liftIO (I.runProgram src) >>= runEither 
 
 userThrow :: (MonadInterface m, UserThrowable err) => err -> m a
@@ -56,3 +56,7 @@ userThrow = throwError . UserThrowableError
 
 runEither :: (MonadInterface m, UserThrowable err) => Either err a -> m a
 runEither = liftEither . bimap UserThrowableError id 
+
+runMaybe :: (UserThrowable err, MonadInterface m) => err -> Maybe a -> m a
+runMaybe _   (Just a) = pure a 
+runMaybe err Nothing  = userThrow err

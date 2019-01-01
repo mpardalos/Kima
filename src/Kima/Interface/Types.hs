@@ -2,10 +2,11 @@ module Kima.Interface.Types where
 
 import Control.Arrow hiding (first)
 import Control.Monad.Except
+import Control.Exception
 
-import Kima.Typechecking
 import Kima.Frontend
 import Kima.Interpreter
+import Kima.Typechecking
 
 class UserThrowable err where
     userShow :: err -> String
@@ -13,10 +14,15 @@ class UserThrowable err where
     default userShow :: Show err => err -> String
     userShow = show
 
+newtype CustomError = CustomError String
+instance UserThrowable CustomError where
+    userShow (CustomError str) = str
+
 instance UserThrowable ParseError where
     userShow = parseErrorPretty
 
-instance Show t => UserThrowable (TypeError t)
+instance UserThrowable ConstraintGenerationError
+instance UserThrowable TypecheckingError
 instance UserThrowable RuntimeError
 
 data UserThrowableError = forall err. UserThrowable err => UserThrowableError err
@@ -31,7 +37,9 @@ newtype InterfaceM a = InterfaceM {
 
 type MonadInterface m = (MonadError UserThrowableError m, MonadIO m)
 
-runMonadInterface :: Show a => InterfaceM a -> IO ()
+runMonadInterface :: InterfaceM a -> IO a
 runMonadInterface = runInterfaceM 
     >>> runExceptT 
-    >=> either print print
+    >=> \case 
+        Left err -> throwIO $ userError (show err)
+        Right a -> pure a
