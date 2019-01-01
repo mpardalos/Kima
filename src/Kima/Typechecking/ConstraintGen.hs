@@ -183,7 +183,7 @@ stmtReturnTVar (Assign name expr) = do
     currentNameTypes <- gets $ Map.lookup (deTypeAnnotate name)
     exprType         <- exprTVar expr
     case currentNameTypes of
-        Just ts -> writeConstraint (IsOneOf exprType ts)
+        Just ts -> writeConstraint (exprType `IsOneOf` ts)
         Nothing -> throwError (UnboundName name)
     pure $ TheType KUnit
 
@@ -195,7 +195,7 @@ exprTVar (Identifier idName) = do
     -- It must have one of the types that this name has in this scope
     let nameT = nameType idName
     typesInScope <- fromMaybe [] <$> gets (Map.lookup (deTypeAnnotate idName))
-    writeConstraint $ IsOneOf nameT typesInScope
+    writeConstraint $ nameT `IsOneOf` typesInScope
     pure nameT
 exprTVar (FuncExprAnn args rt body) = TheType <$> functionType args rt body
 exprTVar (Call callee args        ) = do
@@ -228,6 +228,7 @@ checkLocalAssignment
     -> m ()
 checkLocalAssignment name declaredType expr = do
     exprType <- exprTVar expr
+    writeConstraint $ nameType name `IsOneOf` [declaredType]
     gets (Map.lookup (deTypeAnnotate name)) >>= \case
         Just _  -> throwError (NameShadowed name)
         Nothing -> do
