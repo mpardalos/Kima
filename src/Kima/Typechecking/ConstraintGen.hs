@@ -14,7 +14,6 @@ import           Control.Monad.Writer
 import           Control.Monad.Except
 import           Data.Bifunctor                as Bifunctor
 import           Data.Foldable
-import           Data.Function
 import           Data.Maybe
 import           Data.Set                       ( Set )
 import qualified Data.Map                      as Map
@@ -31,11 +30,12 @@ import           Kima.Typechecking.Builtins
 ------------------------- Evaluation ------------------------------------------------
 -- Anything inside here should not be used in the rest of the module
 
-newtype ConstraintGenerator a = ConstraintGenerator (
-    StateT (TypeCtx, Int) (
-    WriterT SomeConstraintSet (
-    Either ConstraintGenerationError)) a)
-    deriving (
+newtype ConstraintGenerator a = ConstraintGenerator {
+    runConstraintGenerator
+        :: StateT (TypeCtx, Int) (
+           WriterT SomeConstraintSet (
+           Either ConstraintGenerationError)) a
+} deriving (
         Functor,
         Applicative,
         Monad,
@@ -55,17 +55,17 @@ makeConstraints
     -> Either
            ConstraintGenerationError
            (TVarAST 'TopLevel, SomeConstraintSet)
-makeConstraints ast = runConstraintGenerator $ do
+makeConstraints ast = evalConstraintGenerator $ do
     annotatedAST     <- resolveTypes ast
     annotatedTVarAST <- addTVar annotatedAST         -- Add type variables 
     writeProgramConstraints annotatedTVarAST           -- Generate constraints
     return (removeTypeAnnotations annotatedTVarAST)  -- Remove type annotations
 
-runConstraintGenerator
+evalConstraintGenerator
     :: ConstraintGenerator a
     -> Either ConstraintGenerationError (a, SomeConstraintSet)
-runConstraintGenerator (ConstraintGenerator cg) =
-    cg & (flip evalStateT (baseCtx, 0) >>> runWriterT)
+evalConstraintGenerator =
+    runConstraintGenerator >>> flip evalStateT (baseCtx, 0) >>> runWriterT
 
 -------------------------------------------------------------------------------------
 
@@ -183,7 +183,10 @@ stmtReturnTVar (Assign name expr) = do
     currentNameTypes <- gets $ Map.lookup (deTypeAnnotate name)
     exprType         <- exprTVar expr
     case currentNameTypes of
-        Just ts -> writeConstraint (exprType `IsOneOf` ts)
+        Just ts -> do
+            writeConstraint (exprType `IsOneOf` ts)
+            writeConstraint (nameType name `IsOneOf` ts)
+            writeConstraint (nameType name =#= exprType)
         Nothing -> throwError (UnboundName name)
     pure $ TheType KUnit
 

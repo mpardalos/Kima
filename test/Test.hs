@@ -66,6 +66,7 @@ readAll dir = listDirectory dir >>= traverse
     extractName :: FilePath -> String
     extractName = reverse . takeWhile (/= '/') . reverse
 
+eitherToMaybe :: Either e a -> Maybe a
 eitherToMaybe = either (const Nothing) Just
 
 parseMaybe :: String -> String -> Maybe ParsedProgram
