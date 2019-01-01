@@ -30,11 +30,11 @@ baseEnv = Environment $ fromList
 
     , (TBuiltin ModOp (KFunc ([KInt, KInt] $-> KInt)), BuiltinFunction2 $ liftIntegralOp mod)
 
-    , (TBuiltin PrintFunc (KFunc ([KString] $-> KString)), BuiltinFunction1 kimaPrint)
-    , (TBuiltin PrintFunc (KFunc ([KInt] $-> KString)), BuiltinFunction1 kimaPrint)
-    , (TBuiltin PrintFunc (KFunc ([KFloat] $-> KString)), BuiltinFunction1 kimaPrint)
-    , (TBuiltin PrintFunc (KFunc ([KBool] $-> KString)), BuiltinFunction1 kimaPrint)
-    , (TBuiltin PrintFunc (KFunc ([KUnit] $-> KString)), BuiltinFunction1 kimaPrint)
+    , (TBuiltin PrintFunc (KFunc ([KString] $-> KUnit)), BuiltinFunction1 kimaPrint)
+    , (TBuiltin PrintFunc (KFunc ([KInt] $-> KUnit)), BuiltinFunction1 kimaPrint)
+    , (TBuiltin PrintFunc (KFunc ([KFloat] $-> KUnit)), BuiltinFunction1 kimaPrint)
+    , (TBuiltin PrintFunc (KFunc ([KBool] $-> KUnit)), BuiltinFunction1 kimaPrint)
+    , (TBuiltin PrintFunc (KFunc ([KUnit] $-> KUnit)), BuiltinFunction1 kimaPrint)
     ]
 
 kimaPrint :: (MonadRE m, MonadIO m) => Value -> m Value
