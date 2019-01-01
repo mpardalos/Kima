@@ -19,7 +19,7 @@ type RuntimeProgram = TypedProgram
 
 type MonadRE m = (Monad m, MonadError RuntimeError m)
 type MonadEnv m = (Monad m, MonadState (Environment Value) m)
-type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadIO m)
+type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m)
 
 data RuntimeError = RuntimeError
     deriving Show
@@ -36,6 +36,10 @@ data Value = Integer Integer
            | BuiltinFunction2 (forall m. MonadInterpreter m => Value -> Value -> m Value)
            | BuiltinFunction3 (forall m. MonadInterpreter m => Value -> Value -> Value -> m Value)
            | Unit
+
+class Monad m => MonadConsole m where
+    consoleWrite :: String -> m ()
+    consoleRead :: m String
 
 newtype Environment a = Environment {unEnv :: Map RuntimeName a}
     deriving (Functor, Semigroup, Generic)

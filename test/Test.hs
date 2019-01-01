@@ -1,25 +1,78 @@
 module Main where
 
-import Test.Tasty
-import Test.Tasty.Hspec
-import Test.Hspec.Megaparsec
+import           Test.Hspec
+import           Control.Monad
+import           System.Directory
+import           Data.Maybe
+import           Control.Monad.State
+import           Control.Monad.Except
 
-import qualified Text.Megaparsec as MP
-import Kima.Frontend.Tokenizer
-import Kima.Frontend
+import           Kima.AST
+import           Kima.Frontend                 as F
+import           Kima.Desugar                  as D
+import           Kima.Typechecking             as T
+import           Kima.Interpreter.Types        as I
+import           Kima.Interpreter.Interpreter  as I
+import           Kima.Interpreter.Builtins  as I
 
-parse p = MP.parse p ""
+newtype TestInterpreter a = MockInterpreter {
+    runInterpreter
+        :: StateT (Environment Value) (
+           Either RuntimeError) a
+} deriving (Functor, Applicative, Monad, MonadError RuntimeError, MonadState (Environment Value))
+-- | Always returns "test" on read and ignores output
+instance MonadConsole TestInterpreter where
+    consoleRead = return "test"
+    consoleWrite = const (pure ())
 
 main :: IO ()
-main = defaultMain =<< testSpec "Parser" parserSpec
+main = hspec $ do
+    -- Filenames and contents
+    files <- runIO (readAll "test/src")
 
-parserSpec :: Spec
-parserSpec = describe "Tokenizer" $ do  
-    it "parses ints" $
-        parse intLiteral "10" `shouldParse` 10
+    context "Non-crash checks" $ do
+        parallel $ describe "Parser" $ forM_ files $ \(name, content) ->
+            it ("Parses " <> name) $ isJust (parseMaybe name content)
 
-    it "parses strings" $
-        parse string "\"abcd\"" `shouldParse` "abcd"
+        describe "Desugarer" $ it "Does not crash" True
 
-    it "does not parse reserved words as identifiers" $
-        parse identifier `shouldFailOn` "while"
+        parallel $ describe "Typechecker" $ forM_ files $ \(name, content) ->
+            it ("Checks " <> name)
+                $ isJust
+                      (   parseMaybe name content
+                      >>= (pure . D.desugar)
+                      >>= typecheckMaybe
+                      )
+
+        parallel $ describe "Interpreter" $ forM_ files $ \(name, content) ->
+            it ("Runs " <> name)
+                $ isJust
+                      (   parseMaybe name content
+                      >>= (pure . D.desugar)
+                      >>= typecheckMaybe
+                      >>= runMaybe
+                      )
+
+
+-- Utils
+
+readAll :: FilePath -> IO [(String, String)]
+readAll dir = listDirectory dir >>= traverse
+    (\path -> do
+        contents <- readFile (dir <> "/" <> path)
+        return (extractName path, contents)
+    )
+  where
+    extractName :: FilePath -> String
+    extractName = reverse . takeWhile (/= '/') . reverse
+
+eitherToMaybe = either (const Nothing) Just
+
+parseMaybe :: String -> String -> Maybe ParsedProgram
+parseMaybe = fmap eitherToMaybe . F.parseProgram
+
+typecheckMaybe :: DesugaredProgram -> Maybe TypedProgram
+typecheckMaybe = eitherToMaybe . T.typecheck
+
+runMaybe :: TypedProgram -> Maybe ()
+runMaybe = eitherToMaybe . (`evalStateT` I.baseEnv) . runInterpreter . I.runProgram

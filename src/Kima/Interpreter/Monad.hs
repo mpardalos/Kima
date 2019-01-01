@@ -17,6 +17,9 @@ newtype Interpreter a = Interpreter {
     MonadState (Environment Value),
     MonadIO)
 
+instance MonadConsole Interpreter where
+    consoleRead = liftIO getLine
+    consoleWrite = liftIO . putStr
 
 execInterpreter :: Interpreter a -> IO (Either RuntimeError a)
 execInterpreter = (`evalStateT` baseEnv) . runExceptT . runInterpreter
