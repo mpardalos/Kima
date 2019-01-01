@@ -1,17 +1,19 @@
 module Kima.Interpreter.Types where
 
-import Prelude hiding (lookup)
+import           Prelude                 hiding ( lookup )
 
-import Kima.AST
+import           Kima.AST
 
-import Control.Newtype.Generics
+import           Control.Newtype.Generics
 
-import Control.Monad.Except
-import Control.Monad.State
+import           Control.Monad.Except
+import           Control.Monad.State
 
-import Data.Map hiding (toList, fromList)
+import           Data.Map                hiding ( toList
+                                                , fromList
+                                                )
 
-import GHC.Generics
+import           GHC.Generics
 
 type RuntimeName = TypedName
 type RuntimeAST p = TypedAST p
@@ -21,11 +23,12 @@ type MonadRE m = (Monad m, MonadError RuntimeError m)
 type MonadEnv m = (Monad m, MonadState (Environment Value) m)
 type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m)
 
-data RuntimeError = RuntimeError
+data RuntimeError = NotInScope RuntimeName
+                  | WrongArgumentCount Int Int
+                  | WrongConditionType
+                  | NotAFunction Value
+                  | BuiltinFunctionError String
     deriving Show
-
-runtimeError :: MonadRE m => m a
-runtimeError = throwError RuntimeError
 
 data Value = Integer Integer
            | Float Double
@@ -44,3 +47,14 @@ class Monad m => MonadConsole m where
 newtype Environment a = Environment {unEnv :: Map RuntimeName a}
     deriving (Functor, Semigroup, Generic)
 instance Newtype (Environment a)
+
+instance Show Value where
+    show (Integer v) = show v
+    show (Float v) = show v
+    show (Bool v) = show v
+    show (String v) = show v
+    show Function{} = "Function"
+    show BuiltinFunction1{} = "Builtin function"
+    show BuiltinFunction2{} = "Builtin function"
+    show BuiltinFunction3{} = "Builtin function"
+    show Unit = "()"

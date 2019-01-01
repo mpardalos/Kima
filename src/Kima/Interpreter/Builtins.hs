@@ -4,6 +4,7 @@ import           Kima.Interpreter.Types
 import           Kima.AST
 import           Kima.KimaTypes
 import           Data.Map
+import           Control.Monad.Except
 
 baseEnv :: Environment Value
 baseEnv = Environment $ fromList
@@ -45,14 +46,15 @@ showValue BuiltinFunction3{} = Nothing
 kimaPrint :: (MonadRE m, MonadConsole m) => Value -> m Value
 kimaPrint v = case showValue v of
     Just str -> consoleWrite (str <> "\n") *> pure Unit
-    Nothing  -> runtimeError
+    Nothing  -> throwError (BuiltinFunctionError "Can't print this value")
 
 kimaDivision :: (MonadRE m) => Value -> Value -> m Value
 kimaDivision (Integer l) (Integer r) = return $ Integer (l `div` r)
 kimaDivision (Integer l) (Float   r) = return $ Float (fromInteger l / r)
 kimaDivision (Float   l) (Integer r) = return $ Float (l / fromInteger r)
 kimaDivision (Float   l) (Float   r) = return $ Float (l / r)
-kimaDivision _           _           = runtimeError
+kimaDivision l           r           = throwError
+    (BuiltinFunctionError ("Can't divide " <> show l <> " and " <> show r))
 
 liftIntegralOp
     :: (MonadRE m)
@@ -61,7 +63,10 @@ liftIntegralOp
     -> Value
     -> m Value
 liftIntegralOp op (Integer l) (Integer r) = return $ Integer (l `op` r)
-liftIntegralOp _  _           _           = runtimeError
+liftIntegralOp _  l           r           = throwError
+    (BuiltinFunctionError
+        ("Can't apply operation to " <> show l <> " and " <> show r)
+    )
 
 liftNumOp
     :: (MonadRE m)
@@ -73,4 +78,7 @@ liftNumOp op (Integer l) (Integer r) = return $ Integer (l `op` r)
 liftNumOp op (Integer l) (Float   r) = return $ Float (fromInteger l `op` r)
 liftNumOp op (Float   l) (Integer r) = return $ Float (l `op` fromInteger r)
 liftNumOp op (Float   l) (Float   r) = return $ Float (l `op` r)
-liftNumOp _  _           _           = runtimeError
+liftNumOp _  l           r           = throwError
+    (BuiltinFunctionError
+        ("Can't apply operation to " <> show l <> " and " <> show r)
+    )
