@@ -1,4 +1,3 @@
-
 image: "fpco/stack-build"
 
 # If you have dependencies that aren't included in the Dockerfile.
@@ -11,18 +10,29 @@ image: "fpco/stack-build"
 # https://docs.gitlab.com/ee/ci/yaml/#stages
 # jobs of the same stage are executed in parallel
 stages:
-    - build
+    # - build
+    - test
 
 # https://docs.gitlab.com/ee/ci/variables/#using-the-ci-variables-in-your-job-scripts
 variables:
     STACK_ROOT: "${CI_PROJECT_DIR}/.stack-root"
 
-# build:
-#     stage: "build"  
-#     cache:
-#         key: "$CI_BUILD_NAME"
-#         paths:
-#             - .stack-work/
-#             - .stack-root/
-#     script:
-#         - stack build --ghc-options -Werror
+build:
+     stage: "build"  
+     cache:
+         key: "$CI_BUILD_NAME"
+         paths:
+             - .stack-work/
+             - .stack-root/
+     script:
+         - stack build --ghc-options -Werror
+
+build:
+     stage: "test"  
+     cache:
+         key: "$CI_BUILD_NAME"
+         paths:
+             - .stack-work/
+             - .stack-root/
+     script:
+         - stack test --ghc-options -Werror
