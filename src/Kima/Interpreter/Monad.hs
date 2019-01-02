@@ -3,7 +3,7 @@ module Kima.Interpreter.Monad where
 import Control.Monad.Except
 import Control.Monad.State
 import Kima.Interpreter.Types
-import Kima.Interpreter.Builtins
+import Kima.Builtins
 
 newtype Interpreter a = Interpreter { 
     runInterpreter :: ExceptT RuntimeError (

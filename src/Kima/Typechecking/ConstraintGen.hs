@@ -25,7 +25,7 @@ import           Kima.Typechecking.Types
 import           Kima.AST
 import           Kima.Control.Monad.State.Extended
 import           Kima.KimaTypes
-import           Kima.Typechecking.Builtins
+import           Kima.Builtins
 
 ------------------------- Evaluation ------------------------------------------------
 -- Anything inside here should not be used in the rest of the module
@@ -65,7 +65,7 @@ evalConstraintGenerator
     :: ConstraintGenerator a
     -> Either ConstraintGenerationError (a, SomeConstraintSet)
 evalConstraintGenerator =
-    runConstraintGenerator >>> flip evalStateT (baseCtx, 0) >>> runWriterT
+    runConstraintGenerator >>> flip evalStateT (baseTypeCtx, 0) >>> runWriterT
 
 -------------------------------------------------------------------------------------
 

@@ -1,13 +1,22 @@
-module Kima.Interpreter.Builtins where
+{-# LANGUAGE OverloadedLists #-}
+module Kima.Builtins where
 
-import           Kima.Interpreter.Types
-import           Kima.AST
-import           Kima.KimaTypes
-import           Data.Map
-import           Control.Monad.Except
+import Control.Monad.Except
+import qualified Data.Map as Map
+
+import Kima.Interpreter.Types
+import Kima.Typechecking.Types
+import Kima.AST
+import Kima.KimaTypes
+
+baseTypeCtx :: TypeCtx
+baseTypeCtx = Map.foldlWithKey combine Map.empty (unEnv baseEnv)
+  where
+    combine typeCtx name _ =
+        Map.insertWith (<>) (deTypeAnnotate name) [nameType name] typeCtx
 
 baseEnv :: Environment Value
-baseEnv = Environment $ fromList
+baseEnv = Environment
     [ ( TBuiltin AddOp     (KFunc ([KInt, KInt]     $-> KInt  )), BuiltinFunction2 $ liftNumOp (+))
     , ( TBuiltin AddOp     (KFunc ([KInt, KFloat]   $-> KInt  )), BuiltinFunction2 $ liftNumOp (+))
     , ( TBuiltin AddOp     (KFunc ([KFloat, KInt]   $-> KFloat)), BuiltinFunction2 $ liftNumOp (+))

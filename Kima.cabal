@@ -22,6 +22,8 @@ library
 
         Kima.AST
 
+        Kima.Builtins
+
         Kima.Desugar
 
         Kima.Frontend
@@ -30,7 +32,6 @@ library
         Kima.Frontend.Parser
 
         Kima.Typechecking
-        Kima.Typechecking.Builtins
         Kima.Typechecking.Types
         Kima.Typechecking.ConstraintGen
         Kima.Typechecking.ConstraintSolving
@@ -40,7 +41,6 @@ library
         Kima.Interpreter
         Kima.Interpreter.Types
         Kima.Interpreter.Interpreter
-        Kima.Interpreter.Builtins
         Kima.Interpreter.Monad
 
         Kima.Interface
