@@ -14,6 +14,7 @@ build:
             - .stack-work/
             - .stack-root/
     script:
+        - stack test --ghc-options -Werror
         - stack test --ghc-options -Werror --test-arguments=--junit-output > test-report.xml
     artifacts:
         reports:
