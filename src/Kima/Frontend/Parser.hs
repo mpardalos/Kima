@@ -11,7 +11,7 @@ import Text.Megaparsec hiding (dbg)
 import Text.Megaparsec.Expr
 
 program :: Parser (ParsedAST 'TopLevel)
-program = Program <$> some funcDef <* eof
+program = Program <$> (whitespace *> some funcDef <* eof)
 
 -- Function defintions
 
