@@ -71,12 +71,12 @@ library
 test-suite spec
     type: exitcode-stdio-1.0
     main-is: Test.hs
-    other-modules: XmlFormatter
+    other-modules: XmlFormatter, Errors
     hs-source-dirs: test
     ghc-options: -Wall
     default-extensions: 
         DeriveFunctor, DeriveGeneric, DerivingStrategies,
-        GeneralizedNewtypeDeriving
+        GeneralizedNewtypeDeriving, ExistentialQuantification, DataKinds, LambdaCase
     build-depends:
         base >=4.7 && <5,
         directory -any,

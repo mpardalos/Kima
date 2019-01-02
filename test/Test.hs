@@ -1,35 +1,79 @@
 module Main where
 
-import           Test.Hspec
-import           Test.Hspec.Runner
 import           Control.Monad
+import           Data.Bifunctor
+import           Data.Char
+import           Data.Either
+import           Data.List
+import           Data.Maybe
 import           System.Directory
 import           System.Environment
-import           Data.Maybe
+import           Test.Hspec
+import           Test.Hspec.Runner
+import           Control.Arrow           hiding ( first
+                                                , second
+                                                )
 import           Control.Monad.State
 import           Control.Monad.Except
 
 import           Kima.AST
-import           Kima.Frontend                 as F
+import           Kima.Builtins
 import           Kima.Desugar                  as D
-import           Kima.Typechecking             as T
-import           Kima.Interpreter.Types        as I
+import           Kima.Frontend                 as F
 import           Kima.Interpreter.Interpreter  as I
-import           Kima.Interpreter.Builtins     as I
+import           Kima.Interpreter.Types        as I
+import           Kima.Typechecking             as T
 
 import           XmlFormatter
+import           Errors
+
+main :: IO ()
+main = myHspec $ do
+    -- Filenames and contents
+    files <- sortBy (\(_, l, _) (_, r, _) -> compare (isJust l) (isJust r))
+        <$> runIO (readTestFiles "test/src")
+
+
+    parallel
+        $ context "Full File tests"
+        $ forM_ files
+        $ \(name, errorSpec, content) -> case errorSpec of
+              Just errorTest ->
+                  it ("Doesn't run " <> name)
+                      $               testForFile name content
+                      `shouldSatisfy` \case
+                                          Right{}  -> False
+                                          Left err -> errorTest err
+              Nothing ->
+                  it ("Runs " <> name)
+                      $               testForFile name content
+                      `shouldSatisfy` isRight
+
+
+testForFile :: String -> String -> Either SomeTestableError ()
+testForFile name content =
+    testableEither (F.parseProgram name content)
+        >>= (pure . D.desugar)
+        >>= (testableEither . T.typecheck)
+        >>= (testableEither . runInTestInterpreter)
 
 newtype TestInterpreter a = MockInterpreter {
-    runInterpreter
-        :: StateT (Environment Value) (
-           Either RuntimeError) a
+        runInterpreter
+                :: StateT (Environment Value) (
+                   Either RuntimeError) a
 } deriving (Functor, Applicative, Monad, MonadError RuntimeError, MonadState (Environment Value))
+
+runInTestInterpreter :: RuntimeAST 'TopLevel -> Either RuntimeError ()
+runInTestInterpreter = (`evalStateT` baseEnv) . runInterpreter . I.runProgram
+
 -- | Always returns "test" on read and ignores output
 instance MonadConsole TestInterpreter where
-    consoleRead = return "test"
-    consoleWrite = const (pure ())
+        consoleRead = return "test"
+        consoleWrite = const (pure ())
 
--- Run a spec while handling some extra arguments
+-- Utils
+
+-- | Run a spec while handling some extra arguments
 myHspec :: Spec -> IO ()
 myHspec spec = do
     args <- getArgs
@@ -38,55 +82,31 @@ myHspec spec = do
             else defaultConfig
     withArgs (filter (/= "--junit-output") args) $ hspecWith config spec
 
-main :: IO ()
-main = myHspec $ do
-    -- Filenames and contents
-    files <- runIO (readAll "test/src")
 
-    context "Non-crash checks" $ do
-        parallel $ describe "Parser" $ forM_ files $ \(name, content) ->
-            it ("Parses " <> name) $ isJust (parseMaybe name content)
-
-        describe "Desugarer" $ it "Does not crash" True
-
-        parallel $ describe "Typechecker" $ forM_ files $ \(name, content) ->
-            it ("Checks " <> name)
-                $ isJust
-                      (   parseMaybe name content
-                      >>= (pure . D.desugar)
-                      >>= typecheckMaybe
-                      )
-
-        parallel $ describe "Interpreter" $ forM_ files $ \(name, content) ->
-            it ("Runs " <> name) $ isJust
-                (   parseMaybe name content
-                >>= (pure . D.desugar)
-                >>= typecheckMaybe
-                >>= runMaybe
-                )
-
-
--- Utils
-
-readAll :: FilePath -> IO [(String, String)]
-readAll dir = listDirectory dir >>= traverse
+readTestFiles
+    :: FilePath -> IO [(String, Maybe (SomeTestableError -> Bool), String)]
+readTestFiles dir = listDirectory dir >>= traverse
     (\path -> do
         contents <- readFile (dir <> "/" <> path)
-        return (extractName path, contents)
+        let expectedErrorNames = findPragmas "shouldFailWith" contents
+        return
+            ( path
+            , if length expectedErrorNames == 0
+                then Nothing
+                else Just (errorMatcherFor expectedErrorNames)
+            , contents
+            )
     )
   where
-    extractName :: FilePath -> String
-    extractName = reverse . takeWhile (/= '/') . reverse
+    errorMatcherFor = foldl (\f s e -> f e || matchesString s e) (const False)
+    -- | Find the values of all occurences of the pragma in a string
+    -- | findPragma "hi" "##hi: world" == ["world"]
+    findPragmas p =
+        lines >>> mapMaybe (stripPrefix ("##" <> p <> ":")) >>> fmap
+            (dropWhile isSpace)
 
-eitherToMaybe :: Either e a -> Maybe a
-eitherToMaybe = either (const Nothing) Just
-
-parseMaybe :: String -> String -> Maybe ParsedProgram
-parseMaybe = fmap eitherToMaybe . F.parseProgram
-
-typecheckMaybe :: DesugaredProgram -> Maybe TypedProgram
-typecheckMaybe = eitherToMaybe . T.typecheck
-
-runMaybe :: TypedProgram -> Maybe ()
-runMaybe =
-    eitherToMaybe . (`evalStateT` I.baseEnv) . runInterpreter . I.runProgram
+testableEither
+    :: (TestableError err, Show err)
+    => Either err a
+    -> Either SomeTestableError a
+testableEither = first SomeTestableError
