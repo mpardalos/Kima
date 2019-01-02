@@ -1,46 +1,51 @@
 module Kima.Typechecking
     ( module E
     , typecheck
+    , addTVars
     , TypecheckingError(..)
     )
 where
 
+import           Kima.Typechecking.TypeResolution
+                                               as E
+                                                ( resolveTypes )
 import           Kima.Typechecking.ConstraintGen
                                                as E
-                                                ( makeConstraints
-                                                , ConstraintGenerationError
-                                                )
+                                                ( makeConstraints )
 import           Kima.Typechecking.ConstraintSolving
                                                as E
-                                                ( UnificationError
-                                                , unify
-                                                )
+                                                ( unify )
 import           Kima.Typechecking.Types       as E
-                                                ( SomeConstraint
+                                                ( AnnotatedTVarAST
+                                                , AnnotatedTVarProgram
                                                 , SomeConstraintSet
                                                 , TVarAST
                                                 , TVarProgram
+                                                , TypecheckingError(..)
+                                                , TypeVar
+                                                , SomeConstraint
                                                 )
+import           Kima.Typechecking.Types        ( TypeVar(..) )
 
-import           Kima.Typechecking.Types
 import qualified Data.Map                      as Map
-import           Data.Bifunctor
+import           Control.Monad.State
 import           Kima.AST
 
-data TypecheckingError = UnificationError UnificationError
-                       | ConstraintGenerationError ConstraintGenerationError
-                       | NoSolution TypeVar
-    deriving Show
+-- | Add type variables to the names of an AST
+addTVars = (`evalState` 0) . traverseNames @(State Int)
+    (\name -> state $ \n -> (typeAnnotate (TypeVar n) name, n + 1))
 
-typecheck
-    :: DesugaredProgram -> Either TypecheckingError TypedProgram
+typecheck :: DesugaredProgram -> Either TypecheckingError TypedProgram
 typecheck dAST = do
-    (tVarAST, constraints) <- first ConstraintGenerationError
-                                    (makeConstraints dAST)
-    substitution <- first UnificationError (unify constraints)
-    traverseNames (applySubstitution substitution) tVarAST
+    typeAnnotatedAST <- resolveTypes dAST
+    let tVarAST = addTVars typeAnnotatedAST
+    constraints  <- makeConstraints tVarAST
+    substitution <- unify constraints
+    removeTypeAnnotations
+        <$> traverseNames (applySubstitution substitution) tVarAST
   where
     applySubstitution substitution name =
         case Map.lookup (nameType name) substitution of
             Just t  -> pure (typeAnnotate t name)
             Nothing -> Left (NoSolution (nameType name))
+

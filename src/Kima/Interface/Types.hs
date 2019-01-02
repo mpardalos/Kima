@@ -21,7 +21,6 @@ instance UserThrowable CustomError where
 instance UserThrowable ParseError where
     userShow = parseErrorPretty
 
-instance UserThrowable ConstraintGenerationError
 instance UserThrowable TypecheckingError
 instance UserThrowable RuntimeError
 

@@ -1,20 +1,23 @@
 module Kima.Frontend.Tokenizer where
 
-import Control.Monad
-import Data.Char
+import           Control.Monad
+import           Data.Char
 
-import Kima.AST hiding (Mod)
-import Kima.Frontend.Types
+import           Kima.AST                hiding ( Mod )
+import           Kima.Frontend.Types
 
-import Text.Megaparsec
-import Text.Megaparsec.Char          as C hiding ( newline )
+import           Text.Megaparsec hiding (dbg)
+import           Text.Megaparsec.Char          as C
+                                         hiding ( newline )
 import qualified Text.Megaparsec.Char.Lexer    as L
 
 -- Base combinators
 
 whitespace :: Parser ()
-whitespace = L.space space1 skipLineComment empty
-    where skipLineComment = L.skipLineComment "#"
+whitespace = L.space space1 skipLineComment noBlockComment
+  where
+    skipLineComment = L.skipLineComment "#"
+    noBlockComment  = empty
 
 inlineWhitespace :: Parser ()
 inlineWhitespace = L.space space1 empty empty
@@ -36,7 +39,7 @@ isIdentifierStartChar :: Char -> Bool
 isIdentifierStartChar c = isAlpha c || elem @[] c "$_"
 
 isIdentifierChar :: Char -> Bool
-isIdentifierChar c = isIdentifierStartChar c || isNumber c 
+isIdentifierChar c = isIdentifierStartChar c || isNumber c
 
 intLiteral :: Parser Integer
 intLiteral = L.decimal
@@ -46,7 +49,11 @@ floatLiteral = L.signed inlineWhitespace L.float
 
 identifier :: Parser ParsedName
 identifier = do
-    idName <- lexeme ((:) <$> satisfy isIdentifierStartChar <*> takeWhileP Nothing isIdentifierChar)
+    idName <- lexeme
+        (   (:)
+        <$> satisfy isIdentifierStartChar
+        <*> takeWhileP Nothing isIdentifierChar
+        )
     if idName `elem` reservedWords
         then fail ("\"" ++ idName ++ "\" is a reserved word")
         else return $ Name idName
@@ -87,7 +94,7 @@ reservedWords = toString <$> ([minBound .. maxBound] :: [Reserved])
 
 -- Symbols
 
-data Symbol = Quote | Bang | Plus | Minus | Star | Slash | Slashslash | Mod 
+data Symbol = Quote | Bang | Plus | Minus | Star | Slash | Slashslash | Mod
             | Comma | Semicolon | Colon | Equals | Newline | Ellipsis | Arrow
 
 symbol :: Symbol -> Parser ()

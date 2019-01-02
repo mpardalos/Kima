@@ -1,25 +1,53 @@
-module Kima.Typechecking.Types(
-    EqConstraint, Constraint(..), (=#=), SomeConstraint(..),
-    WhichConstraints(..),
-    ConstraintSet, SomeConstraintSet, EqConstraintSet,
-    Substitution, TypeVar(..), TVarAST, TVarProgram, TVarName,
-    TypeCtx
-) where
+module Kima.Typechecking.Types
+    ( (=#=)
+    , AnnotatedTVarProgram 
+    , AnnotatedTVarAST 
+    , Constraint(..)
+    , ConstraintSet
+    , EqConstraintSet
+    , SomeConstraint(..)
+    , SomeConstraintSet
+    , Substitution
+    , TVarAST
+    , TVarName
+    , TVarProgram
+    , TypeAnnotatedAST
+    , TypeAnnotatedProgram
+    , TypecheckingError(..)
+    , TypeCtx
+    , TypeVar(..)
+    , WhichConstraints(..)
+    , EqConstraint
+    )
+where
 
-import           Data.Kind hiding (Constraint)
+import           Data.Kind               hiding ( Constraint )
 import           Data.List
 import           Data.Map                       ( Map )
 import           Data.Set                       ( Set )
-import qualified Data.Set as Set
+import qualified Data.Set                      as Set
 
 import           Kima.AST
 import           Kima.KimaTypes
 
+data TypecheckingError = AmbiguousVariable TypeVar [KType]
+                       | CantUnify TypeVar TypeVar
+                       | CantUnifyCall TypeVar [TypeVar]
+                       | DomainMismatch
+                       | MultipleSolutions TypeVar [KType]
+                       | NameShadowed TVarName
+                       | NoSolution TypeVar
+                       | TypeResolutionError TypeExpr
+                       | UnboundName TVarName
+                       | UnsetDomain TypeVar
+    deriving Show
+
+
 -------------------------------- Constraints ---------------------------------------
 type EqConstraint = Constraint 'OnlyEq
 
-type ConstraintSet a = [Constraint a] 
-type SomeConstraintSet = [SomeConstraint] 
+type ConstraintSet a = [Constraint a]
+type SomeConstraintSet = [SomeConstraint]
 type EqConstraintSet = ConstraintSet 'OnlyEq
 
 data SomeConstraint = forall a. SomeConstraint { unpackSomeConstraint :: Constraint a }
@@ -51,6 +79,12 @@ type TVarName         = GenericName ('Just TypeVar) 'True
 
 type TVarAST p          = AST p 'NoSugar TVarName 'Nothing
 type TVarProgram        = TVarAST 'TopLevel
+
+type AnnotatedTVarAST p = AST p 'NoSugar TVarName ('Just KType)
+type AnnotatedTVarProgram = AnnotatedTVarAST 'TopLevel
+
+type TypeAnnotatedAST p = AST p 'NoSugar DesugaredName ('Just KType)
+type TypeAnnotatedProgram = TypeAnnotatedAST 'TopLevel
 
 ---------------------- Show -----------------------------
 instance Show (Constraint a) where

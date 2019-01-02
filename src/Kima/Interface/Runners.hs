@@ -31,20 +31,25 @@ parseFile' fn = do
     src <- liftIO (readFile fn)
     runEither (F.runParser F.program fn src)
 
-constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> constraintAST')
+desugarFile = runMonadInterface . (parseFile' >=> desugarAST')
+desugarAST = runMonadInterface . desugarAST'
+desugarAST' :: MonadInterface m => ParsedProgram -> m DesugaredProgram
+desugarAST' = return . desugar
+
+tVarAnnotateFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST')
+tVarAnnotateAST = runMonadInterface . tVarAnnotateAST'
+tVarAnnotateAST' :: MonadInterface m => DesugaredProgram -> m T.AnnotatedTVarProgram
+tVarAnnotateAST' = runEither . (fmap T.addTVars . T.resolveTypes)
+
+constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> constraintAST')
 constraintAST = runMonadInterface . constraintAST'
-constraintAST' :: MonadInterface m => DesugaredProgram -> m (T.TVarProgram, T.SomeConstraintSet)
+constraintAST' :: MonadInterface m => T.AnnotatedTVarProgram -> m T.SomeConstraintSet
 constraintAST' =  runEither . T.makeConstraints
 
 typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'
 typecheckAST' :: MonadInterface m => DesugaredProgram -> m TypedProgram
 typecheckAST' = runEither . T.typecheck
-
-desugarFile = runMonadInterface . (parseFile' >=> desugarAST')
-desugarAST = runMonadInterface . desugarAST'
-desugarAST' :: MonadInterface m => ParsedProgram -> m DesugaredProgram
-desugarAST' = return . desugar
 
 runFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST' >=> runAST')
 runAST = runMonadInterface . runAST'

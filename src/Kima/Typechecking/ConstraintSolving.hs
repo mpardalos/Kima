@@ -16,15 +16,15 @@ import           Kima.Typechecking.Types
 
 
 -------------------------------------------- Interpreter -----------------------------------------------
-unify :: SomeConstraintSet -> Either UnificationError Substitution
+unify :: SomeConstraintSet -> Either TypecheckingError Substitution
 unify cs = evalStateT
     (runUnifyM
         (reduceConstraints cs >>= traverse_ unifyEquality >> extractSubstitution
         )
     )
     []
-newtype UnifyM a = UnifyM { runUnifyM :: StateT Domains (Either UnificationError) a }
-    deriving newtype (Functor, Applicative, Monad, MonadState Domains, MonadError UnificationError)
+newtype UnifyM a = UnifyM { runUnifyM :: StateT Domains (Either TypecheckingError) a }
+    deriving newtype (Functor, Applicative, Monad, MonadState Domains, MonadError TypecheckingError)
     deriving anyclass (MonadUnify)
 instance MonadReader Domains UnifyM where
     ask = get
@@ -32,17 +32,8 @@ instance MonadReader Domains UnifyM where
 --------------------------------------------------------------------------------------------------------
 
 type Domains = Map TypeVar (Set KType)
-data UnificationError = DomainMismatch
-                      | CantUnify TypeVar TypeVar
-                      | CantUnifyCall TypeVar [TypeVar]
-                      | FailureConstraint
-                      | UnsetDomain TypeVar
-                      | NoSolution TypeVar
-                      | MultipleSolutions TypeVar [KType]
-                      | AmbiguousVariable TypeVar [KType]
-    deriving Show
 
-class MonadError UnificationError m => MonadUnify m where
+class MonadError TypecheckingError m => MonadUnify m where
     getDomains :: m Domains
     default getDomains :: MonadReader Domains m => m Domains
     getDomains = ask
