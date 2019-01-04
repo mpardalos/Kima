@@ -67,7 +67,7 @@ newtype ArgList a = ArgList [a]
 -- |         e.g. The Desugarer could be desugar :: AST p 'Sugar n s t -> AST p 'NoSugar n s t
 -- | name : The type of names (identifiers) in the AST. E.g. A renamer would be:
 -- |        rename :: AST ()
--- | typeann : The type of **user-supplied** type annotations. The typecheckr should turn this to **Void**
+-- | typeann : The type of **user-supplied** type annotations. The typechecker should turn this to **Void**
 data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Type) where
     Program      :: [AST 'FunctionDef sug n t] -> AST 'TopLevel sug n t
 
@@ -96,7 +96,7 @@ data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Typ
     -- Typed versions
     Var      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
     Let      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
-
+    
 ------ Type synonyms for different phases -----
 -- Parse ->
 type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName    ('Just TypeExpr) -- Desugar ->
@@ -298,3 +298,91 @@ traverseNames f (Let n t e)              = Let    <$> f n <*> pure t <*> travers
 
 traverseTuple1 :: Applicative m => (a -> m c) -> (a, b) -> m (c, b)
 traverseTuple1 f (a, b) = liftA2 (,) (f a) (pure b)
+
+-- Patterns
+{-# COMPLETE StmtAST, ExprAST, ProgramAST, FuncDefAST#-}
+
+pattern StmtAST :: AST 'Stmt s n t -> AST p s n t
+pattern StmtAST stmt <- (isStmt -> Just stmt)
+
+isStmt :: AST p s n t -> Maybe (AST 'Stmt s n t)
+isStmt BinE{}          = Nothing
+isStmt Call{}          = Nothing
+isStmt FuncDef{}       = Nothing
+isStmt FuncDefAnn{}    = Nothing
+isStmt FuncExpr{}      = Nothing
+isStmt FuncExprAnn{}   = Nothing
+isStmt Identifier{}    = Nothing
+isStmt LiteralE{}      = Nothing
+isStmt Program{}       = Nothing
+isStmt stmt@Assign{}   = Just stmt
+isStmt stmt@Block{}    = Just stmt
+isStmt stmt@ExprStmt{} = Just stmt
+isStmt stmt@If{}       = Just stmt
+isStmt stmt@Let{}      = Just stmt
+isStmt stmt@Var{}      = Just stmt
+isStmt stmt@While{}    = Just stmt
+isStmt UnaryE{}        = Nothing
+
+pattern ExprAST :: AST 'Expr s n t -> AST p s n t
+pattern ExprAST expr <- (isExpr -> Just expr)
+isExpr :: AST p s n t -> Maybe (AST 'Expr s n t)
+isExpr Assign{}           = Nothing
+isExpr Block{}            = Nothing
+isExpr expr@BinE{}        = Just expr
+isExpr expr@Call{}        = Just expr
+isExpr expr@FuncExpr{}    = Just expr
+isExpr expr@FuncExprAnn{} = Just expr
+isExpr expr@Identifier{}  = Just expr
+isExpr expr@LiteralE{}    = Just expr
+isExpr expr@UnaryE{}      = Just expr
+isExpr ExprStmt{}         = Nothing
+isExpr FuncDef{}          = Nothing
+isExpr FuncDefAnn{}       = Nothing
+isExpr If{}               = Nothing
+isExpr Let{}              = Nothing
+isExpr Program{}          = Nothing
+isExpr Var{}              = Nothing
+isExpr While{}            = Nothing
+
+pattern ProgramAST :: AST 'TopLevel s n t -> AST p s n t
+pattern ProgramAST ast <- (isProgram -> Just ast)
+isProgram :: AST p s n t -> Maybe (AST 'TopLevel s n t)
+isProgram Assign{}      = Nothing
+isProgram ast@Program{} = Just ast
+isProgram BinE{}        = Nothing
+isProgram Block{}       = Nothing
+isProgram Call{}        = Nothing
+isProgram ExprStmt{}    = Nothing
+isProgram FuncDef{}     = Nothing
+isProgram FuncDefAnn{}  = Nothing
+isProgram FuncExpr{}    = Nothing
+isProgram FuncExprAnn{} = Nothing
+isProgram Identifier{}  = Nothing
+isProgram If{}          = Nothing
+isProgram Let{}         = Nothing
+isProgram LiteralE{}    = Nothing
+isProgram UnaryE{}      = Nothing
+isProgram Var{}         = Nothing
+isProgram While{}       = Nothing
+
+pattern FuncDefAST :: AST 'FunctionDef s n t -> AST p s n t
+pattern FuncDefAST ast <- (isFuncDef -> Just ast)
+isFuncDef :: AST p s n t -> Maybe (AST 'FunctionDef s n t)
+isFuncDef Assign{}      = Nothing
+isFuncDef ast@FuncDef{}     = Just ast
+isFuncDef ast@FuncDefAnn{}  = Just ast
+isFuncDef BinE{}        = Nothing
+isFuncDef Block{}       = Nothing
+isFuncDef Call{}        = Nothing
+isFuncDef ExprStmt{}    = Nothing
+isFuncDef FuncExpr{}    = Nothing
+isFuncDef FuncExprAnn{} = Nothing
+isFuncDef Identifier{}  = Nothing
+isFuncDef If{}          = Nothing
+isFuncDef Let{}         = Nothing
+isFuncDef LiteralE{}    = Nothing
+isFuncDef Program{}     = Nothing
+isFuncDef UnaryE{}      = Nothing
+isFuncDef Var{}         = Nothing
+isFuncDef While{}       = Nothing

@@ -3,6 +3,7 @@ module Kima.Interpreter (
     E.evalExpr,
     E.runStmt,
     E.execInterpreter,
+    E.Value,
     E.RuntimeError(..)
 ) where
 

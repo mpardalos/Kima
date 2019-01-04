@@ -71,8 +71,8 @@ library
 
 test-suite spec
     type: exitcode-stdio-1.0
-    main-is: Test.hs
-    other-modules: XmlFormatter, Errors
+    main-is: Main.hs
+    other-modules: XmlFormatter, Errors, FileTests, Interpreters
     hs-source-dirs: test
     ghc-options: -Wall
     default-extensions: 
