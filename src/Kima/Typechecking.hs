@@ -15,15 +15,18 @@ import           Kima.Typechecking.ConstraintGen
 import           Kima.Typechecking.ConstraintSolving
                                                as E
                                                 ( unify )
+import           Kima.Typechecking.DomainCalculation
+                                               as E
+                                                ( makeDomains )
 import           Kima.Typechecking.Types       as E
                                                 ( AnnotatedTVarAST
                                                 , AnnotatedTVarProgram
-                                                , SomeConstraintSet
+                                                , Domains
+                                                , EqConstraintSet
                                                 , TVarAST
                                                 , TVarProgram
                                                 , TypecheckingError(..)
                                                 , TypeVar
-                                                , SomeConstraint
                                                 )
 import           Kima.Typechecking.Types        ( TypeVar(..) )
 
@@ -39,8 +42,9 @@ typecheck :: DesugaredProgram -> Either TypecheckingError TypedProgram
 typecheck dAST = do
     typeAnnotatedAST <- resolveTypes dAST
     let tVarAST = addTVars typeAnnotatedAST
-    constraints  <- makeConstraints tVarAST
-    substitution <- unify constraints
+    let constraints = makeConstraints tVarAST
+    domains      <- makeDomains tVarAST
+    substitution <- unify constraints domains
     removeTypeAnnotations
         <$> traverseNames (applySubstitution substitution) tVarAST
   where

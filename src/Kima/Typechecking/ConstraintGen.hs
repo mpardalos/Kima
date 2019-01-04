@@ -6,89 +6,37 @@ import           Control.Arrow                 as Arrow
                                                 , second
                                                 )
 import           Control.Monad.Writer
-import           Control.Monad.Except
-import           Data.Bifunctor                as Bifunctor
 import           Data.Foldable
-import           Data.Maybe
-import           Data.Set                       ( Set )
-import qualified Data.Map                      as Map
-import qualified Data.Set                      as Set
 
 import           Safe
 
 import           Kima.Typechecking.Types
 import           Kima.AST
-import           Kima.Control.Monad.State.Extended
 import           Kima.KimaTypes
-import           Kima.Builtins
 
-------------------------- Evaluation ------------------------------------------------
--- Anything inside here should not be used in the rest of the module
-
-newtype ConstraintGenerator a = ConstraintGenerator {
-    runConstraintGenerator
-        :: StateT TypeCtx (
-           WriterT SomeConstraintSet (
-           Either TypecheckingError)) a
-} deriving (
-        Functor,
-        Applicative,
-        Monad,
-        MonadState TypeCtx,
-        MonadWriter SomeConstraintSet,
-        MonadError TypecheckingError)
-
--- | Try to assign a type to every identifier in an AST, and give the constraints between those identifiers
-makeConstraints
-    :: AnnotatedTVarAST 'TopLevel
-    -> Either TypecheckingError SomeConstraintSet
-makeConstraints =
-    execConstraintGenerator . writeProgramConstraints
-
-execConstraintGenerator
-    :: ConstraintGenerator a
-    -> Either TypecheckingError SomeConstraintSet
-execConstraintGenerator =
-    runConstraintGenerator >>> flip evalStateT baseTypeCtx >>> execWriterT
-
--------------------------------------------------------------------------------------
+makeConstraints :: AnnotatedTVarAST 'TopLevel -> EqConstraintSet
+makeConstraints = writeProgramConstraints >>> execWriter
 
 --------------------- Making constraints ----------------------------------
-type MonadConstraintWriter m = MonadWriter SomeConstraintSet m
-type MonadConstraintGenerator m = (MonadConstraintWriter m, MonadState TypeCtx m, MonadError TypecheckingError m)
+type MonadConstraintWriter m = MonadWriter EqConstraintSet m
 
-writeConstraint c = tell [SomeConstraint c]
+writeConstraint c = tell [c]
 
 -- | Generate constraints for a top-level AST
 writeProgramConstraints
-    :: MonadConstraintGenerator m => AnnotatedTVarAST 'TopLevel -> m ()
-writeProgramConstraints (Program funcDefs) = withState
-    (<> hoistedCtx)
-    (traverse_ writeFuncDefConstraints funcDefs)
-  where
-    hoistedCtx :: TypeCtx
-    hoistedCtx = Map.fromListWith (<>) (funcTypeBinding <$> funcDefs)
-
-    funcTypeBinding
-        :: AnnotatedTVarAST 'FunctionDef -> (DesugaredName, Set KType)
-    funcTypeBinding (FuncDefAnn name args rt _) =
-        (deTypeAnnotate name, [KFunc ((snd <$> args) $-> rt)])
+    :: MonadConstraintWriter m => AnnotatedTVarAST 'TopLevel -> m ()
+writeProgramConstraints (Program funcDefs) =
+    traverse_ writeFuncDefConstraints funcDefs
 
 -- | Write the constraints for a function definition
 writeFuncDefConstraints
-    :: MonadConstraintGenerator m => AnnotatedTVarAST 'FunctionDef -> m ()
-writeFuncDefConstraints (FuncDefAnn name args rt body) = do
-    funcType <- functionType args rt body
-    writeConstraint $ nameType name `IsOneOf` [funcType]
-    traverse_ -- Write the domains of the arguments
-        ((nameType *** Set.singleton) >>> uncurry IsOneOf >>> writeConstraint)
-        args
-    modify (Map.insertWith (<>) (deTypeAnnotate name) [funcType])
+    :: MonadConstraintWriter m => AnnotatedTVarAST 'FunctionDef -> m ()
+writeFuncDefConstraints (FuncDefAnn _ _ _ body) = void (stmtReturnTVar body)
 
 -- | Compute the return type of a statement and write the constraints required
 -- | for typing it
 stmtReturnTVar
-    :: MonadConstraintGenerator m => AnnotatedTVarAST 'Stmt -> m TypeVar
+    :: MonadConstraintWriter m => AnnotatedTVarAST 'Stmt -> m TypeVar
 stmtReturnTVar (ExprStmt expr) = do
     tvar <- exprTVar expr
     writeConstraint (tvar =#= tvar)
@@ -97,20 +45,20 @@ stmtReturnTVar (Block blk) =
     lastDef (TheType KUnit) <$> traverse stmtReturnTVar blk
 stmtReturnTVar (While (WhileStmt cond body)) = do
     condT  <- exprTVar cond
-    _bodyT <- withState id (stmtReturnTVar body)
+    _bodyT <- stmtReturnTVar body
 
     writeConstraint $ condT =#= TheType KBool
 
-    pure $ TheType KUnit
+    pure (TheType KUnit)
 stmtReturnTVar (If (IfStmt cond ifBlk elseBlk)) = do
     condT    <- exprTVar cond
-    ifBlkT   <- withState id (stmtReturnTVar ifBlk)
-    elseBlkT <- withState id (stmtReturnTVar elseBlk)
+    ifBlkT   <- stmtReturnTVar ifBlk
+    elseBlkT <- stmtReturnTVar elseBlk
 
     writeConstraint $ condT =#= TheType KBool
     writeConstraint $ ifBlkT =#= elseBlkT
 
-    pure $ TheType KUnit
+    pure (TheType KUnit)
 stmtReturnTVar (Var name declaredTyped expr) = do
     checkLocalAssignment name declaredTyped expr
     pure (TheType KUnit)
@@ -118,26 +66,15 @@ stmtReturnTVar (Let name t expr) = do
     checkLocalAssignment name t expr
     pure (TheType KUnit)
 stmtReturnTVar (Assign name expr) = do
-    currentNameTypes <- gets $ Map.lookup (deTypeAnnotate name)
-    exprType         <- exprTVar expr
-    case currentNameTypes of
-        Just ts -> do
-            writeConstraint (exprType `IsOneOf` ts)
-            writeConstraint (nameType name `IsOneOf` ts)
-            writeConstraint (nameType name =#= exprType)
-        Nothing -> throwError (UnboundName name)
-    pure $ TheType KUnit
+    exprType <- exprTVar expr
+    writeConstraint (nameType name =#= exprType)
+    pure (TheType KUnit)
 
 -- | Compute the type of an expression and write the constraints required for
 -- | typing it
-exprTVar :: MonadConstraintGenerator m => AnnotatedTVarAST 'Expr -> m TypeVar
-exprTVar (LiteralE   l     ) = pure (TheType $ literalType l)
-exprTVar (Identifier idName) = do
-    -- It must have one of the types that this name has in this scope
-    let nameT = nameType idName
-    typesInScope <- fromMaybe [] <$> gets (Map.lookup (deTypeAnnotate idName))
-    writeConstraint $ nameT `IsOneOf` typesInScope
-    pure nameT
+exprTVar :: MonadConstraintWriter m => AnnotatedTVarAST 'Expr -> m TypeVar
+exprTVar (LiteralE   l            ) = pure (TheType $ literalType l)
+exprTVar (Identifier idName       ) = pure (nameType idName)
 exprTVar (FuncExprAnn args rt body) = TheType <$> functionType args rt body
 exprTVar (Call callee args        ) = do
     calleeT <- exprTVar callee
@@ -145,15 +82,13 @@ exprTVar (Call callee args        ) = do
     pure (ApplicationTVar calleeT argT)
 
 functionType
-    :: MonadConstraintGenerator m
+    :: MonadConstraintWriter m
     => [(TVarName, KType)]
     -> KType
     -> AnnotatedTVarAST 'Stmt
     -> m KType
 functionType args rt body = do
-    let argCtx = Map.fromList (bimap deTypeAnnotate Set.singleton <$> args)
-
-    returnTVar <- withState (<> argCtx) (stmtReturnTVar body)
+    returnTVar <- stmtReturnTVar body
     writeConstraint $ returnTVar =#= TheType rt
 
     pure . KFunc $ ((snd <$> args) $-> rt)
@@ -162,20 +97,15 @@ functionType args rt body = do
 -- | as well as that the binding does not shadow another name. Shadowing is 
 -- | only allowed at the top level.
 checkLocalAssignment
-    :: MonadConstraintGenerator m
+    :: MonadConstraintWriter m
     => TVarName
     -> KType
     -> AnnotatedTVarAST 'Expr
     -> m ()
 checkLocalAssignment name declaredType expr = do
     exprType <- exprTVar expr
-    writeConstraint $ nameType name `IsOneOf` [declaredType]
-    gets (Map.lookup (deTypeAnnotate name)) >>= \case
-        Just _  -> throwError (NameShadowed name)
-        Nothing -> do
-            writeConstraint $ nameType name =#= TheType declaredType
-            writeConstraint $ exprType =#= TheType declaredType
-            modify (Map.insert (deTypeAnnotate name) [declaredType])
+    writeConstraint $ nameType name =#= TheType declaredType
+    writeConstraint $ exprType =#= TheType declaredType
 
 literalType :: Literal -> KType
 literalType IntExpr{}    = KInt

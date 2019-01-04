@@ -34,6 +34,7 @@ library
         Kima.Typechecking
         Kima.Typechecking.Types
         Kima.Typechecking.TypeResolution
+        Kima.Typechecking.DomainCalculation
         Kima.Typechecking.ConstraintGen
         Kima.Typechecking.ConstraintSolving
 

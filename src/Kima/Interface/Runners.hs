@@ -43,8 +43,13 @@ tVarAnnotateAST' = runEither . (fmap T.addTVars . T.resolveTypes)
 
 constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> constraintAST')
 constraintAST = runMonadInterface . constraintAST'
-constraintAST' :: MonadInterface m => T.AnnotatedTVarProgram -> m T.SomeConstraintSet
-constraintAST' =  runEither . T.makeConstraints
+constraintAST' :: MonadInterface m => T.AnnotatedTVarProgram -> m T.EqConstraintSet
+constraintAST' =  pure . T.makeConstraints
+
+domainsOfFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> domainsOfAST')
+domainsOfAST = runMonadInterface . domainsOfAST'
+domainsOfAST' :: MonadInterface m => T.AnnotatedTVarProgram -> m T.Domains
+domainsOfAST' =  runEither . T.makeDomains
 
 typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'

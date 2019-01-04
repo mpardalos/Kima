@@ -1,12 +1,9 @@
-{-# LANGUAGE OverloadedLists, DerivingStrategies, DeriveAnyClass #-}
+{-# LANGUAGE OverloadedLists #-}
 module Kima.Typechecking.ConstraintSolving where
 
 import           Control.Monad.Except
 import           Kima.Control.Monad.State.Extended
-import           Control.Monad.Reader.Class
 import           Data.Foldable
-import           Data.Maybe
-import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
@@ -15,32 +12,17 @@ import           Kima.KimaTypes
 import           Kima.Typechecking.Types
 
 
--------------------------------------------- Interpreter -----------------------------------------------
-unify :: SomeConstraintSet -> Either TypecheckingError Substitution
-unify cs = evalStateT
-    (runUnifyM
-        (reduceConstraints cs >>= traverse_ unifyEquality >> extractSubstitution
-        )
-    )
-    []
-newtype UnifyM a = UnifyM { runUnifyM :: StateT Domains (Either TypecheckingError) a }
-    deriving newtype (Functor, Applicative, Monad, MonadState Domains, MonadError TypecheckingError)
-    deriving anyclass (MonadUnify)
-instance MonadReader Domains UnifyM where
-    ask = get
-    local = withState
---------------------------------------------------------------------------------------------------------
+unify :: EqConstraintSet -> Domains -> Either TypecheckingError Substitution
+unify cs = evalStateT (traverse_ unifyEquality cs >> extractSubstitution)
 
-type Domains = Map TypeVar (Set KType)
-
-class MonadError TypecheckingError m => MonadUnify m where
-    getDomains :: m Domains
-    default getDomains :: MonadReader Domains m => m Domains
-    getDomains = ask
-
-    setDomain :: TypeVar -> Set KType -> m ()
-    default setDomain :: MonadState Domains m => TypeVar -> Set KType -> m ()
+instance Monad m => MonadDomainState (StateT Domains m) where
+    getDomains = get
     setDomain var d = modify (Map.insert var d)
+
+type MonadUnify m = (MonadDomainState m, MonadError TypecheckingError m)
+class MonadDomainState m where
+    getDomains :: m Domains
+    setDomain :: TypeVar -> Set KType -> m ()
 
 domainOf :: MonadUnify m => TypeVar -> m (Set KType)
 domainOf tvar@TypeVar{} = Map.lookup tvar <$> getDomains >>= \case
@@ -60,19 +42,6 @@ domainOf tvar@(ApplicationTVar callee args) = do
     matches argDomains (KFunc (Signature args' _)) =
         all id (zipWith elem args' argDomains)
     matches _ _ = False
-
-reduceConstraints
-    :: forall m . MonadUnify m => SomeConstraintSet -> m EqConstraintSet
-reduceConstraints = (catMaybes <$>) . traverse go
-  where
-    go (SomeConstraint eqConstraint@Equal{} ) = pure @m (Just eqConstraint)
-    go (SomeConstraint (IsOneOf tvar domain)) = do
-        Map.lookup tvar <$> getDomains >>= \case
-            Just oldDomain ->
-                unless (domain `isSubset` oldDomain) (throwError DomainMismatch)
-            Nothing -> pure ()
-        setDomain tvar domain
-        return Nothing
 
 extractSubstitution :: forall m . MonadUnify m => m Substitution
 extractSubstitution = Map.traverseWithKey extractSubstitution1 =<< getDomains
