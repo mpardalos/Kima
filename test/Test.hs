@@ -28,26 +28,30 @@ import           XmlFormatter
 import           Errors
 
 main :: IO ()
-main = myHspec $ do
+main = do
+    args <- getArgs
+    let config = if "--junit-output" `elem` args
+            then defaultConfig { configFormatter = Just xmlFormatter }
+            else defaultConfig
+    withArgs (filter (/= "--junit-output") args) $ hspecWith config spec
+
+spec :: Spec
+spec = do
     -- Filenames and contents
-    files <- sortBy (\(_, l, _) (_, r, _) -> compare (isJust l) (isJust r))
+    files <- sortBy (\(n1, l, _) (n2, r, _) -> compare (isJust l) (isJust r) <> compare n1 n2)
         <$> runIO (readTestFiles "test/src")
 
-
-    parallel
-        $ context "Full File tests"
-        $ forM_ files
-        $ \(name, errorSpec, content) -> case errorSpec of
-              Just errorTest ->
-                  it ("Doesn't run " <> name)
-                      $               testForFile name content
-                      `shouldSatisfy` \case
-                                          Right{}  -> False
-                                          Left err -> errorTest err
-              Nothing ->
-                  it ("Runs " <> name)
-                      $               testForFile name content
-                      `shouldSatisfy` isRight
+    parallel $ context "Full File tests" $ forM_ files $ \case
+        (name, Just errorTest, content) ->
+            it ("Doesn't run " <> name)
+                $               testForFile name content
+                `shouldSatisfy` \case
+                                    Right{}  -> False
+                                    Left err -> errorTest err
+        (name, Nothing, content) ->
+            it ("Runs " <> name)
+                $               testForFile name content
+                `shouldSatisfy` isRight
 
 
 testForFile :: String -> String -> Either SomeTestableError ()
@@ -72,30 +76,20 @@ instance MonadConsole TestInterpreter where
         consoleWrite = const (pure ())
 
 -- Utils
-
--- | Run a spec while handling some extra arguments
-myHspec :: Spec -> IO ()
-myHspec spec = do
-    args <- getArgs
-    let config = if "--junit-output" `elem` args
-            then defaultConfig { configFormatter = Just xmlFormatter }
-            else defaultConfig
-    withArgs (filter (/= "--junit-output") args) $ hspecWith config spec
-
-
 readTestFiles
     :: FilePath -> IO [(String, Maybe (SomeTestableError -> Bool), String)]
 readTestFiles dir = listDirectory dir >>= traverse
-    (\path -> do
-        contents <- readFile (dir <> "/" <> path)
-        let expectedErrorNames = findPragmas "shouldFailWith" contents
-        return
-            ( path
-            , if length expectedErrorNames == 0
-                then Nothing
-                else Just (errorMatcherFor expectedErrorNames)
-            , contents
-            )
+    (\case
+        path -> do
+            contents <- readFile (dir <> "/" <> path)
+            let expectedErrorNames = findPragmas "shouldFailWith" contents
+            return
+                ( path
+                , if length expectedErrorNames == 0
+                    then Nothing
+                    else Just (errorMatcherFor expectedErrorNames)
+                , contents
+                )
     )
   where
     errorMatcherFor = foldl (\f s e -> f e || matchesString s e) (const False)
@@ -105,6 +99,7 @@ readTestFiles dir = listDirectory dir >>= traverse
         lines >>> mapMaybe (stripPrefix ("##" <> p <> ":")) >>> fmap
             (dropWhile isSpace)
 
+-- Pack a testable error in an either into an existential
 testableEither
     :: (TestableError err, Show err)
     => Either err a
