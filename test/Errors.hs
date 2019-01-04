@@ -33,6 +33,7 @@ instance TestableError TypecheckingError where
     matchesString "TypeResolutionError" TypeResolutionError{} = True
     matchesString "UnboundName"         UnboundName{}         = True
     matchesString "UnsetDomain"         UnsetDomain{}         = True
+    matchesString "AssignToConst"       AssignToConst{}       = True
     matchesString _ _ = False
 
 instance TestableError SomeTestableError where

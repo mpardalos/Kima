@@ -20,7 +20,7 @@ desugar (ExprStmt expr) = ExprStmt (desugar expr)
 desugar (Block stmts) = Block (desugar <$> stmts)
 desugar (Assign name expr) = Assign (desugarName name) (desugar expr) 
 desugar (Let name t expr) = Let (desugarName name) t (desugar expr)
-desugar (Var name t expr) = Let (desugarName name) t (desugar expr)
+desugar (Var name t expr) = Var (desugarName name) t (desugar expr)
 desugar (While stmt) = While (bimap desugar desugar stmt)
 desugar (If stmt) = If (bimap desugar desugar stmt)
 

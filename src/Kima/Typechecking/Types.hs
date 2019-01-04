@@ -25,6 +25,7 @@ import           Kima.AST
 import           Kima.KimaTypes
 
 data TypecheckingError = AmbiguousVariable TypeVar [KType]
+                       | AssignToConst TVarName
                        | CantUnify TypeVar TypeVar
                        | CantUnifyCall TypeVar [TypeVar]
                        | DomainMismatch

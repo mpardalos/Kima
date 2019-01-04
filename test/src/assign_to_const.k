@@ -1,4 +1,4 @@
-##shouldFailWith: AssignedToConstant
+##shouldFailWith: AssignToConst
 
 fun main() -> Unit {
     let a: Int = 5;
