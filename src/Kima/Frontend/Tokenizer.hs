@@ -6,7 +6,7 @@ import           Data.Char
 import           Kima.AST                hiding ( Mod )
 import           Kima.Frontend.Types
 
-import           Text.Megaparsec hiding (dbg)
+import           Text.Megaparsec         hiding ( dbg )
 import           Text.Megaparsec.Char          as C
                                          hiding ( newline )
 import qualified Text.Megaparsec.Char.Lexer    as L
@@ -96,25 +96,33 @@ reservedWords = toString <$> ([minBound .. maxBound] :: [Reserved])
 
 data Symbol = Quote | Bang | Plus | Minus | Star | Slash | Slashslash | Mod
             | Comma | Semicolon | Colon | Equals | Newline | Ellipsis | Arrow
+            | GreaterThan | GreaterEqual | LessThan | LessEqual | EqualsEquals 
+            | BangEquals
 
 symbol :: Symbol -> Parser ()
 symbol = parserFor
 
 instance StringToken Symbol where
-    toString Quote      = "\""
-    toString Bang       = "!"
-    toString Plus       = "+"
-    toString Minus      = "-"
-    toString Star       = "*"
-    toString Slash      = "/"
-    toString Slashslash = "//"
-    toString Mod        = "%"
-    toString Comma      = ","
-    toString Semicolon  = ";"
-    toString Colon      = ":"
-    toString Equals     = "="
-    toString Newline    = "\n"
-    toString Ellipsis   = "..."
-    toString Arrow      = "->"
+    toString Arrow        = "->"
+    toString Quote        = "\""
+    toString Bang         = "!"
+    toString Plus         = "+"
+    toString Minus        = "-"
+    toString Star         = "*"
+    toString Slash        = "/"
+    toString Slashslash   = "//"
+    toString Mod          = "%"
+    toString Comma        = ","
+    toString Semicolon    = ";"
+    toString Colon        = ":"
+    toString Equals       = "="
+    toString Newline      = "\n"
+    toString Ellipsis     = "..."
+    toString GreaterThan  = ">"
+    toString GreaterEqual = ">="
+    toString LessThan     = "<"
+    toString LessEqual    = "<="
+    toString EqualsEquals = "=="
+    toString BangEquals   = "!="
 
 stmtEnd = parserFor Semicolon <|> parserFor Newline

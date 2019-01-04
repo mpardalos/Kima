@@ -29,6 +29,26 @@ baseEnv = Environment
     , ( TBuiltin MulOp     (KFunc ([KInt, KFloat]   $-> KInt  )), BuiltinFunction2 $ liftNumOp (*))
     , ( TBuiltin MulOp     (KFunc ([KFloat, KInt]   $-> KFloat)), BuiltinFunction2 $ liftNumOp (*))
     , ( TBuiltin MulOp     (KFunc ([KFloat, KFloat] $-> KInt  )), BuiltinFunction2 $ liftNumOp (*))
+    , ( TBuiltin GTOp      (KFunc ([KInt, KInt]     $-> KBool )), BuiltinFunction2 $ liftComparison (>))
+    , ( TBuiltin GTOp      (KFunc ([KInt, KFloat]   $-> KBool )), BuiltinFunction2 $ liftComparison (>))
+    , ( TBuiltin GTOp      (KFunc ([KFloat, KInt]   $-> KBool )), BuiltinFunction2 $ liftComparison (>))
+    , ( TBuiltin GTOp      (KFunc ([KFloat, KFloat] $-> KBool )), BuiltinFunction2 $ liftComparison (>))
+    , ( TBuiltin GTEOp     (KFunc ([KInt, KInt]     $-> KBool )), BuiltinFunction2 $ liftComparison (>=))
+    , ( TBuiltin GTEOp     (KFunc ([KInt, KFloat]   $-> KBool )), BuiltinFunction2 $ liftComparison (>=))
+    , ( TBuiltin GTEOp     (KFunc ([KFloat, KInt]   $-> KBool )), BuiltinFunction2 $ liftComparison (>=))
+    , ( TBuiltin GTEOp     (KFunc ([KFloat, KFloat] $-> KBool )), BuiltinFunction2 $ liftComparison (>=))
+    , ( TBuiltin LTOp      (KFunc ([KInt, KInt]     $-> KBool )), BuiltinFunction2 $ liftComparison (<))
+    , ( TBuiltin LTOp      (KFunc ([KInt, KFloat]   $-> KBool )), BuiltinFunction2 $ liftComparison (<))
+    , ( TBuiltin LTOp      (KFunc ([KFloat, KInt]   $-> KBool )), BuiltinFunction2 $ liftComparison (<))
+    , ( TBuiltin LTOp      (KFunc ([KFloat, KFloat] $-> KBool )), BuiltinFunction2 $ liftComparison (<))
+    , ( TBuiltin LTEOp     (KFunc ([KInt, KInt]     $-> KBool )), BuiltinFunction2 $ liftComparison (<=))
+    , ( TBuiltin LTEOp     (KFunc ([KInt, KFloat]   $-> KBool )), BuiltinFunction2 $ liftComparison (<=))
+    , ( TBuiltin LTEOp     (KFunc ([KFloat, KInt]   $-> KBool )), BuiltinFunction2 $ liftComparison (<=))
+    , ( TBuiltin LTEOp     (KFunc ([KFloat, KFloat] $-> KBool )), BuiltinFunction2 $ liftComparison (<=))
+    , ( TBuiltin EqualsOp  (KFunc ([KInt, KInt]     $-> KInt  )), BuiltinFunction2 $ liftComparison (==))
+    , ( TBuiltin EqualsOp  (KFunc ([KInt, KFloat]   $-> KInt  )), BuiltinFunction2 $ liftComparison (==))
+    , ( TBuiltin EqualsOp  (KFunc ([KFloat, KInt]   $-> KFloat)), BuiltinFunction2 $ liftComparison (==))
+    , ( TBuiltin EqualsOp  (KFunc ([KFloat, KFloat] $-> KInt  )), BuiltinFunction2 $ liftComparison (==))
     , ( TBuiltin DivOp     (KFunc ([KInt, KInt]     $-> KInt  )), BuiltinFunction2 $ kimaDivision)
     , ( TBuiltin DivOp     (KFunc ([KInt, KFloat]   $-> KInt  )), BuiltinFunction2 $ kimaDivision)
     , ( TBuiltin DivOp     (KFunc ([KFloat, KInt]   $-> KFloat)), BuiltinFunction2 $ kimaDivision)
@@ -88,6 +108,21 @@ liftNumOp op (Integer l) (Float   r) = return $ Float (fromInteger l `op` r)
 liftNumOp op (Float   l) (Integer r) = return $ Float (l `op` fromInteger r)
 liftNumOp op (Float   l) (Float   r) = return $ Float (l `op` r)
 liftNumOp _  l           r           = throwError
+    (BuiltinFunctionError
+        ("Can't apply operation to " <> show l <> " and " <> show r)
+    )
+
+liftComparison
+    :: (MonadRE m)
+    => (forall a . Ord a => a -> a -> Bool)
+    -> Value
+    -> Value
+    -> m Value
+liftComparison op (Integer l) (Integer r) = return $ Bool (l `op` r)
+liftComparison op (Integer l) (Float   r) = return $ Bool (fromInteger l `op` r)
+liftComparison op (Float   l) (Integer r) = return $ Bool (l `op` fromInteger r)
+liftComparison op (Float   l) (Float   r) = return $ Bool (l `op` r)
+liftComparison _  l           r           = throwError
     (BuiltinFunctionError
         ("Can't apply operation to " <> show l <> " and " <> show r)
     )

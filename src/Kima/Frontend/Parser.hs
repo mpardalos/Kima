@@ -79,19 +79,26 @@ ifStmt = If <$> (IfStmt <$> expr <*> stmt <*> stmt)
 -- Expressions
 
 expr :: Parser (ParsedAST 'Expr)
-expr = makeExprParser term [
-        [ prefix (symbol Minus) (UnaryE . Negate)
-        , prefix (symbol Plus) id
-        , prefix (symbol Bang) (UnaryE . Invert)
-        ],
-        [ binary (symbol Plus)  (\l r -> BinE $ Add l r)
-        , binary (symbol Minus) (\l r -> BinE $ Sub l r)
-        , binary (symbol Star)  (\l r -> BinE $ Mul l r)
-        , binary (symbol Slash) (\l r -> BinE $ Div l r)
-        , binary (symbol T.Mod) (\l r -> BinE $ Mod l r)
-        ]
-    ] <?> "expression"
-    
+expr =
+    makeExprParser
+            term
+            [ [ prefix (symbol Minus) (UnaryE . Negate)
+              , prefix (symbol Plus)  id
+              , prefix (symbol Bang)  (UnaryE . Invert)
+              ]
+            , [ binary (symbol Plus)        ((BinE .) . Add)
+              , binary (symbol Minus)       ((BinE .) . Sub)
+              , binary (symbol Star)        ((BinE .) . Mul)
+              , binary (symbol Slash)       ((BinE .) . Div)
+              , binary (symbol T.Mod)       ((BinE .) . Mod)
+              , binary (symbol GreaterThan) ((BinE .) . Greater)
+              , binary (symbol GreaterEqual) ((BinE .) . GreatEq)
+              , binary (symbol LessThan) ((BinE .) . Less)
+              , binary (symbol LessEqual) ((BinE .) . LessEq)
+              ]
+            ]
+        <?> "expression"
+
 binary  p f = InfixL  (f <$ p)
 prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)

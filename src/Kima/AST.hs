@@ -14,6 +14,7 @@ import Kima.KimaTypes
 
 ---------- Names (identifiers) ---------- 
 data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
+                 | GTOp | GTEOp | LTOp | LTEOp | EqualsOp
                  | InvertOp | NegateOp -- Unary ops
                  | PrintFunc -- Builtin functions
     deriving (Show, Eq, Ord)
@@ -37,7 +38,8 @@ data GenericName :: Maybe Type -> Bool -> Type where
 data Sugar = Sugar | NoSugar
 data ASTPart = Expr | Stmt | FunctionDef | TopLevel
 
-data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e 
+data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e
+              | Less e e | LessEq e e | Greater e e | GreatEq e e | Eq e e | NotEq e e
     deriving (Show, Functor, Foldable, Traversable)
 
 data Unary e = Negate e | Invert e
