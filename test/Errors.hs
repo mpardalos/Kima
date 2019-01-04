@@ -13,6 +13,10 @@ instance TestableError (ParseError a b) where
     matchesString "ParseError" _ = True
     matchesString _ _            = False
 
+instance TestableError (ParseErrorBundle a b) where
+    matchesString "ParseError" _ = True
+    matchesString _ _            = False
+
 instance TestableError RuntimeError where
     matchesString "NotInScope"           NotInScope{}           = True
     matchesString "WrongArgumentCount"   WrongArgumentCount{}   = True

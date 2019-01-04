@@ -65,14 +65,15 @@ library
         containers -any,
         mtl -any,
         safe -any,
-        megaparsec >=6.5 && <7,
+        parser-combinators ==1.*,
+        megaparsec ==7.*,
         optparse-applicative -any,
         newtype-generics >=0.5.3
 
 test-suite spec
     type: exitcode-stdio-1.0
     main-is: Main.hs
-    other-modules: XmlFormatter, Errors, FileTests, Interpreters
+    other-modules: XmlFormatter, Errors, Test.FileTests, Test.ConstraintSolver, Interpreters
     hs-source-dirs: test
     ghc-options: -Wall
     default-extensions: 
@@ -83,7 +84,7 @@ test-suite spec
         directory -any,
         hspec == 2.*,
         mtl -any,
-        megaparsec >=6.5 && <7,
+        megaparsec ==7.*,
         safe -any,
         Kima
 

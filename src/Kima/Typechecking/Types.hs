@@ -35,7 +35,7 @@ data TypecheckingError = AmbiguousVariable TypeVar [KType]
                        | TypeResolutionError TypeExpr
                        | UnboundName TVarName
                        | UnsetDomain TypeVar
-    deriving Show
+    deriving (Eq, Show)
 
 
 

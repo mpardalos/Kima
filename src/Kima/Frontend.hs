@@ -1,7 +1,7 @@
 module Kima.Frontend(
     module Kima.Frontend.Types,
     program, funcDef, block, stmt, expr,
-    parseProgram, parseErrorPretty, runParser
+    parseProgram, parseErrorPretty, errorBundlePretty, runParser
 ) where
 
 import Kima.Frontend.Parser

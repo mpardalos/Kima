@@ -7,8 +7,8 @@ import Kima.Frontend.Tokenizer hiding (Mod)
 import Kima.Frontend.Types
 import qualified Kima.Frontend.Tokenizer as T 
 
-import Text.Megaparsec hiding (dbg)
-import Text.Megaparsec.Expr
+import Text.Megaparsec
+import Control.Monad.Combinators.Expr
 
 program :: Parser (ParsedAST 'TopLevel)
 program = Program <$> (whitespace *> some funcDef <* eof)

@@ -13,16 +13,16 @@ import qualified Kima.Typechecking as T
 import System.IO
 import Text.Megaparsec
 
-parseBlock = either (putStrLn . F.parseErrorPretty) print . F.runParser F.block ""
-parseStmt = either (putStrLn . F.parseErrorPretty) print . F.runParser F.stmt ""
-parseExpr = either (putStrLn . F.parseErrorPretty) print . F.runParser F.expr ""
+parseBlock = either (putStrLn . F.errorBundlePretty) print . F.runParser F.block ""
+parseStmt = either (putStrLn . F.errorBundlePretty) print . F.runParser F.stmt ""
+parseExpr = either (putStrLn . F.errorBundlePretty) print . F.runParser F.expr ""
 
 parseRepl :: IO ()
 parseRepl = do 
     hSetBuffering stdin LineBuffering 
     line <- putStr "> " >> getLine
     let res = F.runParser (foldl1 (<|>) (try <$> [show <$> F.expr, show <$> F.stmt, show <$> F.block])) "" line
-    either (putStrLn . F.parseErrorPretty) putStrLn res
+    either (putStrLn . F.errorBundlePretty) putStrLn res
     parseRepl
 
 parseFile = runMonadInterface . parseFile'

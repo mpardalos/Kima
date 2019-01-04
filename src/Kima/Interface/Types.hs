@@ -4,9 +4,12 @@ import Control.Arrow hiding (first)
 import Control.Monad.Except
 import Control.Exception
 
+import Data.Void
+
 import Kima.Frontend
 import Kima.Interpreter
 import Kima.Typechecking
+import Text.Megaparsec
 
 class UserThrowable err where
     userShow :: err -> String
@@ -18,8 +21,8 @@ newtype CustomError = CustomError String
 instance UserThrowable CustomError where
     userShow (CustomError str) = str
 
-instance UserThrowable ParseError where
-    userShow = parseErrorPretty
+instance UserThrowable (ParseErrorBundle String Void) where
+    userShow = errorBundlePretty
 
 instance UserThrowable TypecheckingError
 instance UserThrowable RuntimeError

@@ -6,7 +6,7 @@ import           Data.Char
 import           Kima.AST                hiding ( Mod )
 import           Kima.Frontend.Types
 
-import           Text.Megaparsec         hiding ( dbg )
+import           Text.Megaparsec
 import           Text.Megaparsec.Char          as C
                                          hiding ( newline )
 import qualified Text.Megaparsec.Char.Lexer    as L

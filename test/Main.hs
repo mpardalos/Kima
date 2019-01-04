@@ -4,7 +4,8 @@ import           System.Environment
 import           Test.Hspec.Runner
 
 import           XmlFormatter
-import           FileTests
+import           Test.FileTests
+import           Test.ConstraintSolver
 
 main :: IO ()
 main = do
@@ -14,4 +15,6 @@ main = do
                                                 then Just xmlFormatter
                                                 else Nothing
                     }
-        withArgs (filter (/= "--junit-output") args) $ hspecWith config fileTestSpec
+        withArgs (filter (/= "--junit-output") args) $ hspecWith config $ do
+                fileTestSpec
+                constraintSolverSpec
