@@ -4,6 +4,7 @@ module Kima.Typechecking.ConstraintSolving where
 import           Control.Monad.Except
 import           Kima.Control.Monad.State.Extended
 import           Data.Foldable
+import           Data.Functor
 import qualified Data.Map                      as Map
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
@@ -26,21 +27,22 @@ class MonadDomainState m where
 
 domainOf :: MonadUnify m => TypeVar -> m (Set KType)
 domainOf tvar@TypeVar{} = Map.lookup tvar <$> getDomains >>= \case
-    Just domain -> pure domain
-    Nothing     -> throwError (UnsetDomain tvar)
+    Just domain | null domain -> throwError (NoSolution tvar)
+    Just domain               -> pure domain
+    Nothing                   -> throwError (UnsetDomain tvar)
 domainOf (     TheType t                  ) = pure [t]
 domainOf tvar@(ApplicationTVar callee args) = do
     argDomains   <- toList <$> domainOf `traverse` args
     calleeDomain <- toList <$> domainOf callee
     case filter (matches argDomains) calleeDomain of
-        [t@(KFunc (Signature _ rt))] -> unifyVarToType callee t *> pure [rt]
+        [t@(KFunc (Signature _ rt))] -> unifyVarToType callee t $> [rt]
         [t] -> throwError (CantUnify (TheType t) callee)
         []                           -> throwError (CantUnifyCall tvar args)
         ts                           -> throwError (AmbiguousVariable tvar ts)
   where
     matches :: [Set KType] -> KType -> Bool
     matches argDomains (KFunc (Signature args' _)) =
-        all id (zipWith elem args' argDomains)
+        length argDomains == length args' && and (zipWith elem args' argDomains)
     matches _ _ = False
 
 extractSubstitution :: forall m . MonadUnify m => m Substitution
@@ -72,13 +74,10 @@ unifyEquality (Equal var1        var2       ) = do
            | otherwise            -> throwError (CantUnify var1 var2)
 
 unifyVarToType :: MonadUnify m => TypeVar -> KType -> m ()
-unifyVarToType tvar KUnit = do
-    domain <- domainOf tvar
-    when (domain == [KUnit]) (setDomain tvar [KUnit])
 unifyVarToType tvar t = do
     domain <- domainOf tvar
     unless (t `elem` domain) (throwError (CantUnify tvar (TheType t)))
     setDomain tvar [t]
 
 isSubset :: (Ord a, Eq a) => Set a -> Set a -> Bool
-isSubset sub super = Set.difference sub super == []
+isSubset sub super = null (Set.difference sub super)
