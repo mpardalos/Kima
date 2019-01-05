@@ -3,7 +3,6 @@ module Test.FileTests where
 import           Test.Hspec
 
 import           Data.Maybe
-import           Data.Either
 import           Data.List
 import           Control.Monad
 import           Control.Arrow           hiding ( first
@@ -15,56 +14,76 @@ import           Data.Bifunctor
 
 import           Kima.Desugar                  as D
 import           Kima.Frontend                 as F
-import           Kima.Interpreter              as I
 import           Kima.Typechecking             as T
 
 import           Errors
 import           Interpreters
+
+data FileTest = FileTest {
+    fileName :: String,
+    input :: String,
+    outputSpec :: Maybe String,
+    errorSpec :: Maybe (SomeTestableError -> Bool),
+    contents :: String
+}
 
 fileTestSpec :: Spec
 fileTestSpec = do
     -- Filenames and contents
     files <-
         sortBy
-                (\(n1, l, _) (n2, r, _) ->
-                    compare (isJust l) (isJust r) <> compare n1 n2
+                (\FileTest { errorSpec = spec1, fileName = name1 } 
+                  FileTest { errorSpec = spec2, fileName = name2 } ->
+                    compare (isJust spec1) (isJust spec2) <> compare name1 name2
                 )
             <$> runIO (readTestFiles "test/src")
 
     parallel $ context "Full File tests" $ forM_ files $ \case
-        (name, Just errorTest, content) ->
-            it ("Doesn't run " <> name)
-                $               testForFile name content
+        test@FileTest { errorSpec = Just errorTest } ->
+            it ("Doesn't run " <> fileName test)
+                $               runFileTest test
                 `shouldSatisfy` \case
-                                    Right{}  -> False
-                                    Left err -> errorTest err
-        (name, Nothing, content) ->
-            it ("Runs " <> name)
-                $               testForFile name content
-                `shouldSatisfy` isRight
+                    Right{}  -> False
+                    Left err -> errorTest err
+        test@FileTest { errorSpec = Nothing, outputSpec } ->
+            it ("Runs " <> fileName test)
+                $               runFileTest test
+                `shouldSatisfy` \case
+                    Left{}       -> False
+                    Right output -> case outputSpec of
+                        Just expectedOut -> output == expectedOut
+                        Nothing -> True
 
 
-testForFile :: String -> String -> Either SomeTestableError Value
-testForFile name content =
-    testableEither (F.parseProgram name content)
+runFileTest :: FileTest -> Either SomeTestableError String
+runFileTest FileTest { fileName, contents, input } =
+    testableEither (F.parseProgram fileName contents)
         >>= (pure . D.desugar)
         >>= (testableEither . T.typecheck)
-        >>= (testableEither . runInTestInterpreter)
+        >>= (testableEither . runInTestInterpreterWithInput input)
+        >>= (pure . snd)
 
 readTestFiles
-    :: FilePath -> IO [(String, Maybe (SomeTestableError -> Bool), String)]
+    :: FilePath -> IO [FileTest]
 readTestFiles dir = listDirectory dir >>= traverse
     (\case
         path -> do
             contents <- readFile (dir <> "/" <> path)
             let expectedErrorNames = findPragmas "shouldFailWith" contents
-            return
-                ( path
-                , if length expectedErrorNames == 0
+            let givenInput         = concat $ findPragmas "input" contents
+            let expectedOut        = concat $ findPragmas "output" contents
+            return $ FileTest 
+                { fileName = path
+                , input = givenInput
+                , outputSpec = if null expectedOut
                     then Nothing
-                    else Just (errorMatcherFor expectedErrorNames)
-                , contents
-                )
+                    else Just expectedOut
+                , errorSpec = if null expectedErrorNames
+                   then Nothing
+                   else Just (errorMatcherFor expectedErrorNames)
+                , contents = contents
+            }
+                
     )
   where
     errorMatcherFor = foldl (\f s e -> f e || matchesString s e) (const False)

@@ -35,6 +35,7 @@ data Value = Integer Integer
            | Bool Bool
            | String String
            | Function [RuntimeName] (RuntimeAST 'Stmt)
+           | BuiltinFunction0 (forall m. MonadInterpreter m => m Value)
            | BuiltinFunction1 (forall m. MonadInterpreter m => Value -> m Value)
            | BuiltinFunction2 (forall m. MonadInterpreter m => Value -> Value -> m Value)
            | BuiltinFunction3 (forall m. MonadInterpreter m => Value -> Value -> Value -> m Value)
@@ -54,6 +55,7 @@ instance Show Value where
     show (Bool v) = show v
     show (String v) = show v
     show Function{} = "Function"
+    show BuiltinFunction0{} = "Builtin function"
     show BuiltinFunction1{} = "Builtin function"
     show BuiltinFunction2{} = "Builtin function"
     show BuiltinFunction3{} = "Builtin function"

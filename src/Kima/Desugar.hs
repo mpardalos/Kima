@@ -31,6 +31,7 @@ desugar (If    stmt      ) = If (bimap desugar desugar stmt)
 
 desugarName :: ParsedName -> DesugaredName
 desugarName (Name "print") = Builtin PrintFunc
+desugarName (Name "input") = Builtin InputFunc
 desugarName (Name n      ) = Name n
 
 desugarBinary :: Binary (DesugaredAST 'Expr) -> DesugaredAST 'Expr

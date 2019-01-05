@@ -16,7 +16,7 @@ import Kima.KimaTypes
 data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
                  | GTOp | GTEOp | LTOp | LTEOp | EqualsOp
                  | InvertOp | NegateOp -- Unary ops
-                 | PrintFunc -- Builtin functions
+                 | PrintFunc | InputFunc -- Builtin functions
     deriving (Show, Eq, Ord)
 
 type TypeName        = GenericName 'Nothing                    'False
@@ -148,7 +148,7 @@ instance (Show n) => Show (AST p sug n 'Nothing) where
     show (Assign name expr) = show name ++ " = " ++ show expr
     show (BinE bin) = show bin
     show (Block stmts) = "{\n\t" ++ indented (show <$> stmts) ++ "\n}"
-        where indented = concat . fmap ("\n\t"++)
+        where indented = concatMap ("\n\t"++)
     show (Call callee args) = show callee ++ "(" ++ intercalate "," (show <$> args) ++ ")"
     show (ExprStmt expr) = show expr
     show (FuncDef name sig body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " " ++ show body
@@ -173,7 +173,7 @@ instance (Show n, Show t) => Show (AST p sug n ('Just t)) where
     show (UnaryE unary) = show unary
     show (ExprStmt expr) = show expr
     show (Block stmts) = "{\n\t" ++ indented (show <$> stmts) ++ "\n}"
-        where indented = concat . fmap ("\n\t"++)
+        where indented = concatMap ("\n\t"++)
     show (Assign name expr) = show name ++ " = " ++ show expr
     show (While stmt) = show stmt 
     show (If stmt) = show stmt 

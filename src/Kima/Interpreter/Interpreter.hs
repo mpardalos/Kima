@@ -19,7 +19,7 @@ evalExpr (LiteralE   l     ) = return $ evalLiteral l
 evalExpr (Identifier name  ) = getName name
 evalExpr (FuncExpr sig body) = return $ Function sig body
 evalExpr (Call callee args) =
-    runFunc <$> evalExpr callee <*> (evalExpr `mapM` args) >>= id
+    join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 
 evalLiteral :: Literal -> Value
 evalLiteral (IntExpr    i) = Integer i
@@ -48,10 +48,13 @@ runFunc (Function argNames body) args = withState (<> argEnv) (runStmt body)
   where
     argEnv :: Environment Value
     argEnv = Environment $ Map.fromList (zip argNames args)
+runFunc (BuiltinFunction0 f) []                 = f 
 runFunc (BuiltinFunction1 f) [arg]              = f arg
 runFunc (BuiltinFunction2 f) [arg1, arg2]       = f arg1 arg2
 runFunc (BuiltinFunction3 f) [arg1, arg2, arg3] = f arg1 arg2 arg3
 
+runFunc BuiltinFunction0{} (length -> argCount) =
+    throwError (WrongArgumentCount 0 argCount)
 runFunc BuiltinFunction1{} (length -> argCount) =
     throwError (WrongArgumentCount 1 argCount)
 runFunc BuiltinFunction2{} (length -> argCount) =
