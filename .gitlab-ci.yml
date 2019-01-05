@@ -14,8 +14,7 @@ build:
             - .stack-work/
             - .stack-root/
     script:
-        - stack test --ghc-options -Werror
-        - stack test --ghc-options -Werror --test-arguments=--junit-output > test-report.xml
+        - stack test --ghc-options -Werror --test-arguments="--qc-max-success=10000"
     artifacts:
         reports:
             junit: test-report.xml
