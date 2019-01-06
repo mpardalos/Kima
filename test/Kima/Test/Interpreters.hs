@@ -1,4 +1,4 @@
-module Interpreters where
+module Kima.Test.Interpreters where
 
 import           Kima.Interpreter.Types
 import           Kima.Interpreter.Interpreter

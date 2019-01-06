@@ -1,4 +1,4 @@
-module XmlFormatter where
+module Kima.Test.XmlFormatter where
 
 import           Test.Hspec.Formatters
 

@@ -74,14 +74,13 @@ test-suite spec
     type: exitcode-stdio-1.0
     main-is: Main.hs
     other-modules: 
-        XmlFormatter
-        Errors
-        Interpreters
+        Kima.Test.XmlFormatter
+        Kima.Test.Errors
+        Kima.Test.Interpreters
 
-        Test.FileTests
-        Test.ConstraintSolver
-        Test.DomainCalculation
-        Test.Gen
+        Kima.Test.FileTests
+        Kima.Test.ConstraintSolver
+        Kima.Test.Gen
     hs-source-dirs: test
     ghc-options: -Wall
     default-extensions: 

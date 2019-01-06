@@ -1,4 +1,4 @@
-module Test.FileTests where
+module Kima.Test.FileTests where
 
 import           Test.Hspec
 
@@ -16,8 +16,8 @@ import           Kima.Desugar                  as D
 import           Kima.Frontend                 as F
 import           Kima.Typechecking             as T
 
-import           Errors
-import           Interpreters
+import           Kima.Test.Errors
+import           Kima.Test.Interpreters
 
 data FileTest = FileTest {
     fileName :: String,
@@ -27,8 +27,8 @@ data FileTest = FileTest {
     contents :: String
 }
 
-fileTestSpec :: Spec
-fileTestSpec = parallel $ do
+spec :: Spec
+spec = parallel $ do
     -- Filenames and contents
     files <-
         sortBy

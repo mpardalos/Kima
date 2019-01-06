@@ -3,9 +3,9 @@ module Main where
 import           System.Environment
 import           Test.Hspec.Runner
 
-import           XmlFormatter
-import           Test.FileTests
-import           Test.ConstraintSolver
+import           Kima.Test.XmlFormatter
+import           Kima.Test.FileTests           as FileTests
+import           Kima.Test.ConstraintSolver    as ConstraintSolverTests
 
 main :: IO ()
 main = do
@@ -16,5 +16,5 @@ main = do
                                                 else Nothing
                     }
         withArgs (filter (/= "--junit-output") args) $ hspecWith config $ do
-                fileTestSpec
-                constraintSolverSpec
+                FileTests.spec
+                ConstraintSolverTests.spec

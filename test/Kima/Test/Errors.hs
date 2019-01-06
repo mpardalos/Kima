@@ -1,4 +1,4 @@
-module Errors where
+module Kima.Test.Errors where
 
 import           Kima.Interpreter               ( RuntimeError(..) )
 import           Kima.Typechecking              ( TypecheckingError(..) )

@@ -1,5 +1,5 @@
 {-# OPTIONS -Wno-orphans #-}
-module Test.Gen where
+module Kima.Test.Gen where
 
 import           Test.QuickCheck
 import qualified Data.Map                      as Map

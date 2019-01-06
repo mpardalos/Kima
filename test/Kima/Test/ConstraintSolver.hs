@@ -1,9 +1,9 @@
-module Test.ConstraintSolver where
+module Kima.Test.ConstraintSolver where
 
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
-import           Test.Gen
+import           Kima.Test.Gen
 import           Data.Either
 import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
@@ -14,8 +14,8 @@ import           Kima.KimaTypes
 import           Control.Monad.State
 -- import qualified Data.Map as Map
 
-constraintSolverSpec :: Spec
-constraintSolverSpec = parallel $ describe "Constraint Solver" $ do
+spec :: Spec
+spec = parallel $ describe "Constraint Solver" $ do
     it "Extracts empty substitution"
         $          extractSubstitution `withDomains` []
         `shouldBe` Right []
