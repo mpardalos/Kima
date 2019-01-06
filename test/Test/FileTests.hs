@@ -28,7 +28,7 @@ data FileTest = FileTest {
 }
 
 fileTestSpec :: Spec
-fileTestSpec = do
+fileTestSpec = parallel $ do
     -- Filenames and contents
     files <-
         sortBy

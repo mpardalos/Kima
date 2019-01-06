@@ -18,10 +18,11 @@ baseTypeCtx = Map.foldlWithKey combine Map.empty (unEnv baseEnv)
 
 baseEnv :: Environment Value
 baseEnv = Environment
-    [ ( TBuiltin AddOp     (KFunc ([KInt, KInt]     $-> KInt    )), BuiltinFunction2 $ liftNumOp (+))
-    , ( TBuiltin AddOp     (KFunc ([KInt, KFloat]   $-> KInt    )), BuiltinFunction2 $ liftNumOp (+))
-    , ( TBuiltin AddOp     (KFunc ([KFloat, KInt]   $-> KFloat  )), BuiltinFunction2 $ liftNumOp (+))
-    , ( TBuiltin AddOp     (KFunc ([KFloat, KFloat] $-> KInt    )), BuiltinFunction2 $ liftNumOp (+))
+    [ ( TBuiltin AddOp     (KFunc ([KInt, KInt]       $-> KInt    )), BuiltinFunction2 $ liftNumOp (+))
+    , ( TBuiltin AddOp     (KFunc ([KInt, KFloat]     $-> KInt    )), BuiltinFunction2 $ liftNumOp (+))
+    , ( TBuiltin AddOp     (KFunc ([KFloat, KInt]     $-> KFloat  )), BuiltinFunction2 $ liftNumOp (+))
+    , ( TBuiltin AddOp     (KFunc ([KFloat, KFloat]   $-> KInt    )), BuiltinFunction2 $ liftNumOp (+))
+    , ( TBuiltin AddOp     (KFunc ([KString, KString] $-> KString)), BuiltinFunction2 kimaStrConcat)
     , ( TBuiltin SubOp     (KFunc ([KInt, KInt]     $-> KInt    )), BuiltinFunction2 $ liftNumOp (-))
     , ( TBuiltin SubOp     (KFunc ([KInt, KFloat]   $-> KInt    )), BuiltinFunction2 $ liftNumOp (-))
     , ( TBuiltin SubOp     (KFunc ([KFloat, KInt]   $-> KFloat  )), BuiltinFunction2 $ liftNumOp (-))
@@ -55,12 +56,12 @@ baseEnv = Environment
     , ( TBuiltin DivOp     (KFunc ([KFloat, KInt]   $-> KFloat  )), BuiltinFunction2 $ kimaDivision)
     , ( TBuiltin DivOp     (KFunc ([KFloat, KFloat] $-> KInt    )), BuiltinFunction2 $ kimaDivision)
     , ( TBuiltin ModOp     (KFunc ([KInt, KInt]     $-> KInt    )), BuiltinFunction2 $ liftIntegralOp mod)
-    , ( TBuiltin PrintFunc (KFunc ([KString]        $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin PrintFunc (KFunc ([KInt]           $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin PrintFunc (KFunc ([KFloat]         $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin PrintFunc (KFunc ([KBool]          $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin PrintFunc (KFunc ([KUnit]          $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin InputFunc (KFunc ([]               $-> KString )), BuiltinFunction0 (String <$> consoleRead))
+    , ( TBuiltin PrintFunc (KFunc ([KString] $-> KUnit   )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin PrintFunc (KFunc ([KInt]    $-> KUnit   )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin PrintFunc (KFunc ([KFloat]  $-> KUnit   )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin PrintFunc (KFunc ([KBool]   $-> KUnit   )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin PrintFunc (KFunc ([KUnit]   $-> KUnit   )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin InputFunc (KFunc ([] $-> KString )), BuiltinFunction0 (String <$> consoleRead))
     ]
 
 showValue :: Value -> Maybe String
@@ -79,6 +80,11 @@ kimaPrint :: (MonadRE m, MonadConsole m) => Value -> m Value
 kimaPrint v = case showValue v of
     Just str -> consoleWrite str $> Unit
     Nothing  -> throwError (BuiltinFunctionError "Can't print this value")
+
+kimaStrConcat :: MonadRE m => Value -> Value -> m Value
+kimaStrConcat (String str1) (String str2) = pure (String (str1 <> str2))
+kimaStrConcat l             r             = throwError
+    (BuiltinFunctionError ("Can't add " <> show l <> " and " <> show r))
 
 kimaDivision :: (MonadRE m) => Value -> Value -> m Value
 kimaDivision (Integer l) (Integer r) = return $ Integer (l `div` r)
