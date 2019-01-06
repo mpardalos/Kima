@@ -36,7 +36,7 @@ typedArg = (,) <$> identifier <*> (symbol Colon *> typeExpr)
 -- Statements
 
 stmt :: Parser (ParsedAST 'Stmt)
-stmt = letStmt <|> varStmt <|> whileStmt <|> assignStmt <|> exprStmt <|> ifStmt
+stmt = letStmt <|> varStmt <|> whileStmt <|> ifStmt <|> assignStmt <|> exprStmt 
     <?> "statement"
 
 block :: Parser (ParsedAST 'Stmt)
@@ -74,7 +74,10 @@ exprStmt = ExprStmt <$> expr
     <?> "expression statement"
 
 ifStmt :: Parser (ParsedAST 'Stmt)
-ifStmt = If <$> (IfStmt <$> expr <*> stmt <*> stmt)
+ifStmt = If <$> (IfStmt 
+    <$> (reserved RIf *> expr)
+    <*> block 
+    <*> (reserved RElse *> block))
 
 -- Expressions
 
@@ -112,6 +115,7 @@ baseterm = parens expr
    <|> LiteralE . StringExpr     <$> string
    <|> LiteralE . IntExpr        <$> intLiteral
    <|> LiteralE . FloatExpr      <$> floatLiteral
+   <|> LiteralE . BoolExpr       <$> boolLiteral
    <|>            Identifier     <$> identifier
 
 argList :: Parser [ParsedAST 'Expr]

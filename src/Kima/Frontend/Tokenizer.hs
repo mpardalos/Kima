@@ -1,6 +1,7 @@
 module Kima.Frontend.Tokenizer where
 
 import           Control.Monad
+import           Data.Functor
 import           Data.Char
 
 import           Kima.AST                hiding ( Mod )
@@ -47,6 +48,9 @@ intLiteral = L.decimal
 floatLiteral :: Parser Double
 floatLiteral = L.signed inlineWhitespace L.float
 
+boolLiteral :: Parser Bool
+boolLiteral = (reserved RTrue $> True) <|> (reserved RFalse $> False)
+
 identifier :: Parser ParsedName
 identifier = do
     idName <- lexeme
@@ -72,7 +76,7 @@ class StringToken a where
     parserFor :: a -> Parser ()
     parserFor t = void (verbatim $ toString t) <?> toString t
 
-data Reserved = RWhile | RFun | RTrue | RFalse | RLet | RVar | RIf
+data Reserved = RWhile | RFun | RTrue | RFalse | RLet | RVar | RIf | RElse
     deriving (Eq, Enum, Bounded)
 
 -- Reserved words
@@ -85,6 +89,7 @@ instance StringToken Reserved where
     toString RVar   = "var"
     toString RWhile = "while"
     toString RIf    = "if"
+    toString RElse  = "else"
 
 reserved :: Reserved -> Parser ()
 reserved = parserFor
