@@ -73,14 +73,22 @@ library
 test-suite spec
     type: exitcode-stdio-1.0
     main-is: Main.hs
-    other-modules: XmlFormatter, Errors, Test.FileTests, Test.ConstraintSolver, Interpreters
+    other-modules: 
+        XmlFormatter
+        Errors
+        Interpreters
+
+        Test.FileTests
+        Test.ConstraintSolver
+        Test.DomainCalculation
+        Test.Gen
     hs-source-dirs: test
     ghc-options: -Wall
     default-extensions: 
         DeriveFunctor, DeriveGeneric, DerivingStrategies,
         GeneralizedNewtypeDeriving, ExistentialQuantification, 
         DataKinds, LambdaCase, TypeApplications, BangPatterns,
-        NamedFieldPuns
+        OverloadedLists, NamedFieldPuns
     build-depends:
         base >=4.7 && <5,
         containers -any,
