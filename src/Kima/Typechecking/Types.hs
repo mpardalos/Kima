@@ -20,6 +20,7 @@ where
 import           Data.List
 import           Data.Map                       ( Map )
 import           Data.Set                       ( Set )
+import           GHC.Generics
 
 import           Kima.AST
 import           Kima.KimaTypes
@@ -60,7 +61,7 @@ type Substitution = Map TypeVar KType
 data TypeVar = TypeVar Int
              | TheType KType
              | ApplicationTVar TypeVar [TypeVar]
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Generic)
 
 type TVarName         = GenericName ('Just TypeVar) 'True
 

@@ -8,7 +8,9 @@ import           Data.Set                       ( Set
                                                 , (\\)
                                                 )
 import           Kima.KimaTypes
+import           Kima.AST
 import           Kima.Typechecking.Types
+import           Generic.Random
 
 {-# ANN domainsWithValues ("HLint: ignore Use <$>" :: String) #-}
 -- | Domains where the sets of types are drawn from the given generator
@@ -48,31 +50,39 @@ disjointSets gen = do
     let set2' = set2 \\ set1
     return (set1', set2')
 
-instance Arbitrary TypeVar where
-    arbitrary = oneof
-        [ TypeVar <$> arbitrary
-        , TheType <$> arbitrary
-        , ApplicationTVar <$> arbitrary <*> arbitrary
-        ]
-
 arbitrarySingleType :: Gen KType
-arbitrarySingleType = elements [KString, KUnit, KBool, KInt, KFloat]
+arbitrarySingleType = baseCase
 
 instance Arbitrary KType where
     arbitrary = sized $ \case
         n | n <= 1 -> arbitrarySingleType
         n          -> frequency
-            [ ( 3
-              , arbitrarySingleType
-              )
+            [ (3, arbitrarySingleType)
             -- Shrink the type parameter quickly because otherwise it keeps
             -- recursing and making huge signature types which take forever
             , (1, KFunc <$> resize (n `div` 3) (arbitrary @(Signature KType)))
             ]
 
-    shrink (KFunc sig) = [ KFunc sSig | sSig <- shrink sig ]
-    shrink t           = [t]
+    shrink (KFunc sig) = KFunc <$> shrink sig
+    shrink _           = []
+
+instance Arbitrary TypeVar where
+    arbitrary = genericArbitrary'
+        $ (2 :: W "TypeVar") 
+        % (2 :: W "TheType") 
+        % (1 :: W "ApplicationTVar") 
+        % ()
 
 instance Arbitrary t => Arbitrary (Signature t) where
-    arbitrary = Signature <$> arbitrary <*> arbitrary
+    arbitrary = genericArbitraryU
     shrink (Signature args rt) = Signature <$> shrink args <*> shrink rt
+
+instance Arbitrary Literal where
+    arbitrary = genericArbitraryU
+    shrink = genericShrink
+
+instance Arbitrary a => Arbitrary (Binary a) where
+    arbitrary = genericArbitraryU
+
+instance Arbitrary a => Arbitrary (Unary a) where
+    arbitrary = genericArbitraryU

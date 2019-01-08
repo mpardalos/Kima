@@ -10,6 +10,8 @@ import Data.Kind
 import Data.List
 import Data.String
 
+import GHC.Generics
+
 import Kima.KimaTypes
 
 ---------- Names (identifiers) ---------- 
@@ -40,12 +42,13 @@ data ASTPart = Expr | Stmt | FunctionDef | TopLevel
 
 data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e
               | Less e e | LessEq e e | Greater e e | GreatEq e e | Eq e e | NotEq e e
-    deriving (Show, Functor, Foldable, Traversable)
+    deriving (Show, Functor, Foldable, Traversable, Generic)
 
 data Unary e = Negate e | Invert e
-    deriving (Show, Functor, Foldable, Traversable)
+    deriving (Show, Functor, Foldable, Traversable, Generic)
 
 data Literal = IntExpr Integer | FloatExpr Double | BoolExpr Bool | StringExpr String 
+    deriving (Generic)
 
 data IfStmt cond body = IfStmt {
     cond :: cond,
@@ -96,7 +99,7 @@ data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Typ
     -- Typed versions
     Var      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
     Let      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
-    
+
 ------ Type synonyms for different phases -----
 -- Parse ->
 type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName    ('Just TypeExpr) -- Desugar ->
@@ -386,3 +389,9 @@ isFuncDef Program{}     = Nothing
 isFuncDef UnaryE{}      = Nothing
 isFuncDef Var{}         = Nothing
 isFuncDef While{}       = Nothing
+
+-- Utils 
+
+type family MaybeConstraint (f :: k -> Constraint) (x :: Maybe k) :: Constraint where
+    MaybeConstraint f 'Nothing = ()
+    MaybeConstraint f ('Just a) = f a

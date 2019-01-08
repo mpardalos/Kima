@@ -87,12 +87,13 @@ test-suite spec
         DeriveFunctor, DeriveGeneric, DerivingStrategies,
         GeneralizedNewtypeDeriving, ExistentialQuantification, 
         DataKinds, LambdaCase, TypeApplications, BangPatterns,
-        OverloadedLists, NamedFieldPuns
+        OverloadedLists, NamedFieldPuns, FlexibleInstances, GADTs
     build-depends:
         base >=4.7 && <5,
         containers -any,
         directory -any,
         hspec == 2.*,
+        generic-random == 1.* && >= 1.2,
         QuickCheck >= 2,
         mtl -any,
         megaparsec ==7.*,

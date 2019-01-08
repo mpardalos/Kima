@@ -15,12 +15,13 @@ import           Control.Monad.State
 -- import qualified Data.Map as Map
 
 spec :: Spec
-spec = parallel $ describe "Constraint Solver" $ do
+spec = fdescribe "Constraint Solver" $ do
     it "Extracts empty substitution"
         $          extractSubstitution `withDomains` []
         `shouldBe` Right []
 
     prop "Extracts correct substitution for valid solution" $
+        verboseShrinking $
         forAll arbitrarySolvedDomains $ \ds -> 
             extractSubstitution 
             `withDomains` ds 
@@ -35,7 +36,7 @@ spec = parallel $ describe "Constraint Solver" $ do
     prop "Unify var to type completely constraints type" $ 
         forAll arbitraryDomains                    $ \ds    ->
         forAll (TypeVar <$> arbitrarySizedNatural) $ \tvar  ->
-        forAll arbitrarySingleType                 $ \ktype ->
+        forAll (arbitrary @KType)                  $ \ktype ->
             (unifyVarToType tvar ktype >> get)
             `withDomains` Map.alter (\case
                 Just ts -> Just ([ktype] <> ts)
@@ -60,7 +61,7 @@ spec = parallel $ describe "Constraint Solver" $ do
             `shouldBe`    Right domain
 
     prop "Domain of call to non-function type is an error" $ 
-        forAll arbitrarySingleType    $ \callee ->
+        forAll (arbitrary @ KType)    $ \callee ->
         forAll (arbitrary @[TypeVar]) $ \args   ->
         forAll arbitraryDomains       $ \ds     -> 
             domainOf (ApplicationTVar (TheType callee) args) 

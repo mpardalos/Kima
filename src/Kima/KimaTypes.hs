@@ -1,15 +1,16 @@
 module Kima.KimaTypes where
 
 import Data.List
+import GHC.Generics
 
 -- | The types of the kima programming language
 data KType = KString | KUnit | KBool | KInt | KFloat | KFunc (Signature KType)
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic)
 
 data Signature kt = Signature {
   arguments :: [kt],
   returnType :: kt
-} deriving (Eq, Ord)
+} deriving (Eq, Ord, Generic)
 ($->) = Signature
 
 instance Show t => Show (Signature t) where
