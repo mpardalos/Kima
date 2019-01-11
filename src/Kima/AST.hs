@@ -21,7 +21,7 @@ data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
                  | PrintFunc | InputFunc -- Builtin functions
     deriving (Show, Eq, Ord, Generic)
 
-type TypeName        = GenericName 'Nothing                    'False
+type TypeName        = GenericName 'Nothing      'False
 
 type ParsedName      = GenericName 'Nothing      'False
 type DesugaredName   = GenericName 'Nothing      'True
@@ -42,24 +42,24 @@ data ASTPart = Expr | Stmt | FunctionDef | TopLevel
 
 data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e
               | Less e e | LessEq e e | Greater e e | GreatEq e e | Eq e e | NotEq e e
-    deriving (Show, Functor, Foldable, Traversable, Generic)
+    deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
 
 data Unary e = Negate e | Invert e
-    deriving (Show, Functor, Foldable, Traversable, Generic)
+    deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
 
 data Literal = IntExpr Integer | FloatExpr Double | BoolExpr Bool | StringExpr String 
-    deriving (Generic)
+    deriving (Eq, Generic)
 
 data IfStmt cond body = IfStmt {
     cond :: cond,
     ifBlk :: body,
     elseBlk :: body
-}
+} deriving Eq
 
 data WhileStmt cond body = WhileStmt {
     cond :: cond,
     body :: body
-}
+} deriving Eq
 
 newtype ArgList a = ArgList [a]
 
@@ -147,28 +147,14 @@ instance Show Literal where
     show (BoolExpr b   ) = show b
     show (StringExpr s ) = "s" <> show s
 
-instance (Show n) => Show (AST p sug n 'Nothing) where
-    show (Assign name expr) = show name ++ " = " ++ show expr
-    show (BinE bin) = show bin
-    show (Block stmts) = "{\n\t" ++ indented (show <$> stmts) ++ "\n}"
-        where indented = concatMap ("\n\t"++)
-    show (Call callee args) = show callee ++ "(" ++ intercalate "," (show <$> args) ++ ")"
-    show (ExprStmt expr) = show expr
-    show (FuncDef name sig body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " " ++ show body
-    show (FuncExpr sig body) = show (ArgList sig) ++ " " ++ show body
-    show (Identifier name) = show name
-    show (If stmt) = show stmt 
-    show (LiteralE lit) = show lit
-    show (Program ast) = intercalate "\n" (show <$> ast)
-    show (UnaryE unary) = show unary
-    show (While stmt) = show stmt 
-
-instance (Show n, Show t) => Show (AST p sug n ('Just t)) where
+instance (Show n, MaybeConstraint Show t) => Show (AST p sug n t) where
     show (FuncDefAnn name sig rt body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show body
     show (FuncExprAnn sig rt body@Block{}) 
         = "fun " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show body
     show (FuncExprAnn sig rt body) 
         = "fun " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show (Block [body])
+    show (FuncDef name sig body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " " ++ show body
+    show (FuncExpr sig body) = show (ArgList sig) ++ " " ++ show body
     show (Var name t expr) = "var " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
     show (Let name t expr) = "let " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
     show (Program ast) = intercalate "\n" (show <$> ast)
@@ -240,6 +226,8 @@ instance Ord t => Ord (GenericName ('Just t) b) where
     TBuiltin{} `compare` TypedName{} = GT
     TypedName n1 t1 `compare` TypedName n2 t2 = compare n1 n2 <> compare t1 t2
     TBuiltin l t1 `compare` TBuiltin r t2 = compare l r <> compare t1 t2
+
+deriving instance (MaybeConstraint Eq t, Eq n) => Eq (AST p s n t)
 
 -- Traverals
 
