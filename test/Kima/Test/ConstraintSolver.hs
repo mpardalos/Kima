@@ -62,7 +62,7 @@ spec = describe "Constraint Solver" $ do
             `shouldBe`    Right domain
 
     prop "Domain of call to non-function type is an error" $ 
-        forAll (arbitrary @ KType)    $ \callee ->
+        forAll arbitrarySingleType    $ \callee ->
         forAll (arbitrary @[TypeVar]) $ \args   ->
         forAll arbitraryDomains       $ \ds     -> 
             domainOf (ApplicationTVar (TheType callee) args) 
