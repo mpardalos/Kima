@@ -19,7 +19,7 @@ data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
                  | GTOp | GTEOp | LTOp | LTEOp | EqualsOp
                  | InvertOp | NegateOp -- Unary ops
                  | PrintFunc | InputFunc -- Builtin functions
-    deriving (Show, Eq, Ord)
+    deriving (Show, Eq, Ord, Generic)
 
 type TypeName        = GenericName 'Nothing                    'False
 
@@ -165,7 +165,10 @@ instance (Show n) => Show (AST p sug n 'Nothing) where
 
 instance (Show n, Show t) => Show (AST p sug n ('Just t)) where
     show (FuncDefAnn name sig rt body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show body
-    show (FuncExprAnn sig rt body) = show (ArgList sig) ++ " -> " ++ show rt ++ show body
+    show (FuncExprAnn sig rt body@Block{}) 
+        = "fun " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show body
+    show (FuncExprAnn sig rt body) 
+        = "fun " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show (Block [body])
     show (Var name t expr) = "var " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
     show (Let name t expr) = "let " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
     show (Program ast) = intercalate "\n" (show <$> ast)

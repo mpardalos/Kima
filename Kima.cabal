@@ -80,14 +80,16 @@ test-suite spec
 
         Kima.Test.FileTests
         Kima.Test.ConstraintSolver
+        Kima.Test.DomainCalculation
         Kima.Test.Gen
     hs-source-dirs: test
-    ghc-options: -Wall
+    ghc-options: -Wall -fdefer-typed-holes
     default-extensions: 
         DeriveFunctor, DeriveGeneric, DerivingStrategies,
-        GeneralizedNewtypeDeriving, ExistentialQuantification, 
-        DataKinds, LambdaCase, TypeApplications, BangPatterns,
-        OverloadedLists, NamedFieldPuns, FlexibleInstances, GADTs
+        GeneralizedNewtypeDeriving, ExistentialQuantification, DataKinds,
+        LambdaCase, TypeApplications, BangPatterns, NamedFieldPuns,
+        FlexibleInstances, GADTs, ViewPatterns, NoMonomorphismRestriction,
+        ScopedTypeVariables, FlexibleContexts
     build-depends:
         base >=4.7 && <5,
         containers -any,

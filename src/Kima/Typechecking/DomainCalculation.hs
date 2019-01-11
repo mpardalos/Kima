@@ -9,13 +9,14 @@ import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
+import           GHC.Generics
 import           Kima.AST
 import           Kima.KimaTypes
 import           Kima.Typechecking.Types
 import           Kima.Builtins
 
 data Mutability = Constant | Variable
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic)
 instance Semigroup Mutability where
     Constant <> _ = Constant
     _ <> Constant = Constant

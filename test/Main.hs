@@ -5,7 +5,8 @@ import           Test.Hspec.Runner
 
 import           Kima.Test.XmlFormatter
 import           Kima.Test.FileTests           as FileTests
-import           Kima.Test.ConstraintSolver    as ConstraintSolverTests
+import           Kima.Test.ConstraintSolver    as ConstraintSolver
+import           Kima.Test.DomainCalculation   as DomainCalculation
 
 main :: IO ()
 main = do
@@ -17,4 +18,5 @@ main = do
                     }
         withArgs (filter (/= "--junit-output") args) $ hspecWith config $ do
                 FileTests.spec
-                ConstraintSolverTests.spec
+                ConstraintSolver.spec
+                DomainCalculation.spec

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 module Kima.Test.ConstraintSolver where
 
 import           Test.Hspec
@@ -15,7 +16,7 @@ import           Control.Monad.State
 -- import qualified Data.Map as Map
 
 spec :: Spec
-spec = fdescribe "Constraint Solver" $ do
+spec = describe "Constraint Solver" $ do
     it "Extracts empty substitution"
         $          extractSubstitution `withDomains` []
         `shouldBe` Right []

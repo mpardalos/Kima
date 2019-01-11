@@ -1,7 +1,10 @@
+{-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS -Wno-orphans #-}
 module Kima.Test.Gen where
 
 import           Test.QuickCheck
+import           Control.Monad
+import           Control.Monad.Writer
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as Set
 import           Data.Set                       ( Set
@@ -86,3 +89,67 @@ instance Arbitrary a => Arbitrary (Binary a) where
 
 instance Arbitrary a => Arbitrary (Unary a) where
     arbitrary = genericArbitraryU
+
+getFreeVars :: AST p s n t -> [n]
+getFreeVars = execWriter . traverseNames (\n -> tell [n])
+
+instance (Arbitrary t, Arbitrary n) => Arbitrary (AST 'Expr 'NoSugar n ('Just t)) where
+    arbitrary = oneof
+        [ LiteralE <$> arbitrary
+        , Identifier <$> arbitrary
+        , FuncExprAnn <$> arbitrary <*> arbitrary <*> arbitrary
+        , Call <$> arbitrary <*> arbitrary
+        ]
+
+    shrink (LiteralE lit) = LiteralE <$> shrink lit
+    shrink (Identifier name) = Identifier <$> shrink name
+    shrink (FuncExprAnn args rt body) = FuncExprAnn <$> shrink args <*> shrink rt <*> shrink body
+    shrink (Call callee args) = Call <$> shrink callee <*> shrink args
+
+instance (Arbitrary t, Arbitrary n) => Arbitrary (AST 'Stmt 'NoSugar n ('Just t)) where
+    arbitrary = oneof
+        [ ExprStmt <$> arbitrary
+        , Block    <$> scale (`div` 2) arbitrary
+        , While    <$> (WhileStmt <$> arbitrary <*> arbitrary)
+        , If       <$> (IfStmt <$> arbitrary <*> arbitrary <*> arbitrary)
+        , Assign   <$> arbitrary <*> arbitrary
+        , Var      <$> arbitrary <*> arbitrary <*> arbitrary
+        , Let      <$> arbitrary <*> arbitrary <*> arbitrary
+        ]
+
+instance Arbitrary BuiltinName where
+    arbitrary = genericArbitraryU
+
+instance Arbitrary (GenericName 'Nothing 'False) where
+    arbitrary = Name <$> arbitrary
+    shrink = shrinkUntypedName
+instance Arbitrary (GenericName 'Nothing 'True) where
+    arbitrary = oneof 
+        [ Name <$> (getNonEmpty <$> arbitrary)
+        , Builtin <$> arbitrary
+        ]
+    shrink = shrinkUntypedName
+instance Arbitrary t => Arbitrary (GenericName ('Just t) 'False) where
+    arbitrary = typeAnnotate 
+        <$> arbitrary @t
+        <*> arbitrary @(GenericName 'Nothing 'False)
+    shrink (TypedName n t) = TypedName <$> shrink n <*> shrink t
+
+instance Arbitrary t => Arbitrary (GenericName ('Just t) 'True) where
+    arbitrary = typeAnnotate 
+        <$> arbitrary @t
+        <*> arbitrary @(GenericName 'Nothing 'True)
+    shrink (TypedName n t) 
+        | length n > 1 = TypedName <$> shrink n <*> shrink t
+        | otherwise    = TypedName n <$> shrink t
+    shrink (TBuiltin n t) = join 
+        [ TBuiltin n <$> shrink t
+        , TypedName (show n) <$> shrink t
+        ]
+
+shrinkUntypedName :: GenericName 'Nothing b -> [GenericName 'Nothing b]
+shrinkUntypedName (Name    n) 
+    | length n > 1 = Name <$> shrink n
+    | otherwise    = []
+-- Base names are smaller than builtins 
+shrinkUntypedName (Builtin n) = [Name (show n)] 
