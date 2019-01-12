@@ -112,11 +112,11 @@ term = try call <|> baseterm
 -- | A term without calls (Useful for parsing calls)
 baseterm :: Parser (ParsedAST 'Expr)
 baseterm = parens expr
-   <|> LiteralE . StringExpr     <$> string
-   <|> LiteralE . IntExpr        <$> intLiteral
-   <|> LiteralE . FloatExpr      <$> floatLiteral
-   <|> LiteralE . BoolExpr       <$> boolLiteral
-   <|>            Identifier     <$> identifier
+   <|> LiteralE . StringExpr     <$> try string
+   <|> LiteralE . FloatExpr      <$> try floatLiteral
+   <|> LiteralE . IntExpr        <$> try intLiteral
+   <|> LiteralE . BoolExpr       <$> try boolLiteral
+   <|>            Identifier     <$> try identifier
 
 argList :: Parser [ParsedAST 'Expr]
 argList = parens (expr `sepBy` symbol Comma)

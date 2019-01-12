@@ -46,6 +46,7 @@ library
         Kima.Interpreter.Monad
 
         Kima.Interface
+        Kima.Interface.Repl
         Kima.Interface.ArgumentParser
         Kima.Interface.Runners
         Kima.Interface.Types
@@ -81,6 +82,7 @@ test-suite spec
         Kima.Test.FileTests
         Kima.Test.ConstraintSolver
         Kima.Test.DomainCalculation
+        Kima.Test.Parser
         Kima.Test.Gen
     hs-source-dirs: test
     ghc-options: -Wall -fdefer-typed-holes

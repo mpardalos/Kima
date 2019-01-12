@@ -23,7 +23,6 @@ whitespace = L.space space1 skipLineComment noBlockComment
 inlineWhitespace :: Parser ()
 inlineWhitespace = L.space space1 empty empty
 
--- | These consume whitespace before them
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme whitespace
 
@@ -43,13 +42,13 @@ isIdentifierChar :: Char -> Bool
 isIdentifierChar c = isIdentifierStartChar c || isNumber c
 
 intLiteral :: Parser Integer
-intLiteral = L.decimal
+intLiteral = lexeme L.decimal
 
 floatLiteral :: Parser Double
-floatLiteral = L.signed inlineWhitespace L.float
+floatLiteral = lexeme $ L.signed inlineWhitespace L.float
 
 boolLiteral :: Parser Bool
-boolLiteral = (reserved RTrue $> True) <|> (reserved RFalse $> False)
+boolLiteral = lexeme $ (reserved RTrue $> True) <|> (reserved RFalse $> False)
 
 identifier :: Parser ParsedName
 identifier = do
@@ -63,7 +62,7 @@ identifier = do
         else return $ Name idName
 
 string :: Parser String
-string = char '"' *> takeWhileP Nothing (/= '"') <* char '"'
+string = lexeme $ char '"' *> takeWhileP Nothing (/= '"') <* char '"'
 
 -- Reserved words and symbols
 

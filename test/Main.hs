@@ -7,6 +7,7 @@ import           Kima.Test.XmlFormatter
 import           Kima.Test.FileTests           as FileTests
 import           Kima.Test.ConstraintSolver    as ConstraintSolver
 import           Kima.Test.DomainCalculation   as DomainCalculation
+import           Kima.Test.Parser              as Parser
 
 main :: IO ()
 main = do
@@ -20,3 +21,4 @@ main = do
                 FileTests.spec
                 ConstraintSolver.spec
                 DomainCalculation.spec
+                Parser.spec
