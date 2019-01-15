@@ -1,9 +1,9 @@
 module Kima.Interface.Runners where
 
 import Control.Monad.Except
-import Data.Bifunctor
 
 import Kima.AST
+import Kima.Builtins
 import Kima.Desugar
 import Kima.Interface.Types
 import qualified Kima.Frontend as F
@@ -13,9 +13,9 @@ import qualified Kima.Typechecking as T
 import System.IO
 import Text.Megaparsec
 
-parseBlock = either (putStrLn . F.errorBundlePretty) print . F.runParser F.block ""
-parseStmt = either (putStrLn . F.errorBundlePretty) print . F.runParser F.stmt ""
-parseExpr = either (putStrLn . F.errorBundlePretty) print . F.runParser F.expr ""
+parseBlock = F.runParser F.block ""
+parseStmt =  F.runParser F.stmt ""
+parseExpr =  F.runParser F.expr ""
 
 parseRepl :: IO ()
 parseRepl = do 
@@ -33,40 +33,30 @@ parseFile' fn = do
 
 desugarFile = runMonadInterface . (parseFile' >=> desugarAST')
 desugarAST = runMonadInterface . desugarAST'
-desugarAST' :: MonadInterface m => ParsedProgram -> m DesugaredProgram
+desugarAST' :: MonadInterface m => ParsedAST p -> m (DesugaredAST p)
 desugarAST' = return . desugar
 
 tVarAnnotateFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST')
 tVarAnnotateAST = runMonadInterface . tVarAnnotateAST'
-tVarAnnotateAST' :: MonadInterface m => DesugaredProgram -> m T.AnnotatedTVarProgram
+tVarAnnotateAST' :: MonadInterface m => DesugaredAST p -> m (T.AnnotatedTVarAST p)
 tVarAnnotateAST' = runEither . (fmap T.addTVars . T.resolveTypes)
 
 constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> constraintAST')
 constraintAST = runMonadInterface . constraintAST'
-constraintAST' :: MonadInterface m => T.AnnotatedTVarProgram -> m T.EqConstraintSet
+constraintAST' :: MonadInterface m => T.AnnotatedTVarAST p -> m T.EqConstraintSet
 constraintAST' =  pure . T.makeConstraints
 
 domainsOfFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> domainsOfAST')
 domainsOfAST = runMonadInterface . domainsOfAST'
-domainsOfAST' :: MonadInterface m => T.AnnotatedTVarProgram -> m T.Domains
-domainsOfAST' =  runEither . T.makeDomains
+domainsOfAST' :: MonadInterface m => T.AnnotatedTVarAST p -> m T.Domains
+domainsOfAST' =  runEither . T.makeDomains baseTypeCtx
 
 typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'
-typecheckAST' :: MonadInterface m => DesugaredProgram -> m TypedProgram
-typecheckAST' = runEither . T.typecheck
+typecheckAST' :: MonadInterface m => DesugaredAST p -> m (TypedAST p)
+typecheckAST' = runEither . T.typecheck baseTypeCtx
 
 runFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST' >=> runAST')
 runAST = runMonadInterface . runAST'
-runAST' :: MonadInterface m => TypedProgram -> m ()
-runAST' src = liftIO (I.runProgram src) >>= runEither 
-
-userThrow :: (MonadInterface m, UserThrowable err) => err -> m a
-userThrow = throwError . UserThrowableError
-
-runEither :: (MonadInterface m, UserThrowable err) => Either err a -> m a
-runEither = liftEither . bimap UserThrowableError id 
-
-runMaybe :: (UserThrowable err, MonadInterface m) => err -> Maybe a -> m a
-runMaybe _   (Just a) = pure a 
-runMaybe err Nothing  = userThrow err
+runAST' :: MonadInterface m => TypedAST p -> m I.Value
+runAST' src = liftIO (I.run src) >>= runEither 

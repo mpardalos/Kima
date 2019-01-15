@@ -46,7 +46,7 @@ class Monad m => MonadConsole m where
     consoleRead :: m String
 
 newtype Environment a = Environment {unEnv :: Map RuntimeName a}
-    deriving (Functor, Semigroup, Generic)
+    deriving (Functor, Semigroup, Generic, Show)
 instance Newtype (Environment a)
 
 instance Show Value where

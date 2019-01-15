@@ -2,8 +2,11 @@ module Kima.Typechecking.Types
     ( (=#=)
     , AnnotatedTVarProgram
     , AnnotatedTVarAST
+    , Binding(..)
+    , mapTypes
     , Domains
     , EqConstraintSet
+    , Mutability(..)
     , Substitution
     , TVarAST
     , TVarName
@@ -38,8 +41,6 @@ data TypecheckingError = AmbiguousVariable TypeVar [KType]
                        | UnsetDomain TypeVar
     deriving (Eq, Show)
 
-
-
 -------------------------------- Constraints ---------------------------------------
 data EqConstraint = Equal TypeVar TypeVar deriving (Eq, Ord)
 type EqConstraintSet = [EqConstraint]
@@ -50,10 +51,29 @@ type Domains = Map TypeVar (Set KType)
 (=#=) = Equal
 -----------------------------------------------------------------------------------
 
+data Binding = Binding {
+    mutability :: Mutability,
+    types :: Set KType
+} deriving (Eq, Ord, Show, Generic)
+
+mapTypes :: (Set KType -> Set KType) -> Binding -> Binding
+mapTypes f b@Binding { types } = b { types = f types}
+
+data Mutability = Constant | Variable
+    deriving (Eq, Ord, Show, Generic)
+instance Semigroup Mutability where
+    Constant <> _ = Constant
+    _ <> Constant = Constant
+    _ <> _        = Variable
+instance Semigroup Binding where
+    (Binding mutL typesL) <> (Binding mutR typesR) = 
+        Binding (mutL <> mutR) (typesL <> typesR)
+
+
 -- For now, when a name is declared, it has to have an associated type, so this
 -- type is OK. If type inference is implemented to any degree, this will have to
 -- be changed to map to a [TypeVar]
-type TypeCtx = Map DesugaredName (Set KType)
+type TypeCtx = Map DesugaredName Binding
 
 type Substitution = Map TypeVar KType
 

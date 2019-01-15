@@ -45,6 +45,3 @@ constraintsFor = execWriter . \case
         FuncDefAST func -> writeFuncDefConstraints func
         StmtAST    stmt -> stmtReturnTVar stmt $> ()
         ExprAST    expr -> exprTVar expr $> ()
-
-domainsFor :: AnnotatedTVarAST p -> Either TypecheckingError Domains
-domainsFor = makeDomains

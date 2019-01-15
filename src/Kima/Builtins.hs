@@ -13,8 +13,9 @@ import Kima.KimaTypes
 baseTypeCtx :: TypeCtx
 baseTypeCtx = Map.foldlWithKey combine Map.empty (unEnv baseEnv)
   where
+    combine :: TypeCtx -> RuntimeName -> Value -> TypeCtx
     combine typeCtx name _ =
-        Map.insertWith (<>) (deTypeAnnotate name) [nameType name] typeCtx
+        Map.insertWith (<>) (deTypeAnnotate name) (Binding Constant [nameType name]) typeCtx
 
 baseEnv :: Environment Value
 baseEnv = Environment

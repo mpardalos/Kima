@@ -12,6 +12,7 @@ import           System.Directory
 import           Data.Char
 import           Data.Bifunctor
 
+import           Kima.Builtins                 as B
 import           Kima.Desugar                  as D
 import           Kima.Frontend                 as F
 import           Kima.Typechecking             as T
@@ -59,7 +60,7 @@ runFileTest :: FileTest -> Either SomeTestableError String
 runFileTest FileTest { fileName, contents, input } =
     testableEither (F.parseProgram fileName contents)
         >>= (pure . D.desugar)
-        >>= (testableEither . T.typecheck)
+        >>= (testableEither . T.typecheck baseTypeCtx)
         >>= (testableEither . runInTestInterpreterWithInput input)
         >>= (pure . snd)
 

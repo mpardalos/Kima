@@ -23,7 +23,7 @@ spec = describe "Domain Calculator" $ do
         forAll arbitraryExprWithTypeCtx $ \(expr, typeCtx) ->
         calculateDomains (Assign name expr)
         `withTypeCtx` (
-            [(deTypeAnnotate name, (Constant, types))]
+            [(deTypeAnnotate name, Binding Constant types)]
             <> typeCtx)
         `shouldSatisfy` isLeft
 
@@ -31,20 +31,24 @@ spec = describe "Domain Calculator" $ do
         calculateDomains (Assign 
             (TypedName "a" (TypeVar 1)) 
             (LiteralE (IntExpr 5)))
-        `withTypeCtx` [(Name "a", (Variable, [KFloat]))]
+        `withTypeCtx` [(Name "a", Binding Variable [KFloat])]
         `shouldSatisfy` isRight
     
 withTypeCtx
-    :: StateT MutTypeCtx (Either TypecheckingError) a
-    -> MutTypeCtx
+    :: StateT TypeCtx (Either TypecheckingError) a
+    -> TypeCtx
     -> Either TypecheckingError a
 withTypeCtx = evalStateT
 
 arbitraryExprWithTypeCtx
     :: Arbitrary (AST p s TVarName t)
-    => Gen (AST p s TVarName t, MutTypeCtx)
+    => Gen (AST p s TVarName t, TypeCtx)
 arbitraryExprWithTypeCtx = do
     ast <- arbitrary
     let freeVars = deTypeAnnotate <$> getFreeVars ast
-    let typeCtx = Map.fromList (zip freeVars [(Constant, [KFloat]), (Variable, [KString, KInt])])
+    let typeCtx = Map.fromList (zip 
+            freeVars 
+            [ Binding Constant [KFloat]
+            , Binding Variable [KString, KInt]
+            ])
     return (ast, typeCtx)

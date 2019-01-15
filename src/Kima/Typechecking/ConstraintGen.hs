@@ -14,8 +14,11 @@ import           Kima.Typechecking.Types
 import           Kima.AST
 import           Kima.KimaTypes
 
-makeConstraints :: AnnotatedTVarAST 'TopLevel -> EqConstraintSet
-makeConstraints = writeProgramConstraints >>> execWriter
+makeConstraints :: AnnotatedTVarAST p -> EqConstraintSet
+makeConstraints (ProgramAST ast) = (writeProgramConstraints >>> execWriter) ast
+makeConstraints (FuncDefAST ast) = (writeFuncDefConstraints >>> execWriter) ast
+makeConstraints (StmtAST    ast) = (stmtReturnTVar >>> execWriter) ast
+makeConstraints (ExprAST    ast) = (exprTVar >>> execWriter) ast
 
 --------------------- Making constraints ----------------------------------
 type MonadConstraintWriter m = MonadWriter EqConstraintSet m

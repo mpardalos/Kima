@@ -1,6 +1,7 @@
 module Kima.Typechecking
     ( module E
     , typecheck
+    , typecheckWithTypeCtx
     , addTVars
     , TypecheckingError(..)
     )
@@ -17,7 +18,9 @@ import           Kima.Typechecking.ConstraintSolving
                                                 ( unify )
 import           Kima.Typechecking.DomainCalculation
                                                as E
-                                                ( makeDomains )
+                                                ( makeDomains
+                                                , makeDomainsWithTypeCtx 
+                                                )
 import           Kima.Typechecking.Types       as E
                                                 ( AnnotatedTVarAST
                                                 , AnnotatedTVarProgram
@@ -27,6 +30,7 @@ import           Kima.Typechecking.Types       as E
                                                 , TVarProgram
                                                 , TypecheckingError(..)
                                                 , TypeVar
+                                                , TypeCtx
                                                 )
 import           Kima.Typechecking.Types        ( TypeVar(..) )
 
@@ -38,18 +42,21 @@ import           Kima.AST
 addTVars = (`evalState` 0) . traverseNames @(State Int)
     (\name -> state $ \n -> (typeAnnotate (TypeVar n) name, n + 1))
 
-typecheck :: DesugaredProgram -> Either TypecheckingError TypedProgram
-typecheck dAST = do
+typecheck :: TypeCtx -> DesugaredAST p -> Either TypecheckingError (TypedAST p)
+typecheck typeCtx dAST = fst <$> (typecheckWithTypeCtx typeCtx dAST)
+
+typecheckWithTypeCtx :: TypeCtx -> DesugaredAST p -> Either TypecheckingError (TypedAST p, TypeCtx)
+typecheckWithTypeCtx typeCtx dAST = do
     typeAnnotatedAST <- resolveTypes dAST
     let tVarAST = addTVars typeAnnotatedAST
     let constraints = makeConstraints tVarAST
-    domains      <- makeDomains tVarAST
+    (domains, finalTypeCtx) <- makeDomainsWithTypeCtx typeCtx tVarAST
     substitution <- unify constraints domains
-    removeTypeAnnotations
+    resultAST <- removeTypeAnnotations
         <$> traverseNames (applySubstitution substitution) tVarAST
+    return (resultAST, finalTypeCtx)
   where
     applySubstitution substitution name =
         case Map.lookup (nameType name) substitution of
             Just t  -> pure (typeAnnotate t name)
             Nothing -> Left (NoSolution (nameType name))
-

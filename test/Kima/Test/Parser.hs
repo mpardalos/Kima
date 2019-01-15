@@ -8,7 +8,7 @@ import Test.Hspec
 import Text.Megaparsec
 
 spec :: Spec
-spec = parallel $ fdescribe "Parser" $ do
+spec = parallel $ describe "Parser" $ do
     describe "Term parser" $
         forM_ termTests $ \(str, ast) ->
             it ("Parses " <> str <> " correctly") $
