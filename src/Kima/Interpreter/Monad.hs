@@ -3,12 +3,11 @@ module Kima.Interpreter.Monad where
 import Control.Monad.Except
 import Control.Monad.State
 import Kima.Interpreter.Types
-import Kima.Builtins
 
 newtype Interpreter a = Interpreter { 
-    runInterpreter :: ExceptT RuntimeError (
-                      StateT (Environment Value) 
-                      IO) a 
+    unInterpreter :: StateT (Environment Value) (
+                     ExceptT RuntimeError 
+                     IO) a 
 } deriving (
     Functor, 
     Applicative,
@@ -21,5 +20,8 @@ instance MonadConsole Interpreter where
     consoleRead = liftIO getLine
     consoleWrite = liftIO . putStr
 
-execInterpreter :: Interpreter a -> IO (Either RuntimeError a)
-execInterpreter = (`evalStateT` baseEnv) . runExceptT . runInterpreter
+execInterpreter :: Environment Value -> Interpreter a -> IO (Either RuntimeError a)
+execInterpreter env = runExceptT . (`evalStateT` env) . unInterpreter
+
+runInterpreter :: Environment Value -> Interpreter a -> IO (Either RuntimeError (a, Environment Value))
+runInterpreter env = runExceptT . (`runStateT` env) . unInterpreter

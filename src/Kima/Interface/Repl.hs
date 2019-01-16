@@ -1,46 +1,46 @@
 module Kima.Interface.Repl where
 
+import Control.Arrow hiding (first, second)
 import Control.Monad
-import Control.Arrow
 import Control.Monad.Except
-import Control.Monad.State
+import Data.Bifunctor
 import Data.IORef
 import System.IO
+import Text.Megaparsec
 
-import Kima.Interface.Runners
-import qualified Kima.Frontend as F
 import Kima.Builtins
+import Kima.Desugar
 import Kima.Interpreter
 import Kima.Typechecking
-import Kima.Interpreter.Monad
-import Text.Megaparsec
+import Kima.Frontend
 
 repl :: IO ()
 repl = do
     hSetBuffering stdin LineBuffering
-    interpreterStateRef <- newIORef baseEnv
-    typecheckerStateRef <- newIORef baseTypeCtx
+    typeCtxRef <- newIORef baseTypeCtx
+    envRef     <- newIORef baseEnv
     forever $ do
         liftIO (putStr ">>> ")
-        input <- getLine
-        case F.runParser F.stmt "" input of
-            Left err -> putStrLn (errorBundlePretty err)
-            Right parseAST -> do 
-                desugaredAST <- desugarAST parseAST 
-                typecheckerState <- readIORef typecheckerStateRef
-                case typecheckWithTypeCtx typecheckerState desugaredAST of
-                    Left err -> putStrLn ("Type Error: " <> show err)
-                    Right (typedAST, newTypecheckerState) -> do
-                        writeIORef typecheckerStateRef newTypecheckerState
-                        replState <- readIORef interpreterStateRef
-                        (result, newState) <- (
-                            runStmt >>> 
-                            runInterpreter >>> 
-                            runExceptT >>> 
-                            (`runStateT` replState)) 
-                            typedAST
-                        case result of
-                            Left err -> print err
-                            Right val -> do
-                                putStrLn ("> " <> show val)
-                                writeIORef interpreterStateRef newState
+        lineResult <- join $ runLine
+            <$> readIORef typeCtxRef
+            <*> readIORef envRef
+            <*> getLine
+        case lineResult of
+            Left  err -> putStrLn err
+            Right (value, newTypeCtx, newEnv) -> do
+                writeIORef typeCtxRef newTypeCtx
+                writeIORef envRef newEnv
+                putStrLn ("> " <> show value)
+
+
+runLine :: TypeCtx -> Environment Value -> String -> IO (Either String (Value, TypeCtx, Environment Value))
+runLine typeCtx interpreterEnv input = runExceptT $ do
+    -- Run up to typechecking, converting errors to strings (the parts after >>>)
+    (typedAST, newTypeCtx) <- liftEither
+        $   ( runParser stmt ""            >>> first errorBundlePretty ) input
+        >>= ( desugar                      >>> pure                    )
+        >>= ( typecheckWithTypeCtx typeCtx >>> first show              )
+    -- Run the typedAST, lifting as needed
+    (value, newEnv) <- liftEither =<< liftIO 
+        (first show <$> runWithEnv interpreterEnv typedAST)
+    return (value, newTypeCtx, newEnv)
