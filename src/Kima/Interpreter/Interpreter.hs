@@ -71,10 +71,10 @@ getName name = gets (Map.lookup name . unEnv) >>= \case
     Just val -> return val
     Nothing  -> throwError (NotInScope name)
 
-evalFuncDef :: RuntimeAST 'FunctionDef -> Value
+evalFuncDef :: RuntimeAST 'TopLevel -> Value
 evalFuncDef (FuncDef _ signature body) = Function signature body
 
-runProgram :: MonadInterpreter m => RuntimeAST 'TopLevel -> m ()
+runProgram :: MonadInterpreter m => RuntimeProgram -> m ()
 runProgram (Program functions) = do
     forM_ functions $ \f@(FuncDef name _ _) -> bind name (evalFuncDef f)
     mainFunc <- getName (TypedName "main" (KFunc ([] $-> KUnit)))

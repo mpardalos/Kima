@@ -38,7 +38,7 @@ data GenericName :: Maybe Type -> Bool -> Type where
     
 ---------- AST ----------  
 data Sugar = Sugar | NoSugar
-data ASTPart = Expr | Stmt | FunctionDef | TopLevel
+data ASTPart = Expr | Stmt | TopLevel | Module
 
 data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e
               | Less e e | LessEq e e | Greater e e | GreatEq e e | Eq e e | NotEq e e
@@ -72,21 +72,23 @@ newtype ArgList a = ArgList [a]
 -- |        rename :: AST ()
 -- | typeann : The type of **user-supplied** type annotations. The typechecker should turn this to **Void**
 data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Type) where
-    Program      :: [AST 'FunctionDef sug n t] -> AST 'TopLevel sug n t
+    Program      :: [AST 'TopLevel sug n t] -> AST 'Module sug n t
 
     ----------------------- Top-level function definitions ----------------------- 
-    FuncDef      ::  name -> [name] -> AST 'Stmt sug name 'Nothing -> AST 'FunctionDef sug name 'Nothing
-    FuncDefAnn   ::  name -> [(name, t)] -> t -> AST 'Stmt sug name ('Just t)-> AST 'FunctionDef sug name ('Just t)
+    FuncDef      ::  name -> [name] -> AST 'Stmt sug name 'Nothing            -> AST 'TopLevel sug name 'Nothing
+    FuncDefAnn   ::  name -> [(name, t)] -> t -> AST 'Stmt sug name ('Just t) -> AST 'TopLevel sug name ('Just t)
 
     ----------------------- Expressions ----------------------- 
     -- Interpreted core
-    LiteralE     :: Literal                                                    -> AST 'Expr sug n    t
-    Identifier   :: name                                                       -> AST 'Expr sug name t
-    FuncExpr     :: [name]           -> AST 'Stmt sug name 'Nothing  -> AST 'Expr sug name 'Nothing
-    FuncExprAnn  :: [(name, t)] -> t -> AST 'Stmt sug name ('Just t) -> AST 'Expr sug name ('Just t)
-    Call         :: AST 'Expr sug n t -> [AST 'Expr sug n t]        -> AST 'Expr sug n    t
-    BinE         :: Binary (AST 'Expr 'Sugar n t)   -> AST 'Expr 'Sugar n t
-    UnaryE       :: Unary (AST 'Expr 'Sugar n t)    -> AST 'Expr 'Sugar n t
+    LiteralE     :: Literal                                          -> AST 'Expr sug    n    t
+    Identifier   :: name                                             -> AST 'Expr sug    name t
+    FuncExpr     :: [name] -> AST 'Stmt sug name 'Nothing            -> AST 'Expr sug    name 'Nothing
+    FuncExprAnn  :: [(name, t)] -> t -> AST 'Stmt sug name ('Just t) -> AST 'Expr sug    name ('Just t)
+    Call         :: AST 'Expr sug n t -> [AST 'Expr sug n t]         -> AST 'Expr sug    n    t
+
+    -- Sugar
+    BinE         :: Binary (AST 'Expr 'Sugar n t)                    -> AST 'Expr 'Sugar n    t
+    UnaryE       :: Unary (AST 'Expr 'Sugar n t)                     -> AST 'Expr 'Sugar n    t
 
     ----------------------- Statements  ----------------------- 
     -- Interpreted Core
@@ -106,9 +108,9 @@ type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName    ('Just TypeExpr)
 type DesugaredAST (p :: ASTPart) = AST p 'NoSugar DesugaredName ('Just TypeExpr) -- Typecheck ->
 type TypedAST     (p :: ASTPart) = AST p 'NoSugar TypedName     'Nothing
 
-type ParsedProgram    = ParsedAST 'TopLevel
-type DesugaredProgram = DesugaredAST 'TopLevel
-type TypedProgram     = TypedAST 'TopLevel
+type ParsedProgram    = ParsedAST    'Module
+type DesugaredProgram = DesugaredAST 'Module
+type TypedProgram     = TypedAST     'Module
 
 -- Types
 data TypeExpr = TypeName (GenericName 'Nothing 'False)
@@ -339,9 +341,9 @@ isExpr Program{}          = Nothing
 isExpr Var{}              = Nothing
 isExpr While{}            = Nothing
 
-pattern ProgramAST :: AST 'TopLevel s n t -> AST p s n t
+pattern ProgramAST :: AST 'Module s n t -> AST p s n t
 pattern ProgramAST ast <- (isProgram -> Just ast)
-isProgram :: AST p s n t -> Maybe (AST 'TopLevel s n t)
+isProgram :: AST p s n t -> Maybe (AST 'Module s n t)
 isProgram Assign{}      = Nothing
 isProgram ast@Program{} = Just ast
 isProgram BinE{}        = Nothing
@@ -360,9 +362,9 @@ isProgram UnaryE{}      = Nothing
 isProgram Var{}         = Nothing
 isProgram While{}       = Nothing
 
-pattern FuncDefAST :: AST 'FunctionDef s n t -> AST p s n t
+pattern FuncDefAST :: AST 'TopLevel s n t -> AST p s n t
 pattern FuncDefAST ast <- (isFuncDef -> Just ast)
-isFuncDef :: AST p s n t -> Maybe (AST 'FunctionDef s n t)
+isFuncDef :: AST p s n t -> Maybe (AST 'TopLevel s n t)
 isFuncDef Assign{}      = Nothing
 isFuncDef ast@FuncDef{}     = Just ast
 isFuncDef ast@FuncDefAnn{}  = Just ast

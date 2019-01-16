@@ -27,13 +27,13 @@ writeConstraint c = tell [c]
 
 -- | Generate constraints for a top-level AST
 writeProgramConstraints
-    :: MonadConstraintWriter m => AnnotatedTVarAST 'TopLevel -> m ()
+    :: MonadConstraintWriter m => AnnotatedTVarAST 'Module -> m ()
 writeProgramConstraints (Program funcDefs) =
     traverse_ writeFuncDefConstraints funcDefs
 
 -- | Write the constraints for a function definition
 writeFuncDefConstraints
-    :: MonadConstraintWriter m => AnnotatedTVarAST 'FunctionDef -> m ()
+    :: MonadConstraintWriter m => AnnotatedTVarAST 'TopLevel -> m ()
 writeFuncDefConstraints (FuncDefAnn _ _ _ body) = void (stmtReturnTVar body)
 
 -- | Compute the return type of a statement and write the constraints required

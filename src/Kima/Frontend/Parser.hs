@@ -10,12 +10,12 @@ import qualified Kima.Frontend.Tokenizer as T
 import Text.Megaparsec
 import Control.Monad.Combinators.Expr
 
-program :: Parser (ParsedAST 'TopLevel)
+program :: Parser (ParsedAST 'Module)
 program = Program <$> (whitespace *> some funcDef <* eof)
 
 -- Function defintions
 
-funcDef :: Parser (ParsedAST 'FunctionDef)
+funcDef :: Parser (ParsedAST 'TopLevel)
 funcDef = do 
     reserved RFun 
     name <- identifier

@@ -86,13 +86,13 @@ data TypeVar = TypeVar Int
 type TVarName         = GenericName ('Just TypeVar) 'True
 
 type TVarAST p          = AST p 'NoSugar TVarName 'Nothing
-type TVarProgram        = TVarAST 'TopLevel
+type TVarProgram        = TVarAST 'Module
 
 type AnnotatedTVarAST p = AST p 'NoSugar TVarName ('Just KType)
-type AnnotatedTVarProgram = AnnotatedTVarAST 'TopLevel
+type AnnotatedTVarProgram = AnnotatedTVarAST 'Module
 
 type TypeAnnotatedAST p = AST p 'NoSugar DesugaredName ('Just KType)
-type TypeAnnotatedProgram = TypeAnnotatedAST 'TopLevel
+type TypeAnnotatedProgram = TypeAnnotatedAST 'Module
 ---------------------- Show -----------------------------
 instance Show EqConstraint where
     show (Equal t1 t2) = show t1 <> " =#= " <> show t2
