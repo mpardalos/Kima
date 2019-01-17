@@ -4,18 +4,24 @@ import           Kima.Interpreter               ( RuntimeError(..) )
 import           Kima.Typechecking              ( TypecheckingError(..) )
 import           Text.Megaparsec
 
-data SomeTestableError = forall err. (Show err, TestableError err) => SomeTestableError err
+data SomeTestableError = forall err. TestableError err => SomeTestableError err
 
 class TestableError err where
     matchesString :: String -> err -> Bool
+    showError :: err -> String
 
-instance TestableError (ParseError a b) where
+    default showError :: Show err => err -> String
+    showError = show
+
+instance (Stream a, ShowErrorComponent b) => TestableError (ParseError a b) where
     matchesString "ParseError" _ = True
     matchesString _ _            = False
+    showError                    = parseErrorPretty
 
-instance TestableError (ParseErrorBundle a b) where
+instance (Stream a, ShowErrorComponent b) => TestableError (ParseErrorBundle a b) where
     matchesString "ParseError" _ = True
     matchesString _ _            = False
+    showError                    = errorBundlePretty
 
 instance TestableError RuntimeError where
     matchesString "NotInScope"           NotInScope{}           = True
@@ -44,4 +50,4 @@ instance TestableError SomeTestableError where
     matchesString s (SomeTestableError err) = matchesString s err
 
 instance Show SomeTestableError where
-    show (SomeTestableError err) = show err
+    show (SomeTestableError err) = showError err
