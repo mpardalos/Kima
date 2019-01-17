@@ -9,3 +9,4 @@ main :: IO ()
 main = getCommand >>= \case
     Run     _ fn -> runFile fn $> ()
     Compile _ _  -> notImplemented "compiler"
+    Repl         -> repl

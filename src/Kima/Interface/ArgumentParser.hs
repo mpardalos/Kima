@@ -4,6 +4,7 @@ import Options.Applicative
 
 data Command = Run RunOpts FilePath
              | Compile CompileOpts FilePath
+             | Repl
     deriving Show
 
 data RunOpts = RunOpts deriving Show
@@ -30,7 +31,8 @@ compileOpts = CompileOpts <$> optional (strOption (
 parseCommand :: Parser Command
 parseCommand = hsubparser $ 
     command "run" (parseRun `info` progDesc "Run FILENAME") <>
-    command "compile" (parseCompile `info` progDesc "Compile FILENAME")
+    command "compile" (parseCompile `info` progDesc "Compile FILENAME") <>
+    command "repl" (pure Repl `info` progDesc "Run repl")
 
 getCommand :: IO Command
 getCommand = customExecParser preferences parser 

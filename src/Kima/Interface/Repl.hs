@@ -20,7 +20,8 @@ repl = do
     typeCtxRef <- newIORef baseTypeCtx
     envRef     <- newIORef baseEnv
     forever $ do
-        liftIO (putStr ">>> ")
+        -- Output is line-buffered so we explicitly flush here
+        putStr ">>> "; hFlush stdout
         lineResult <- join $ runLine
             <$> readIORef typeCtxRef
             <*> readIORef envRef
