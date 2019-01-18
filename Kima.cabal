@@ -64,12 +64,13 @@ library
     build-depends:
         base >=4.7 && <5,
         containers -any,
-        mtl -any,
-        safe -any,
-        parser-combinators ==1.*,
         megaparsec ==7.*,
+        mtl -any,
+        newtype-generics >=0.5.3,
         optparse-applicative -any,
-        newtype-generics >=0.5.3
+        parser-combinators ==1.*,
+        prettyprinter == 1.2.*,
+        safe -any
 
 test-suite spec
     type: exitcode-stdio-1.0
@@ -101,6 +102,7 @@ test-suite spec
         QuickCheck >= 2,
         mtl -any,
         megaparsec ==7.*,
+        prettyprinter == 1.2.*,
         safe -any,
         Kima
 

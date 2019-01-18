@@ -23,6 +23,7 @@ where
 import           Data.List
 import           Data.Map                       ( Map )
 import           Data.Set                       ( Set )
+import           Data.Text.Prettyprint.Doc
 import           GHC.Generics
 
 import           Kima.AST
@@ -32,13 +33,11 @@ data TypecheckingError = AmbiguousVariable TypeVar [KType]
                        | AssignToConst TVarName
                        | CantUnify TypeVar TypeVar
                        | CantUnifyCall TypeVar [TypeVar]
-                       | DomainMismatch
                        | MultipleSolutions TypeVar [KType]
                        | NameShadowed TVarName
                        | NoSolution TypeVar
                        | TypeResolutionError TypeExpr
                        | UnboundName TVarName
-                       | UnsetDomain TypeVar
     deriving (Eq, Show)
 
 -------------------------------- Constraints ---------------------------------------
@@ -105,3 +104,33 @@ instance Show TypeVar where
     show ( TheType         t                   ) = "#" <> show t
     show ( ApplicationTVar callee args         ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
 
+instance Pretty TypeVar where
+    pretty = viaShow
+
+instance Pretty TypecheckingError where
+    pretty (AmbiguousVariable var types) = 
+        "Typevar" <+> pretty var <+> "is ambiguous. Available types:" 
+        <> line 
+        <> indent 4 (bulletList types) 
+    pretty (AssignToConst name         ) = 
+        "Assigned to constant" <+> pretty name
+    pretty (CantUnify l r              ) = 
+        "Can't unify" <+> pretty l <+> pretty r
+    pretty (CantUnifyCall callee args  ) = 
+        "Can't unify call to" <+> pretty callee
+        <+> "with args" <+> tupled (pretty <$> args)
+    pretty (MultipleSolutions var sols ) = 
+        "Typevar" <+> pretty var <+> "has multiple solutions:"
+        <> line
+        <> indent 4 (bulletList sols)
+    pretty (NameShadowed        name ) =
+        "Illegal shadowing of" <+> pretty name
+    pretty (NoSolution          var  ) =
+        "Typevar" <+> pretty var <+> "has no solution"
+    pretty (TypeResolutionError expr ) =
+        "Can't resolve type" <+> pretty expr
+    pretty (UnboundName         name ) =
+        "Reference to unbound name" <+> pretty name
+
+bulletList :: Pretty a => [a] -> Doc ann
+bulletList = vsep . fmap (("•" <+>) . pretty)

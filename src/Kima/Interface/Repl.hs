@@ -7,6 +7,7 @@ import Data.Bifunctor
 import Data.IORef
 import System.IO
 import Text.Megaparsec
+import Data.Text.Prettyprint.Doc
 
 import Kima.Builtins
 import Kima.Desugar
@@ -27,11 +28,11 @@ repl = do
             <*> readIORef envRef
             <*> getLine
         case lineResult of
-            Left  err -> putStrLn err
+            Left  err -> putStrLn ("Error: " <> err)
             Right (value, newTypeCtx, newEnv) -> do
                 writeIORef typeCtxRef newTypeCtx
                 writeIORef envRef newEnv
-                putStrLn ("> " <> show value)
+                putStrLn ("> " <> show (pretty value))
 
 
 runLine :: TypeCtx -> Environment Value -> String -> IO (Either String (Value, TypeCtx, Environment Value))
@@ -40,8 +41,8 @@ runLine typeCtx interpreterEnv input = runExceptT $ do
     (typedAST, newTypeCtx) <- liftEither
         $   ( runParser stmt ""            >>> first errorBundlePretty ) input
         >>= ( desugar                      >>> pure                    )
-        >>= ( typecheckWithTypeCtx typeCtx >>> first show              )
+        >>= ( typecheckWithTypeCtx typeCtx >>> first (show . pretty)   )
     -- Run the typedAST, lifting as needed
     (value, newEnv) <- liftEither =<< liftIO 
-        (first show <$> runWithEnv interpreterEnv typedAST)
+        (first (show . pretty) <$> runWithEnv interpreterEnv typedAST)
     return (value, newTypeCtx, newEnv)

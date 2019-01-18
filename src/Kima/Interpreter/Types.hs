@@ -8,6 +8,7 @@ import           Control.Newtype.Generics
 
 import           Control.Monad.Except
 import           Control.Monad.State
+import           Data.Text.Prettyprint.Doc
 
 import           Data.Map                hiding ( toList
                                                 , fromList
@@ -25,7 +26,7 @@ type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m)
 
 data RuntimeError = NotInScope RuntimeName
                   | WrongArgumentCount Int Int
-                  | WrongConditionType
+                  | WrongConditionType Value
                   | NotAFunction Value
                   | BuiltinFunctionError String
     deriving Show
@@ -60,3 +61,32 @@ instance Show Value where
     show BuiltinFunction2{} = "Builtin function"
     show BuiltinFunction3{} = "Builtin function"
     show Unit = "()"
+
+instance Pretty Value where
+    pretty (Integer v)          = pretty v
+    pretty (Float v)            = pretty v
+    pretty (Bool v)             = pretty v
+    pretty (String v)           = pretty v
+    pretty (Function args body) =
+        "fun" <+> tupled (pretty <$> args) <+> "{" 
+        <> line
+            <> indent 4 (pretty body)
+        <> line <> "}"
+
+    pretty BuiltinFunction0{}   = "Builtin function"
+    pretty BuiltinFunction1{}   = "Builtin function"
+    pretty BuiltinFunction2{}   = "Builtin function"
+    pretty BuiltinFunction3{}   = "Builtin function"
+    pretty Unit                 = "()"
+
+instance Pretty RuntimeError where
+    pretty ( NotInScope name                 ) =
+        pretty name <+> "is not in scope"
+    pretty ( WrongArgumentCount got expected ) =
+        "Expected" <+> pretty expected <+> "args" <+>
+        "but got" <+> pretty got
+    pretty ( WrongConditionType v ) = 
+        "Expected a boolean condition value but got" <+> pretty v
+    pretty ( NotAFunction v                  ) =
+        "Expected a function but got" <+> pretty v
+    pretty ( BuiltinFunctionError err        ) = pretty err

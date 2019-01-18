@@ -29,7 +29,7 @@ domainOf :: MonadUnify m => TypeVar -> m (Set KType)
 domainOf tvar@TypeVar{} = Map.lookup tvar <$> getDomains >>= \case
     Just domain | null domain -> throwError (NoSolution tvar)
     Just domain               -> pure domain
-    Nothing                   -> throwError (UnsetDomain tvar)
+    Nothing                   -> throwError (NoSolution tvar)
 domainOf (     TheType t                  ) = pure [t]
 domainOf tvar@(ApplicationTVar callee args) = do
     argDomains   <- toList <$> domainOf `traverse` args
@@ -37,7 +37,7 @@ domainOf tvar@(ApplicationTVar callee args) = do
     case filter (matches argDomains) calleeDomain of
         [t@(KFunc (Signature _ rt))] -> unifyVarToType callee t $> [rt]
         [t] -> throwError (CantUnify (TheType t) callee)
-        []                           -> throwError (CantUnifyCall tvar args)
+        []                           -> throwError (CantUnifyCall callee args)
         ts                           -> throwError (AmbiguousVariable tvar ts)
   where
     matches :: [Set KType] -> KType -> Bool

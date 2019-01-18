@@ -29,10 +29,9 @@ import           Kima.Typechecking.Types       as E
                                                 , TVarAST
                                                 , TVarProgram
                                                 , TypecheckingError(..)
-                                                , TypeVar
+                                                , TypeVar(..)
                                                 , TypeCtx
                                                 )
-import           Kima.Typechecking.Types        ( TypeVar(..) )
 
 import qualified Data.Map                      as Map
 import           Control.Monad.State

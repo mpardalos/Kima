@@ -11,12 +11,13 @@ import Kima.Frontend
 import Kima.Interpreter
 import Kima.Typechecking
 import Text.Megaparsec
+import Data.Text.Prettyprint.Doc
 
 class UserThrowable err where
     userShow :: err -> String
 
-    default userShow :: Show err => err -> String
-    userShow = show
+    default userShow :: Pretty err => err -> String
+    userShow = show . pretty
 
 newtype CustomError = CustomError String
 instance UserThrowable CustomError where

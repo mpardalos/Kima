@@ -7,8 +7,8 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Kind
-import Data.List
 import Data.String
+import Data.Text.Prettyprint.Doc
 
 import GHC.Generics
 
@@ -60,8 +60,6 @@ data WhileStmt cond body = WhileStmt {
     cond :: cond,
     body :: body
 } deriving Eq
-
-newtype ArgList a = ArgList [a]
 
 -- | A Unified AST for all compilation/interpretation phases.
 -- | The type parameters specify which constructors are available.
@@ -133,48 +131,75 @@ nameType (TypedName _ t) = t
 nameType (TBuiltin _ t) = t
 
 --------------- Show instances ---------------------
+prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann
+prettyArgList = tupled . fmap (\(name, t) -> pretty name <> ": " <> pretty t)
 
-instance (Show cond, Show stmt) => Show (IfStmt cond stmt) where
-    show IfStmt { cond, ifBlk, elseBlk } = "if (" ++ show cond ++ ") " ++ show ifBlk ++ " else " ++ show elseBlk
+instance (Pretty cond, Pretty stmt) => Pretty (IfStmt cond stmt) where
+    pretty IfStmt { cond, ifBlk, elseBlk } = 
+        "if" <+> parens (pretty cond) <+> pretty ifBlk <+> "else" <+> pretty elseBlk
 
-instance (Show cond, Show stmt) => Show (WhileStmt cond stmt) where
-    show WhileStmt { cond, body } = "while (" ++ show cond ++ ") " ++ show body
-
-instance Show a => Show (ArgList a) where
-    show (ArgList args) = "(" <> intercalate ", " (show <$> args) <> ")"
+instance (Pretty cond, Pretty stmt) => Pretty (WhileStmt cond stmt) where
+    pretty WhileStmt { cond, body } = "while (" <+> pretty cond <+> ") " <+> pretty body
 
 instance Show Literal where
-    show (IntExpr n    ) = "i" <> show n
-    show (FloatExpr f  ) = "f" <> show f
-    show (BoolExpr b   ) = show b
-    show (StringExpr s ) = "s" <> show s
+    show = show . pretty
+instance Pretty Literal where
+    pretty (IntExpr n    ) = "i" <> pretty n
+    pretty (FloatExpr f  ) = "f" <> pretty f
+    pretty (BoolExpr b   ) = pretty b
+    pretty (StringExpr s ) = "s" <> "\"" <> pretty s <> "\""
 
-instance (Show n, MaybeConstraint Show t) => Show (AST p sug n t) where
-    show (FuncDefAnn name sig rt body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show body
-    show (FuncExprAnn sig rt body@Block{}) 
-        = "fun " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show body
-    show (FuncExprAnn sig rt body) 
-        = "fun " ++ show (ArgList sig) ++ " -> " ++ show rt ++ show (Block [body])
-    show (FuncDef name sig body) = "fun " ++ show name ++ " " ++ show (ArgList sig) ++ " " ++ show body
-    show (FuncExpr sig body) = show (ArgList sig) ++ " " ++ show body
-    show (Var name t expr) = "var " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
-    show (Let name t expr) = "let " ++ show name ++ " : " ++ show t ++ " = " ++ show expr
-    show (Program ast) = intercalate "\n" (show <$> ast)
-    show (LiteralE lit) = show lit
-    show (Identifier name) = show name
-    show (Call callee args) = show callee ++ "(" ++ intercalate "," (show <$> args) ++ ")"
-    show (BinE bin) = show bin
-    show (UnaryE unary) = show unary
-    show (ExprStmt expr) = show expr
-    show (Block stmts) = "{\n\t" ++ indented (show <$> stmts) ++ "\n}"
-        where indented = concatMap ("\n\t"++)
-    show (Assign name expr) = show name ++ " = " ++ show expr
-    show (While stmt) = show stmt 
-    show (If stmt) = show stmt 
+instance Pretty a => Pretty (Binary a) where
+    pretty (Add     l r) = pretty l <+> "+"  <+> pretty r
+    pretty (Sub     l r) = pretty l <+> "-"  <+> pretty r
+    pretty (Div     l r) = pretty l <+> "/"  <+> pretty r
+    pretty (Mul     l r) = pretty l <+> "*"  <+> pretty r
+    pretty (Mod     l r) = pretty l <+> "%"  <+> pretty r
+    pretty (Less    l r) = pretty l <+> "<"  <+> pretty r
+    pretty (LessEq  l r) = pretty l <+> "<=" <+> pretty r
+    pretty (Greater l r) = pretty l <+> ">"  <+> pretty r
+    pretty (GreatEq l r) = pretty l <+> ">=" <+> pretty r
+    pretty (Eq      l r) = pretty l <+> "==" <+> pretty r
+    pretty (NotEq   l r) = pretty l <+> "!=" <+> pretty r
+instance Pretty a => Pretty (Unary a) where
+    pretty (Negate e) = "-" <> pretty e
+    pretty (Invert e) = "!" <> pretty e
+
+instance (Pretty n, MaybeConstraint Pretty t) => Show (AST p sug n t) where
+    show = show . pretty
+
+instance (Pretty n, MaybeConstraint Pretty t) => Pretty (AST p sug n t) where
+    pretty (Program ast) = vcat (pretty <$> ast)
+    pretty (FuncDefAnn name sig rt body) = 
+        "fun" <+> pretty name <> prettyArgList sig <+> "->" <+> pretty rt <+> pretty body
+    pretty (FuncDef name sig body) = 
+        "fun" <+> pretty name <> tupled (pretty <$> sig) <+> pretty body
+    pretty (FuncExprAnn sig rt body) = 
+        "fun" <+> prettyArgList sig <+> "->" <+> pretty rt <+> pretty body
+    pretty (FuncExpr sig body) = "fun" <+> tupled (pretty <$> sig) <+> pretty body
+    pretty (Var name t expr) = "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
+    pretty (Let name t expr) = "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
+    pretty (LiteralE lit) = pretty lit
+    pretty (Identifier name) = pretty name
+    pretty (Call callee args) = pretty callee <> tupled (pretty <$> args)
+    pretty (BinE bin) = pretty bin
+    pretty (UnaryE unary) = pretty unary
+    pretty (ExprStmt expr) = pretty expr
+    pretty (Block stmts) = "{" <> line
+        <> indent 4 (vcat (pretty <$> stmts))
+        <> line <> "}"
+    pretty (Assign name expr) = pretty name <+> "=" <+> pretty expr
+    pretty (While stmt) = pretty stmt 
+    pretty (If stmt) = pretty stmt 
 
 instance Show TypeExpr where
     show (TypeName (Name s)) = "#\"" ++ s ++ "\""
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
+
+instance Pretty TypeExpr where
+    pretty (TypeName name) = pretty name
+    pretty (SignatureType args returnType) =
+        tupled (pretty <$> args) <+> "->" <+> pretty returnType
 
 instance Show t => Show (GenericName ('Just t) b) where
     show (TypedName str t) = "{" ++ str ++ " : " ++ show t ++ "}"
@@ -183,6 +208,30 @@ instance Show t => Show (GenericName ('Just t) b) where
 instance Show (GenericName 'Nothing b) where
     show (Name str) = "{" ++ str ++ "}"
     show (Builtin n) = "{" ++ show n ++ "}"
+
+instance Pretty BuiltinName where
+    pretty AddOp     = "(+)"
+    pretty SubOp     = "(-)"
+    pretty MulOp     = "(*)"
+    pretty ModOp     = "(%)"
+    pretty DivOp     = "(/)"
+    pretty GTOp      = "(>)"
+    pretty GTEOp     = "(>=)"
+    pretty LTOp      = "(<)"
+    pretty LTEOp     = "(<=)"
+    pretty EqualsOp  = "(==)"
+    pretty InvertOp  = "(-)"
+    pretty NegateOp  = "(!)"
+    pretty PrintFunc = "b'print"
+    pretty InputFunc = "b'input"
+
+instance Pretty t => Pretty (GenericName ('Just t) b) where
+    pretty (TypedName str t) = "{" <> fromString str <+> ":" <+> pretty t <> "}"
+    pretty (TBuiltin n t)    = "{" <> pretty n       <+> ":" <+> pretty t <> "}"
+
+instance Pretty (GenericName 'Nothing b) where
+    pretty (Name str) = "{" <> fromString str <> "}"
+    pretty (Builtin n) = "{" <> pretty n <> "}"
 
 --------------- Boring instances ---------------------
 

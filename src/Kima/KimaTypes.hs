@@ -1,6 +1,7 @@
 module Kima.KimaTypes where
 
 import Data.List
+import Data.Text.Prettyprint.Doc
 import GHC.Generics
 
 -- | The types of the kima programming language
@@ -23,3 +24,11 @@ instance Show KType where
   show KInt = "KInt"
   show KFloat = "KFloat"
   show (KFunc sig) = "[" <> show sig <> "]"
+
+instance Pretty KType where
+  pretty KString     = "String"
+  pretty KUnit       = "Unit"
+  pretty KBool       = "Bool"
+  pretty KInt        = "Int"
+  pretty KFloat      = "Float"
+  pretty (KFunc sig) = "[" <> viaShow sig <> "]"

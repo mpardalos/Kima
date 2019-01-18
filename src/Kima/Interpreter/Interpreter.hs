@@ -37,11 +37,11 @@ runStmt (ExprStmt expr) = evalExpr expr
 runStmt loop@(While WhileStmt { cond, body }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt body *> runStmt loop
     (Bool False) -> return Unit
-    _            -> throwError WrongConditionType
+    v            -> throwError (WrongConditionType v)
 runStmt (If IfStmt { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt ifBlk
     (Bool False) -> runStmt elseBlk
-    _            -> throwError WrongConditionType
+    v            -> throwError (WrongConditionType v)
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
 runFunc (Function argNames body) args = withState (<> argEnv) (runStmt body)
