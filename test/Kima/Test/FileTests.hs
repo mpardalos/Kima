@@ -31,17 +31,14 @@ data FileTest = FileTest {
     contents :: String
 }
 
-(<&>) = flip fmap
-
 spec :: Spec
 spec = parallel $ do
     -- Filenames and contents
-    files <- runIO (readTestFiles "test/src")
-        <&> sortBy (
-            \FileTest { resultSpec = spec1, fileName = name1 } 
-             FileTest { resultSpec = spec2, fileName = name2 } ->
-                compare (isRight spec1) (isRight spec2) <> compare name1 name2
-            )
+    files <- sortBy (
+        \FileTest { resultSpec = spec1, fileName = name1 } 
+         FileTest { resultSpec = spec2, fileName = name2 } ->
+            compare (isRight spec1) (isRight spec2) <> compare name1 name2) 
+        <$> runIO (readTestFiles "test/src")
 
     parallel $ context "Full File tests" $ forM_ files runFileTest 
 
