@@ -21,7 +21,7 @@ data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
                  | PrintFunc | InputFunc -- Builtin functions
     deriving (Show, Eq, Ord, Generic)
 
-type TypeName        = GenericName 'Nothing      'False
+type TypeName        = String
 
 type ParsedName      = GenericName 'Nothing      'False
 type DesugaredName   = GenericName 'Nothing      'True
@@ -35,13 +35,17 @@ data GenericName :: Maybe Type -> Bool -> Type where
     -- Builtins
     Builtin     :: BuiltinName -> GenericName 'Nothing 'True
     TBuiltin    :: BuiltinName -> t -> GenericName ('Just t) 'True
+
+    -- Accessors
+    Accessor    :: String      -> GenericName 'Nothing b
+    TAccessor   :: String -> t -> GenericName ('Just t) b
     
 ---------- AST ----------  
 data Sugar = Sugar | NoSugar
 data ASTPart = Expr | Stmt | TopLevel | Module
 
-data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e
-              | Less e e | LessEq e e | Greater e e | GreatEq e e | Eq e e | NotEq e e
+data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e | Less e e 
+              | LessEq e e | Greater e e | GreatEq e e | Eq e e | NotEq e e
     deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
 
 data Unary e = Negate e | Invert e
@@ -72,9 +76,11 @@ data WhileStmt cond body = WhileStmt {
 data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Type) where
     Program      :: [AST 'TopLevel sug n t] -> AST 'Module sug n t
 
-    ----------------------- Top-level function definitions ----------------------- 
-    FuncDef      ::  name -> [name] -> AST 'Stmt sug name 'Nothing            -> AST 'TopLevel sug name 'Nothing
-    FuncDefAnn   ::  name -> [(name, t)] -> t -> AST 'Stmt sug name ('Just t) -> AST 'TopLevel sug name ('Just t)
+    ----------------------- Top-level definitions ----------------------- 
+    FuncDef      :: name -> [name]           -> AST 'Stmt sug name 'Nothing  -> AST 'TopLevel sug name 'Nothing
+    FuncDefAnn   :: name -> [(name, t)] -> t -> AST 'Stmt sug name ('Just t) -> AST 'TopLevel sug name ('Just t)
+    DataDef      :: name -> [name]                                           -> AST 'TopLevel sug name 'Nothing
+    DataDefAnn   :: name -> [(name, t)]                                      -> AST 'TopLevel sug name ('Just t)
 
     ----------------------- Expressions ----------------------- 
     -- Interpreted core
@@ -111,24 +117,28 @@ type DesugaredProgram = DesugaredAST 'Module
 type TypedProgram     = TypedAST     'Module
 
 -- Types
-data TypeExpr = TypeName (GenericName 'Nothing 'False)
+data TypeExpr = TypeName TypeName
               | SignatureType [TypeExpr] TypeExpr
     deriving Eq
 
 --------- Useful functions ----------
-typeAnnotate :: t -> GenericName a b -> GenericName ('Just t) b
-typeAnnotate t (Name n) = TypedName n t
-typeAnnotate t (Builtin n) = TBuiltin n t
+typeAnnotate :: t -> GenericName a b -> GenericName ( 'Just t) b
+typeAnnotate t (Name    n    ) = TypedName n t
+typeAnnotate t (Builtin n    ) = TBuiltin n t
 typeAnnotate t (TypedName n _) = TypedName n t
-typeAnnotate t (TBuiltin n _) = TBuiltin n t
+typeAnnotate t (TBuiltin  n _) = TBuiltin n t
+typeAnnotate t (Accessor n   ) = TAccessor n t
+typeAnnotate t (TAccessor n _) = TAccessor n t
 
-deTypeAnnotate :: GenericName ('Just t) b -> GenericName 'Nothing b
-deTypeAnnotate (TypedName n _ ) = Name n
-deTypeAnnotate (TBuiltin  n _ ) = Builtin n
+deTypeAnnotate :: GenericName ( 'Just t) b -> GenericName 'Nothing b
+deTypeAnnotate (TypedName n _) = Name n
+deTypeAnnotate (TBuiltin  n _) = Builtin n
+deTypeAnnotate (TAccessor n _) = Accessor n
 
-nameType :: GenericName ('Just t) b -> t
+nameType :: GenericName ( 'Just t) b -> t
 nameType (TypedName _ t) = t
-nameType (TBuiltin _ t) = t
+nameType (TBuiltin  _ t) = t
+nameType (TAccessor _ t) = t
 
 --------------- Show instances ---------------------
 prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann
@@ -177,6 +187,15 @@ instance (Pretty n, MaybeConstraint Pretty t) => Pretty (AST p sug n t) where
     pretty (FuncExprAnn sig rt body) = 
         "fun" <+> prettyArgList sig <+> "->" <+> pretty rt <+> pretty body
     pretty (FuncExpr sig body) = "fun" <+> tupled (pretty <$> sig) <+> pretty body
+    pretty (DataDefAnn name members) = 
+        "data" <+> pretty name <+> "{" <> line <>
+            vcat (punctuate ","
+            ((\(n, t) -> pretty n <> ": " <> pretty t) <$> members))
+        <> line <> "}"
+    pretty (DataDef name members) =
+        "data" <+> pretty name <+> "{" <> line <>
+            vcat (punctuate "," (pretty <$> members))
+        <> line <> "}"
     pretty (Var name t expr) = "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (Let name t expr) = "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (LiteralE lit) = pretty lit
@@ -193,7 +212,7 @@ instance (Pretty n, MaybeConstraint Pretty t) => Pretty (AST p sug n t) where
     pretty (If stmt) = pretty stmt 
 
 instance Show TypeExpr where
-    show (TypeName (Name s)) = "#\"" ++ s ++ "\""
+    show (TypeName s) = "#\"" ++ s ++ "\""
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
 
 instance Pretty TypeExpr where
@@ -201,13 +220,13 @@ instance Pretty TypeExpr where
     pretty (SignatureType args returnType) =
         tupled (pretty <$> args) <+> "->" <+> pretty returnType
 
-instance Show t => Show (GenericName ('Just t) b) where
-    show (TypedName str t) = "{" ++ str ++ " : " ++ show t ++ "}"
-    show (TBuiltin n t) = "{" ++ show n ++ " : " ++ show t ++ "}"
-
-instance Show (GenericName 'Nothing b) where
-    show (Name str) = "{" ++ str ++ "}"
-    show (Builtin n) = "{" ++ show n ++ "}"
+instance (MaybeConstraint Show t) => Show (GenericName t b) where
+    show (TypedName str t) = "{"  ++ str    ++ " : " ++ show t ++ "}"
+    show (TBuiltin n t   ) = "{"  ++ show n ++ " : " ++ show t ++ "}"
+    show (TAccessor n t  ) = "{." ++ show n ++ " : " ++ show t ++ "}"
+    show (Name str       ) = "{"  ++ str    ++ "}"
+    show (Builtin n      ) = "{"  ++ show n ++ "}"
+    show (Accessor n     ) = "{." ++ show n ++ "}"
 
 instance Pretty BuiltinName where
     pretty AddOp     = "(+)"
@@ -225,13 +244,13 @@ instance Pretty BuiltinName where
     pretty PrintFunc = "b'print"
     pretty InputFunc = "b'input"
 
-instance Pretty t => Pretty (GenericName ('Just t) b) where
-    pretty (TypedName str t) = "{" <> fromString str <+> ":" <+> pretty t <> "}"
-    pretty (TBuiltin n t)    = "{" <> pretty n       <+> ":" <+> pretty t <> "}"
-
-instance Pretty (GenericName 'Nothing b) where
+instance MaybeConstraint Pretty t => Pretty (GenericName t b) where
+    pretty (TypedName str t) = "{"  <> fromString str <+> ":" <+> pretty t <> "}"
+    pretty (TBuiltin n t)    = "{"  <> pretty n       <+> ":" <+> pretty t <> "}"
+    pretty (TAccessor n t)   = "{." <> pretty n       <+> ":" <+> pretty t <> "}"
     pretty (Name str) = "{" <> fromString str <> "}"
     pretty (Builtin n) = "{" <> pretty n <> "}"
+    pretty (Accessor n) = "{." <> fromString n <> "}"
 
 --------------- Boring instances ---------------------
 
@@ -257,27 +276,8 @@ instance Bitraversable WhileStmt where
 instance IsString ParsedName where
     fromString = Name
 
-instance Eq (GenericName 'Nothing b) where
-    (Name l) == (Name r) = l == r
-    (Builtin l) == (Builtin r) = l == r
-    _ == _ = False
-instance Eq t => Eq (GenericName ('Just t) b) where
-    TypedName n1 t1 == TypedName n2 t2 = n1 == n2 && t1 == t2
-    TBuiltin l t1 == TBuiltin r t2 = l == r && t1 == t2
-    _ == _ = False
-
-instance Ord (GenericName 'Nothing b) where
-    Name{} `compare` Builtin{} = LT
-    Builtin{} `compare` Name{} = GT
-    Name n1 `compare` Name n2 = compare n1 n2
-    Builtin l `compare` Builtin r = compare l r
-
-instance Ord t => Ord (GenericName ('Just t) b) where
-    TypedName{} `compare` TBuiltin{} = LT
-    TBuiltin{} `compare` TypedName{} = GT
-    TypedName n1 t1 `compare` TypedName n2 t2 = compare n1 n2 <> compare t1 t2
-    TBuiltin l t1 `compare` TBuiltin r t2 = compare l r <> compare t1 t2
-
+deriving instance MaybeConstraint Eq t => Eq (GenericName t b)
+deriving instance (MaybeConstraint Eq t, MaybeConstraint Ord t) => Ord (GenericName t b) 
 deriving instance (MaybeConstraint Eq t, Eq n) => Eq (AST p s n t)
 
 -- Traverals
@@ -287,6 +287,7 @@ mapTypeAnnotations = coerce (traverseTypeAnnotations :: (t1 -> Identity t2) -> A
 
 traverseTypeAnnotations :: Applicative m => (t1 -> m t2) -> AST p sug n ('Just t1) -> m (AST p sug n ('Just t2))
 traverseTypeAnnotations f (Program ast)            = Program <$> traverse (traverseTypeAnnotations f) ast
+traverseTypeAnnotations f (DataDefAnn n members)   = DataDefAnn n <$> traverse (traverse f) members
 traverseTypeAnnotations f (FuncDefAnn n args rt b) = FuncDefAnn n <$> traverse (traverse f) args <*> f rt <*> traverseTypeAnnotations f b
 traverseTypeAnnotations _ (LiteralE lit)           = pure $ LiteralE lit
 traverseTypeAnnotations _ (Identifier n)           = pure $ Identifier n
@@ -305,6 +306,7 @@ traverseTypeAnnotations f (Let n t e)              = Let n       <$> f t <*> tra
 removeTypeAnnotations :: AST p sug n ('Just t) -> AST p sug n 'Nothing 
 removeTypeAnnotations (Program ast)           = Program (removeTypeAnnotations <$> ast) 
 removeTypeAnnotations (FuncDefAnn n args _ b) = FuncDef n (fst <$> args) (removeTypeAnnotations b)
+removeTypeAnnotations (DataDefAnn n members)  = DataDef n (fst <$> members)
 removeTypeAnnotations (LiteralE lit)          = LiteralE lit
 removeTypeAnnotations (Identifier n)          = Identifier n
 removeTypeAnnotations (FuncExprAnn args _ b)  = FuncExpr (fst <$> args) (removeTypeAnnotations b)
@@ -336,6 +338,8 @@ traverseNames f (FuncDef n args b)       = FuncDef     <$> f n <*> traverse f ar
 traverseNames f (FuncExpr    args    b)  = FuncExpr    <$>         traverse f args                              <*> traverseNames f b
 traverseNames f (FuncDefAnn n args rt b) = FuncDefAnn  <$> f n <*> traverse (traverseTuple1 f) args <*> pure rt <*> traverseNames f b
 traverseNames f (FuncExprAnn args rt b)  = FuncExprAnn <$>         traverse (traverseTuple1 f) args <*> pure rt <*> traverseNames f b
+traverseNames f (DataDef n members)      = DataDef     <$> f n <*> traverse f members
+traverseNames f (DataDefAnn n members)   = DataDefAnn  <$> f n <*> traverse (traverseTuple1 f) members
 traverseNames f (Call callee args)       = Call        <$> traverseNames f callee                               <*> traverse (traverseNames f) args
 traverseNames f (Assign n e)             = Assign <$> f n            <*> traverseNames f e
 traverseNames f (Var n t e)              = Var    <$> f n <*> pure t <*> traverseNames f e
@@ -345,48 +349,52 @@ traverseTuple1 :: Applicative m => (a -> m c) -> (a, b) -> m (c, b)
 traverseTuple1 f (a, b) = liftA2 (,) (f a) (pure b)
 
 -- Patterns
-{-# COMPLETE StmtAST, ExprAST, ProgramAST, FuncDefAST#-}
+{-# COMPLETE StmtAST, ExprAST, ProgramAST, TopLevelAST#-}
 
 pattern StmtAST :: AST 'Stmt s n t -> AST p s n t
 pattern StmtAST stmt <- (isStmt -> Just stmt)
 
 isStmt :: AST p s n t -> Maybe (AST 'Stmt s n t)
+isStmt stmt@Assign{}   = Just stmt
 isStmt BinE{}          = Nothing
+isStmt stmt@Block{}    = Just stmt
 isStmt Call{}          = Nothing
+isStmt DataDef{}       = Nothing
+isStmt DataDefAnn{}    = Nothing
+isStmt stmt@ExprStmt{} = Just stmt
 isStmt FuncDef{}       = Nothing
 isStmt FuncDefAnn{}    = Nothing
 isStmt FuncExpr{}      = Nothing
 isStmt FuncExprAnn{}   = Nothing
 isStmt Identifier{}    = Nothing
-isStmt LiteralE{}      = Nothing
-isStmt Program{}       = Nothing
-isStmt stmt@Assign{}   = Just stmt
-isStmt stmt@Block{}    = Just stmt
-isStmt stmt@ExprStmt{} = Just stmt
 isStmt stmt@If{}       = Just stmt
 isStmt stmt@Let{}      = Just stmt
+isStmt LiteralE{}      = Nothing
+isStmt Program{}       = Nothing
+isStmt UnaryE{}        = Nothing
 isStmt stmt@Var{}      = Just stmt
 isStmt stmt@While{}    = Just stmt
-isStmt UnaryE{}        = Nothing
 
 pattern ExprAST :: AST 'Expr s n t -> AST p s n t
 pattern ExprAST expr <- (isExpr -> Just expr)
 isExpr :: AST p s n t -> Maybe (AST 'Expr s n t)
 isExpr Assign{}           = Nothing
-isExpr Block{}            = Nothing
 isExpr expr@BinE{}        = Just expr
+isExpr Block{}            = Nothing
 isExpr expr@Call{}        = Just expr
-isExpr expr@FuncExpr{}    = Just expr
-isExpr expr@FuncExprAnn{} = Just expr
-isExpr expr@Identifier{}  = Just expr
-isExpr expr@LiteralE{}    = Just expr
-isExpr expr@UnaryE{}      = Just expr
+isExpr DataDef{}          = Nothing
+isExpr DataDefAnn{}       = Nothing
 isExpr ExprStmt{}         = Nothing
 isExpr FuncDef{}          = Nothing
 isExpr FuncDefAnn{}       = Nothing
+isExpr expr@FuncExpr{}    = Just expr
+isExpr expr@FuncExprAnn{} = Just expr
+isExpr expr@Identifier{}  = Just expr
 isExpr If{}               = Nothing
 isExpr Let{}              = Nothing
+isExpr expr@LiteralE{}    = Just expr
 isExpr Program{}          = Nothing
+isExpr expr@UnaryE{}      = Just expr
 isExpr Var{}              = Nothing
 isExpr While{}            = Nothing
 
@@ -394,10 +402,11 @@ pattern ProgramAST :: AST 'Module s n t -> AST p s n t
 pattern ProgramAST ast <- (isProgram -> Just ast)
 isProgram :: AST p s n t -> Maybe (AST 'Module s n t)
 isProgram Assign{}      = Nothing
-isProgram ast@Program{} = Just ast
 isProgram BinE{}        = Nothing
 isProgram Block{}       = Nothing
 isProgram Call{}        = Nothing
+isProgram DataDef{}     = Nothing
+isProgram DataDefAnn{}  = Nothing
 isProgram ExprStmt{}    = Nothing
 isProgram FuncDef{}     = Nothing
 isProgram FuncDefAnn{}  = Nothing
@@ -407,30 +416,33 @@ isProgram Identifier{}  = Nothing
 isProgram If{}          = Nothing
 isProgram Let{}         = Nothing
 isProgram LiteralE{}    = Nothing
+isProgram ast@Program{} = Just ast
 isProgram UnaryE{}      = Nothing
 isProgram Var{}         = Nothing
 isProgram While{}       = Nothing
 
-pattern FuncDefAST :: AST 'TopLevel s n t -> AST p s n t
-pattern FuncDefAST ast <- (isFuncDef -> Just ast)
-isFuncDef :: AST p s n t -> Maybe (AST 'TopLevel s n t)
-isFuncDef Assign{}      = Nothing
-isFuncDef ast@FuncDef{}     = Just ast
-isFuncDef ast@FuncDefAnn{}  = Just ast
-isFuncDef BinE{}        = Nothing
-isFuncDef Block{}       = Nothing
-isFuncDef Call{}        = Nothing
-isFuncDef ExprStmt{}    = Nothing
-isFuncDef FuncExpr{}    = Nothing
-isFuncDef FuncExprAnn{} = Nothing
-isFuncDef Identifier{}  = Nothing
-isFuncDef If{}          = Nothing
-isFuncDef Let{}         = Nothing
-isFuncDef LiteralE{}    = Nothing
-isFuncDef Program{}     = Nothing
-isFuncDef UnaryE{}      = Nothing
-isFuncDef Var{}         = Nothing
-isFuncDef While{}       = Nothing
+pattern TopLevelAST :: AST 'TopLevel s n t -> AST p s n t
+pattern TopLevelAST ast <- (isTopLevelAST -> Just ast)
+isTopLevelAST :: AST p s n t -> Maybe (AST 'TopLevel s n t)
+isTopLevelAST Assign{}         = Nothing
+isTopLevelAST BinE{}           = Nothing
+isTopLevelAST Block{}          = Nothing
+isTopLevelAST Call{}           = Nothing
+isTopLevelAST ast@DataDef{}    = Just ast
+isTopLevelAST ast@DataDefAnn{} = Just ast
+isTopLevelAST ExprStmt{}       = Nothing
+isTopLevelAST ast@FuncDef{}    = Just ast
+isTopLevelAST ast@FuncDefAnn{} = Just ast
+isTopLevelAST FuncExpr{}       = Nothing
+isTopLevelAST FuncExprAnn{}    = Nothing
+isTopLevelAST Identifier{}     = Nothing
+isTopLevelAST If{}             = Nothing
+isTopLevelAST Let{}            = Nothing
+isTopLevelAST LiteralE{}       = Nothing
+isTopLevelAST Program{}        = Nothing
+isTopLevelAST UnaryE{}         = Nothing
+isTopLevelAST Var{}            = Nothing
+isTopLevelAST While{}          = Nothing
 
 -- Utils 
 

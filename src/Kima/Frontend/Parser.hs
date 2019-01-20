@@ -4,16 +4,18 @@ import Prelude hiding (mod)
 
 import Kima.AST
 import Kima.Frontend.Tokenizer hiding (Mod)
+import qualified Kima.Frontend.Tokenizer as T (Symbol(Mod))
 import Kima.Frontend.Types
-import qualified Kima.Frontend.Tokenizer as T 
 
 import Text.Megaparsec
 import Control.Monad.Combinators.Expr
 
 program :: Parser (ParsedAST 'Module)
-program = Program <$> (whitespace *> some funcDef <* eof)
+program = Program <$> (whitespace *> some topLevel <* eof)
 
 -- Function defintions
+topLevel :: Parser (ParsedAST 'TopLevel)
+topLevel = funcDef <|> dataDef
 
 funcDef :: Parser (ParsedAST 'TopLevel)
 funcDef = do 
@@ -25,6 +27,12 @@ funcDef = do
     retType <- typeExpr
     FuncDefAnn name args retType <$> block
     <?> "Function definition"
+
+dataDef :: Parser (ParsedAST 'TopLevel)
+dataDef = DataDefAnn 
+    <$> (reserved RData *> identifier)
+    <*> braces (typedArg `sepBy` symbol Comma)
+    <?> "Datatype declaration"
 
 typedArgList :: Parser [(ParsedName, TypeExpr)]
 typedArgList = typedArg `sepBy` symbol Comma
@@ -82,51 +90,56 @@ ifStmt = If <$> (IfStmt
 -- Expressions
 
 expr :: Parser (ParsedAST 'Expr)
-expr =
-    makeExprParser
-            term
-            [ [ prefix (symbol Minus) (UnaryE . Negate)
-              , prefix (symbol Plus)  id
-              , prefix (symbol Bang)  (UnaryE . Invert)
-              ]
-            , [ binary (symbol Plus)        ((BinE .) . Add)
-              , binary (symbol Minus)       ((BinE .) . Sub)
-              , binary (symbol Star)        ((BinE .) . Mul)
-              , binary (symbol Slash)       ((BinE .) . Div)
-              , binary (symbol T.Mod)       ((BinE .) . Mod)
-              , binary (symbol GreaterThan) ((BinE .) . Greater)
-              , binary (symbol GreaterEqual) ((BinE .) . GreatEq)
-              , binary (symbol LessThan) ((BinE .) . Less)
-              , binary (symbol LessEqual) ((BinE .) . LessEq)
-              ]
-            ]
-        <?> "expression"
+expr = makeExprParser term
+    [ [ prefix (symbol Minus) (UnaryE . Negate)
+      , prefix (symbol Plus)  id
+      , prefix (symbol Bang)  (UnaryE . Invert)
+      ]
+    , [ binary (symbol Plus)        ((BinE .) . Add)
+      , binary (symbol Minus)       ((BinE .) . Sub)
+      , binary (symbol Star)        ((BinE .) . Mul)
+      , binary (symbol Slash)       ((BinE .) . Div)
+      , binary (symbol T.Mod)       ((BinE .) . Mod)
+      , binary (symbol GreaterThan) ((BinE .) . Greater)
+      , binary (symbol GreaterEqual) ((BinE .) . GreatEq)
+      , binary (symbol LessThan) ((BinE .) . Less)
+      , binary (symbol LessEqual) ((BinE .) . LessEq)
+      ]
+    ] <?> "expression"
 
 binary  p f = InfixL  (f <$ p)
 prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)
 
 term :: Parser (ParsedAST 'Expr) 
-term = try call <|> baseterm
+term = try accessCall <|> baseTerm
 
 -- | A term without calls (Useful for parsing calls)
-baseterm :: Parser (ParsedAST 'Expr)
-baseterm = parens expr
-   <|> LiteralE . StringExpr     <$> try string
-   <|> LiteralE . FloatExpr      <$> try floatLiteral
-   <|> LiteralE . IntExpr        <$> try intLiteral
-   <|> LiteralE . BoolExpr       <$> try boolLiteral
-   <|>            Identifier     <$> try identifier
+baseTerm :: Parser (ParsedAST 'Expr)
+baseTerm = parens expr
+       <|> LiteralE . StringExpr     <$> try string
+       <|> LiteralE . FloatExpr      <$> try floatLiteral
+       <|> LiteralE . IntExpr        <$> try intLiteral
+       <|> LiteralE . BoolExpr       <$> try boolLiteral
+       <|>            Identifier     <$> try identifier
 
 argList :: Parser [ParsedAST 'Expr]
 argList = parens (expr `sepBy` symbol Comma)
 
--- | Parse a series of nested calls
-call :: Parser (ParsedAST 'Expr)
-call = do 
-    callee <- baseterm 
-    argLists <- some argList
-    return (foldl Call callee argLists)
+-- | Parse a series of nested calls and accesses (a.b)
+accessCall :: Parser (ParsedAST 'Expr)
+accessCall = do 
+    callee <- baseTerm 
+
+    argLists <- some callOrAccess
+    return (foldl combiner callee argLists)
+    where
+        callOrAccess =
+            Left  <$> (symbol Dot *> identifier) <|>
+            Right <$> parens (expr `sepBy` symbol Comma)
+
+        combiner acc (Left  attr) = Call (Identifier (Accessor attr)) [acc]
+        combiner acc (Right args) = Call acc args
 
 typeExpr :: Parser TypeExpr
 typeExpr = uncurry SignatureType <$> try anonymousSignature
