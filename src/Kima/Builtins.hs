@@ -3,6 +3,8 @@ module Kima.Builtins where
 
 import Control.Monad.Except
 import Data.Functor
+import GHC.Exts
+import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Kima.Interpreter.Types
@@ -11,6 +13,7 @@ import Kima.AST
 import Kima.KimaTypes
 
 baseTypeCtx :: TypeCtx
+
 baseTypeCtx = Map.foldlWithKey combine Map.empty (unEnv baseEnv)
   where
     combine :: TypeCtx -> RuntimeName -> Value -> TypeCtx
@@ -57,30 +60,36 @@ baseEnv = Environment
     , ( TBuiltin DivOp     (KFunc ([KFloat, KInt]   $-> KFloat  )), BuiltinFunction2 $ kimaDivision)
     , ( TBuiltin DivOp     (KFunc ([KFloat, KFloat] $-> KInt    )), BuiltinFunction2 $ kimaDivision)
     , ( TBuiltin ModOp     (KFunc ([KInt, KInt]     $-> KInt    )), BuiltinFunction2 $ liftIntegralOp mod)
-    , ( TBuiltin PrintFunc (KFunc ([KString] $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin PrintFunc (KFunc ([KInt]    $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin PrintFunc (KFunc ([KFloat]  $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin PrintFunc (KFunc ([KBool]   $-> KUnit   )), BuiltinFunction1 kimaPrint)
-    , ( TBuiltin PrintFunc (KFunc ([KUnit]   $-> KUnit   )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin NegateOp  (KFunc ([KInt] $-> KInt     )), BuiltinFunction1 (liftNumOp (-) (Integer 0)))
+    , ( TBuiltin NegateOp  (KFunc ([KFloat] $-> KFloat )), BuiltinFunction1 (liftNumOp (-) (Float 0)))
+    , ( TBuiltin InvertOp  (KFunc ([KBool] $-> KBool )), BuiltinFunction1 (liftNumOp (-) (Integer 0)))
+    , ( TBuiltin PrintFunc (KFunc ([KString] $-> KUnit )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin PrintFunc (KFunc ([KInt]    $-> KUnit )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin PrintFunc (KFunc ([KFloat]  $-> KUnit )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin PrintFunc (KFunc ([KBool]   $-> KUnit )), BuiltinFunction1 kimaPrint)
+    , ( TBuiltin PrintFunc (KFunc ([KUnit]   $-> KUnit )), BuiltinFunction1 kimaPrint)
     , ( TBuiltin InputFunc (KFunc ([] $-> KString )), BuiltinFunction0 (String <$> consoleRead))
     ]
 
 showValue :: Value -> Maybe String
-showValue (Integer v)        = Just (show v)
-showValue (Float   v)        = Just (show v)
-showValue (Bool    v)        = Just (show v)
-showValue (String  v)        = Just v
-showValue Unit               = Just "()"
-showValue Function{}         = Nothing
-showValue BuiltinFunction0{} = Nothing
-showValue BuiltinFunction1{} = Nothing
-showValue BuiltinFunction2{} = Nothing
-showValue BuiltinFunction3{} = Nothing
+showValue (Integer v)       = Just (show v)
+showValue (Float   v)       = Just (show v)
+showValue (Bool    v)       = Just (show v)
+showValue (String  v)       = Just v
+showValue Unit              = Just "()"
+showValue Function{}        = Nothing
+showValue BuiltinFunction{} = Nothing
 
 kimaPrint :: (MonadRE m, MonadConsole m) => Value -> m Value
 kimaPrint v = case showValue v of
     Just str -> consoleWrite str $> Unit
     Nothing  -> throwError (BuiltinFunctionError "Can't print this value")
+
+kimaNegate :: MonadRE m => Value -> m Value
+kimaNegate (Bool b) = return (Bool $ not b)
+kimaNegate v = throwError
+    (BuiltinFunctionError ("Can't negate " <> show v))
+
 
 kimaStrConcat :: MonadRE m => Value -> Value -> m Value
 kimaStrConcat (String str1) (String str2) = pure (String (str1 <> str2))
