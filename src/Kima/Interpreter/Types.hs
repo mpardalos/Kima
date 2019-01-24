@@ -15,6 +15,7 @@ import           Data.Map                hiding ( toList
                                                 )
 
 import           GHC.Generics
+import           GHC.Exts
 
 type RuntimeName = TypedName
 type RuntimeAST p = TypedAST p
@@ -37,6 +38,7 @@ data Value = Integer Integer
            | String String
            | Function [RuntimeName] (RuntimeAST 'Stmt)
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
+           | ProductData [Value]
            | Unit
 
 class Monad m => MonadConsole m where
@@ -47,14 +49,13 @@ newtype Environment a = Environment {unEnv :: Map RuntimeName a}
     deriving (Functor, Semigroup, Generic, Show)
 instance Newtype (Environment a)
 
+instance Pretty a => Pretty (Environment a) where
+    pretty (Environment envMap) = vcat (
+      (\(name, val) -> pretty name <> ": " <> pretty val)
+      <$> toList envMap)
+
 instance Show Value where
-    show (Integer v) = show v
-    show (Float v) = show v
-    show (Bool v) = show v
-    show (String v) = show v
-    show Function{} = "Function"
-    show BuiltinFunction{} = "Builtin function"
-    show Unit = "()"
+    show = show . pretty
 
 instance Pretty Value where
     pretty (Integer v)          = pretty v
@@ -68,7 +69,10 @@ instance Pretty Value where
         <> line <> "}"
 
     pretty BuiltinFunction{}   = "Builtin function"
-    pretty Unit                 = "()"
+    pretty (ProductData vals)  = "data {" <> line <>
+        indent 4 (vcat (pretty <$> vals))
+        <> line <> "}"
+    pretty Unit                = "()"
 
 instance Pretty RuntimeError where
     pretty ( NotInScope name                 ) =

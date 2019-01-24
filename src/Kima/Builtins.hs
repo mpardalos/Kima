@@ -3,8 +3,6 @@ module Kima.Builtins where
 
 import Control.Monad.Except
 import Data.Functor
-import GHC.Exts
-import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Kima.Interpreter.Types
@@ -13,10 +11,17 @@ import Kima.AST
 import Kima.KimaTypes
 
 baseTypeCtx :: TypeCtx
-
-baseTypeCtx = Map.foldlWithKey combine Map.empty (unEnv baseEnv)
+baseTypeCtx = TypeCtx {
+    bindings=Map.foldlWithKey combine Map.empty (unEnv baseEnv),
+    typeBindings=
+        [ ("String", KString)
+        , ("Unit", KUnit)
+        , ("Int", KInt)
+        , ("Float", KFloat)
+        , ("Bool", KBool)
+        ]
+}
   where
-    combine :: TypeCtx -> RuntimeName -> Value -> TypeCtx
     combine typeCtx name _ =
         Map.insertWith (<>) (deTypeAnnotate name) (Binding Constant [nameType name]) typeCtx
 
@@ -79,6 +84,7 @@ showValue (String  v)       = Just v
 showValue Unit              = Just "()"
 showValue Function{}        = Nothing
 showValue BuiltinFunction{} = Nothing
+showValue ProductData{}     = Nothing
 
 kimaPrint :: (MonadRE m, MonadConsole m) => [Value] -> m Value
 kimaPrint [v] = case showValue v of
@@ -107,6 +113,7 @@ kimaDivision [Float   l, Integer r] = return $ Float (l / fromInteger r)
 kimaDivision [Float   l, Float   r] = return $ Float (l / r)
 kimaDivision [l,          r]        = throwError
     (BuiltinFunctionError ("Can't divide " <> show l <> " and " <> show r))
+kimaDivision _        = throwError (BuiltinFunctionError "Wrong argument count for (/)")
 
 liftIntegralOp
     :: (MonadRE m)

@@ -48,19 +48,7 @@ runFunc (Function argNames body) args = withState (<> argEnv) (runStmt body)
   where
     argEnv :: Environment Value
     argEnv = Environment $ Map.fromList (zip argNames args)
-runFunc (BuiltinFunction0 f) []                 = f 
-runFunc (BuiltinFunction1 f) [arg]              = f arg
-runFunc (BuiltinFunction2 f) [arg1, arg2]       = f arg1 arg2
-runFunc (BuiltinFunction3 f) [arg1, arg2, arg3] = f arg1 arg2 arg3
-
-runFunc BuiltinFunction0{} (length -> argCount) =
-    throwError (WrongArgumentCount 0 argCount)
-runFunc BuiltinFunction1{} (length -> argCount) =
-    throwError (WrongArgumentCount 1 argCount)
-runFunc BuiltinFunction2{} (length -> argCount) =
-    throwError (WrongArgumentCount 2 argCount)
-runFunc BuiltinFunction3{} (length -> argCount) =
-    throwError (WrongArgumentCount 3 argCount)
+runFunc (BuiltinFunction f) args                 = f args
 runFunc v _ = throwError (NotAFunction v)
 
 bind :: (MonadEnv m) => RuntimeName -> Value -> m ()
@@ -71,12 +59,28 @@ getName name = gets (Map.lookup name . unEnv) >>= \case
     Just val -> return val
     Nothing  -> throwError (NotInScope name)
 
-evalFuncDef :: RuntimeAST 'TopLevel -> Value
-evalFuncDef (FuncDef _ signature body) = Function signature body
+-- | Bind either a function or the constructor and accessors of a
+-- | DataDef
+bindTopLevel :: MonadInterpreter m => RuntimeAST 'TopLevel -> m Value
+bindTopLevel (FuncDef name signature body) = do
+    let result = Function signature body 
+    bind name result
+    return result
+bindTopLevel (DataDef name members)       = do
+    let constructor = BuiltinFunction (return . ProductData)
+    forM_ (zip [0..] members) $ \(i, accessorName) ->
+        bind accessorName $ BuiltinFunction $ \case
+            [ProductData vals] -> case vals `atMay` i of
+                Just v -> return v
+                Nothing -> throwError (BuiltinFunctionError (show accessorName <> " failed"))
+            v -> throwError (BuiltinFunctionError (
+                    "Can't use accessor " <> show accessorName <> " on " <> show v))
+    bind name constructor
+    return constructor
 
 runProgram :: MonadInterpreter m => RuntimeProgram -> m ()
-runProgram (Program functions) = do
-    forM_ functions $ \f@(FuncDef name _ _) -> bind name (evalFuncDef f)
+runProgram (Program defs) = do
+    forM_ defs bindTopLevel
     mainFunc <- getName (TypedName "main" (KFunc ([] $-> KUnit)))
     _        <- runFunc mainFunc []
     return ()

@@ -14,6 +14,8 @@ desugar (UnaryE  unary) = desugarUnary (desugar <$> unary)
 
 -- Basically just traverse
 desugar (Program ast  ) = Program (desugar <$> ast)
+desugar (DataDefAnn name members) = 
+    DataDefAnn (desugarName name) (first desugarName <$> members)
 desugar (FuncDefAnn name args rt body) =
     FuncDefAnn (desugarName name) (first desugarName <$> args) rt (desugar body)
 desugar (LiteralE   lit ) = LiteralE lit
@@ -33,6 +35,7 @@ desugarName :: ParsedName -> DesugaredName
 desugarName (Name "print") = Builtin PrintFunc
 desugarName (Name "input") = Builtin InputFunc
 desugarName (Name n      ) = Name n
+desugarName (Accessor n  ) = Accessor n
 
 desugarBinary :: Binary (DesugaredAST 'Expr) -> DesugaredAST 'Expr
 desugarBinary (Add     l r) = Call (Identifier $ Builtin AddOp) [l, r]

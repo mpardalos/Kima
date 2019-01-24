@@ -1,6 +1,7 @@
 module Kima.Interface.Runners where
 
 import Control.Monad.Except
+import Control.Monad.State
 
 import Kima.AST
 import Kima.Builtins
@@ -39,7 +40,7 @@ desugarAST' = return . desugar
 tVarAnnotateFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST')
 tVarAnnotateAST = runMonadInterface . tVarAnnotateAST'
 tVarAnnotateAST' :: MonadInterface m => DesugaredAST p -> m (T.AnnotatedTVarAST p)
-tVarAnnotateAST' = runEither . (fmap T.addTVars . T.resolveTypes)
+tVarAnnotateAST' = runEither . (`evalStateT` baseTypeCtx) . (fmap T.addTVars . T.resolveTypes)
 
 constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> constraintAST')
 constraintAST = runMonadInterface . constraintAST'

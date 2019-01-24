@@ -7,8 +7,10 @@ import Kima.Frontend.Tokenizer hiding (Mod)
 import qualified Kima.Frontend.Tokenizer as T (Symbol(Mod))
 import Kima.Frontend.Types
 
-import Text.Megaparsec
 import Control.Monad.Combinators.Expr
+import Data.Bifunctor
+import GHC.Exts
+import Text.Megaparsec
 
 program :: Parser (ParsedAST 'Module)
 program = Program <$> (whitespace *> some topLevel <* eof)
@@ -18,27 +20,25 @@ topLevel :: Parser (ParsedAST 'TopLevel)
 topLevel = funcDef <|> dataDef
 
 funcDef :: Parser (ParsedAST 'TopLevel)
-funcDef = do 
-    reserved RFun 
-    name <- identifier
-    args <- parens typedArgList
-    
-    symbol Arrow
-    retType <- typeExpr
-    FuncDefAnn name args retType <$> block
-    <?> "Function definition"
+funcDef = reserved RFun *> (
+    FuncDefAnn
+    <$> identifier
+    <*> parens typedArgList
+    <*> (symbol Arrow *> typeExpr)
+    <*> block)
 
 dataDef :: Parser (ParsedAST 'TopLevel)
-dataDef = DataDefAnn 
-    <$> (reserved RData *> identifier)
-    <*> braces (typedArg `sepBy` symbol Comma)
+dataDef = reserved RData *> (
+    DataDefAnn 
+    <$> identifier
+    <*> braces ((first Accessor <$> typedArg) `sepBy` symbol Comma))
     <?> "Datatype declaration"
 
 typedArgList :: Parser [(ParsedName, TypeExpr)]
 typedArgList = typedArg `sepBy` symbol Comma
     <?> "Argument list"
 
-typedArg :: Parser (ParsedName, TypeExpr)
+typedArg :: IsString s => Parser (s, TypeExpr)
 typedArg = (,) <$> identifier <*> (symbol Colon *> typeExpr)
 
 -- Statements
@@ -130,7 +130,6 @@ argList = parens (expr `sepBy` symbol Comma)
 accessCall :: Parser (ParsedAST 'Expr)
 accessCall = do 
     callee <- baseTerm 
-
     argLists <- some callOrAccess
     return (foldl combiner callee argLists)
     where

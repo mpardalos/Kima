@@ -14,7 +14,10 @@ module Kima.Typechecking.Types
     , TypeAnnotatedAST
     , TypeAnnotatedProgram
     , TypecheckingError(..)
-    , TypeCtx
+    , TypeCtx(..)
+    , addType
+    , addBinding
+    , addBindings
     , TypeVar(..)
     , EqConstraint(..)
     )
@@ -22,6 +25,7 @@ where
 
 import           Data.List
 import           Data.Map                       ( Map )
+import qualified Data.Map as Map
 import           Data.Set                       ( Set )
 import           Data.Text.Prettyprint.Doc
 import           GHC.Generics
@@ -37,6 +41,7 @@ data TypecheckingError = AmbiguousVariable TypeVar [KType]
                        | NameShadowed TVarName
                        | NoSolution TypeVar
                        | TypeResolutionError TypeExpr
+                       | UnexpectedNameType DesugaredName
                        | UnboundName TVarName
     deriving (Eq, Show)
 
@@ -72,7 +77,22 @@ instance Semigroup Binding where
 -- For now, when a name is declared, it has to have an associated type, so this
 -- type is OK. If type inference is implemented to any degree, this will have to
 -- be changed to map to a [TypeVar]
-type TypeCtx = Map DesugaredName Binding
+data TypeCtx = TypeCtx {
+    typeBindings :: Map TypeName KType,
+    bindings :: Map DesugaredName Binding
+}
+
+addType :: TypeName -> KType -> TypeCtx -> TypeCtx
+addType name t ctx@TypeCtx { typeBindings } =
+    ctx { typeBindings = Map.insert name t typeBindings }
+
+addBinding :: DesugaredName -> Binding -> TypeCtx -> TypeCtx
+addBinding n b ctx@TypeCtx { bindings } =
+    ctx { bindings = Map.insert n b bindings }
+
+addBindings :: Map DesugaredName Binding -> TypeCtx -> TypeCtx
+addBindings newBindings ctx@TypeCtx { bindings } =
+    ctx { bindings = bindings <> newBindings }
 
 type Substitution = Map TypeVar KType
 
@@ -129,6 +149,8 @@ instance Pretty TypecheckingError where
         "Typevar" <+> pretty var <+> "has no solution"
     pretty (TypeResolutionError expr ) =
         "Can't resolve type" <+> pretty expr
+    pretty (UnexpectedNameType name) =
+        "Got " <+> pretty name <+> "where a different type name was expected"
     pretty (UnboundName         name ) =
         "Reference to unbound name" <+> pretty name
 

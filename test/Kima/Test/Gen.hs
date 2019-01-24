@@ -134,6 +134,10 @@ instance Arbitrary t => Arbitrary (GenericName ('Just t) 'False) where
         <$> arbitrary @t
         <*> arbitrary @(GenericName 'Nothing 'False)
     shrink (TypedName n t) = TypedName <$> shrink n <*> shrink t
+    shrink (TAccessor n t) = join 
+        [ TAccessor <$> shrink n <*> shrink t
+        , TypedName <$> shrink n <*> shrink t
+        ]
 
 instance Arbitrary t => Arbitrary (GenericName ('Just t) 'True) where
     arbitrary = typeAnnotate 
@@ -146,10 +150,17 @@ instance Arbitrary t => Arbitrary (GenericName ('Just t) 'True) where
         [ TBuiltin n <$> shrink t
         , TypedName (show n) <$> shrink t
         ]
+    shrink (TAccessor n t) = join 
+        [ TAccessor <$> shrink n <*> shrink t 
+        , TypedName (show n) <$> shrink t
+        ]
 
 shrinkUntypedName :: GenericName 'Nothing b -> [GenericName 'Nothing b]
 shrinkUntypedName (Name    n) 
     | length n > 1 = Name <$> shrink n
+    | otherwise    = []
+shrinkUntypedName (Accessor n) 
+    | length n > 1 = join [Name <$> shrink n, Accessor <$> shrink n]
     | otherwise    = []
 -- Base names are smaller than builtins 
 shrinkUntypedName (Builtin n) = [Name (show n)] 

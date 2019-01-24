@@ -16,7 +16,7 @@ import           Kima.KimaTypes
 
 makeConstraints :: AnnotatedTVarAST p -> EqConstraintSet
 makeConstraints (ProgramAST ast) = (writeProgramConstraints >>> execWriter) ast
-makeConstraints (FuncDefAST ast) = (writeFuncDefConstraints >>> execWriter) ast
+makeConstraints (TopLevelAST ast) = (writeTopLevelConstraints >>> execWriter) ast
 makeConstraints (StmtAST    ast) = (stmtReturnTVar >>> execWriter) ast
 makeConstraints (ExprAST    ast) = (exprTVar >>> execWriter) ast
 
@@ -29,12 +29,13 @@ writeConstraint c = tell [c]
 writeProgramConstraints
     :: MonadConstraintWriter m => AnnotatedTVarAST 'Module -> m ()
 writeProgramConstraints (Program funcDefs) =
-    traverse_ writeFuncDefConstraints funcDefs
+    traverse_ writeTopLevelConstraints funcDefs
 
 -- | Write the constraints for a function definition
-writeFuncDefConstraints
+writeTopLevelConstraints
     :: MonadConstraintWriter m => AnnotatedTVarAST 'TopLevel -> m ()
-writeFuncDefConstraints (FuncDefAnn _ _ _ body) = void (stmtReturnTVar body)
+writeTopLevelConstraints (FuncDefAnn _ _ _ body) = void (stmtReturnTVar body)
+writeTopLevelConstraints (DataDefAnn _ _members) = pure ()
 
 -- | Compute the return type of a statement and write the constraints required
 -- | for typing it

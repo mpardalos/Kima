@@ -30,10 +30,10 @@ runInTestInterpreter = runInTestInterpreterWithInput ""
 
 runInTestInterpreterWithInput :: String -> RuntimeAST p -> Either RuntimeError (Value, String)
 runInTestInterpreterWithInput input = runWriterT . (`runReaderT` input) . (`evalStateT` baseEnv) . runInterpreter . \case
-        ProgramAST ast  -> runProgram ast $> Unit
-        FuncDefAST func -> pure (evalFuncDef func)
-        StmtAST    stmt -> runStmt stmt
-        ExprAST    expr -> evalExpr expr
+        ProgramAST  ast  -> runProgram ast $> Unit
+        TopLevelAST ast  -> bindTopLevel ast
+        StmtAST     stmt -> runStmt stmt
+        ExprAST     expr -> evalExpr expr
 
 instance MonadConsole TestInterpreter where
         consoleRead = ask
@@ -42,6 +42,6 @@ instance MonadConsole TestInterpreter where
 constraintsFor :: AnnotatedTVarAST p -> EqConstraintSet
 constraintsFor = execWriter . \case 
         ProgramAST ast  -> writeProgramConstraints ast
-        FuncDefAST func -> writeFuncDefConstraints func
+        TopLevelAST func -> writeTopLevelConstraints func
         StmtAST    stmt -> stmtReturnTVar stmt $> ()
         ExprAST    expr -> exprTVar expr $> ()

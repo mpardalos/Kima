@@ -32,7 +32,7 @@ instance TestableError RuntimeError where
     matchesString "BuiltinFunctionError" BuiltinFunctionError{} = True
     matchesString _ _ = False
 
-    showError = show . pretty
+    showError = ("Runtime error: " <>) . show . pretty
 
 
 instance TestableError TypecheckingError where
@@ -46,7 +46,7 @@ instance TestableError TypecheckingError where
     matchesString "UnboundName"         UnboundName{}         = True
     matchesString "AssignToConst"       AssignToConst{}       = True
     matchesString _ _ = False
-    showError = show . pretty
+    showError = ("Typechecking error: " <>) . show . pretty
 
 instance TestableError SomeTestableError where
     matchesString s (SomeTestableError err) = matchesString s err

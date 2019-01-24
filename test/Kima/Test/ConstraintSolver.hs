@@ -17,8 +17,9 @@ import           Control.Monad.State
 
 spec :: Spec
 spec = describe "Constraint Solver" $ do
-    it "Extracts empty substitution"
-        $          extractSubstitution `withDomains` []
+    it "Extracts empty substitution" $ 
+        extractSubstitution 
+        `withDomains` []
         `shouldBe` Right []
 
     prop "Extracts correct substitution for valid solution" $

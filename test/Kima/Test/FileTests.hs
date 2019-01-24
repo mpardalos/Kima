@@ -58,6 +58,7 @@ runFileTest test@FileTest { fileName, contents, input } = case test of
                     Right (_, out) -> outputTest out
                     Left{}    -> False
     where
+
         runResult = testableEither (F.parseProgram fileName contents)
             >>= (pure . D.desugar)
             >>= (testableEither . T.typecheck baseTypeCtx)

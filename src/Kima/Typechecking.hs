@@ -42,14 +42,14 @@ addTVars = (`evalState` 0) . traverseNames @(State Int)
     (\name -> state $ \n -> (typeAnnotate (TypeVar n) name, n + 1))
 
 typecheck :: TypeCtx -> DesugaredAST p -> Either TypecheckingError (TypedAST p)
-typecheck typeCtx dAST = fst <$> (typecheckWithTypeCtx typeCtx dAST)
+typecheck typeCtx dAST = fst <$> typecheckWithTypeCtx typeCtx dAST
 
 typecheckWithTypeCtx :: TypeCtx -> DesugaredAST p -> Either TypecheckingError (TypedAST p, TypeCtx)
-typecheckWithTypeCtx typeCtx dAST = do
-    typeAnnotatedAST <- resolveTypes dAST
+typecheckWithTypeCtx baseTypeCtx dAST = do
+    (typeAnnotatedAST, computedTypeCtx) <- runStateT (resolveTypes dAST) baseTypeCtx
     let tVarAST = addTVars typeAnnotatedAST
     let constraints = makeConstraints tVarAST
-    (domains, finalTypeCtx) <- makeDomainsWithTypeCtx typeCtx tVarAST
+    (domains, finalTypeCtx) <- makeDomainsWithTypeCtx computedTypeCtx tVarAST
     substitution <- unify constraints domains
     resultAST <- removeTypeAnnotations
         <$> traverseNames (applySubstitution substitution) tVarAST
