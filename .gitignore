@@ -23,3 +23,11 @@ cabal.project.local~
 
 .vscode
 fails.log
+
+# emacs
+.dir-locals.el
+
+# generated doc files
+docs/*.html
+docs/*.pdf
+docs/*.tex
