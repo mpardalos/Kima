@@ -31,7 +31,7 @@ dataDef :: Parser (ParsedAST 'TopLevel)
 dataDef = reserved RData *> (
     DataDefAnn 
     <$> identifier
-    <*> braces ((first Accessor <$> typedArg) `sepBy` symbol Comma))
+    <*> parens ((first Accessor <$> typedArg) `sepBy` symbol Comma))
     <?> "Datatype declaration"
 
 typedArgList :: Parser [(ParsedName, TypeExpr)]

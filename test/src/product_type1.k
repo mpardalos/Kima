@@ -1,10 +1,6 @@
 ##output: john.smith@example.com
 
-data Email {
-    name: String,
-    server: String,
-    tld: String
-}
+data Email(name: String, server: String, tld: String)
 
 fun to_string(email: Email) -> String {
     email.name + "@" + email.server + "." + email.tld;
