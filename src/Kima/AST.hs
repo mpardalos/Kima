@@ -107,14 +107,22 @@ data AST (part :: ASTPart) (sugar :: Sugar) (name :: Type) (typeAnn :: Maybe Typ
     Let      :: name -> t -> AST 'Expr sug name ('Just t) -> AST 'Stmt sug name ('Just t)
 
 ------ Type synonyms for different phases -----
--- Parse ->
-type ParsedAST    (p :: ASTPart) = AST p 'Sugar   ParsedName    ('Just TypeExpr) -- Desugar ->
-type DesugaredAST (p :: ASTPart) = AST p 'NoSugar DesugaredName ('Just TypeExpr) -- Typecheck ->
-type TypedAST     (p :: ASTPart) = AST p 'NoSugar TypedName     'Nothing
+-- > Parse ->
+type ParsedAST        (p :: ASTPart) = AST p 'Sugar   ParsedName    ('Just TypeExpr)
+-- > Desugar ->
+type DesugaredAST     (p :: ASTPart) = AST p 'NoSugar DesugaredName ('Just TypeExpr)
+-- > Resolve Types ->
+type TypeAnnotatedAST (p :: ASTPart) = AST p 'NoSugar DesugaredName ('Just KType)
+-- > Typecheck ->
+type TypedAST         (p :: ASTPart) = AST p 'NoSugar TypedName     ('Just KType)
+-- > Remove type annotations ->
+type RuntimeAST       (p :: ASTPart) = AST p 'NoSugar TypedName     'Nothing
 
-type ParsedProgram    = ParsedAST    'Module
-type DesugaredProgram = DesugaredAST 'Module
-type TypedProgram     = TypedAST     'Module
+type ParsedProgram        = ParsedAST        'Module
+type DesugaredProgram     = DesugaredAST     'Module
+type TypeAnnotatedProgram = TypeAnnotatedAST 'Module
+type TypedProgram         = TypedAST         'Module
+type RuntimeProgram       = RuntimeAST       'Module
 
 -- Types
 data TypeExpr = TypeName TypeName

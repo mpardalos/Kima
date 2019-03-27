@@ -51,8 +51,7 @@ typecheckWithTypeCtx baseTypeCtx dAST = do
     let constraints = makeConstraints tVarAST
     (domains, finalTypeCtx) <- makeDomainsWithTypeCtx computedTypeCtx tVarAST
     substitution <- unify constraints domains
-    resultAST <- removeTypeAnnotations
-        <$> traverseNames (applySubstitution substitution) tVarAST
+    resultAST <- traverseNames (applySubstitution substitution) tVarAST
     return (resultAST, finalTypeCtx)
   where
     applySubstitution substitution name =

@@ -18,8 +18,6 @@ import           GHC.Generics
 import           GHC.Exts
 
 type RuntimeName = TypedName
-type RuntimeAST p = TypedAST p
-type RuntimeProgram = TypedProgram
 
 type MonadRE m = (Monad m, MonadError RuntimeError m)
 type MonadEnv m = (Monad m, MonadState (Environment Value) m)

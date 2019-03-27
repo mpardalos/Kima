@@ -60,4 +60,4 @@ typecheckAST' = runEither . T.typecheck baseTypeCtx
 runFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST' >=> runAST')
 runAST = runMonadInterface . runAST'
 runAST' :: MonadInterface m => TypedAST p -> m I.Value
-runAST' src = liftIO (I.run baseEnv src) >>= runEither 
+runAST' src = liftIO (I.run baseEnv (removeTypeAnnotations src)) >>= runEither
