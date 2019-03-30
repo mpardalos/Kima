@@ -261,7 +261,8 @@ instance Bitraversable WhileStmt where
     bitraverse f g WhileStmt { cond, body } = uncurry WhileStmt <$> bitraverse f g (cond, body)
 
 instance IsString (Identifier 'NoAnnotation) where
-    fromString = Identifier
+    fromString ('.':name) = Accessor name
+    fromString name       = Identifier name
 
 deriving instance AnnotationConstraint Eq t => Eq (Identifier t)
 deriving instance (AnnotationConstraint Eq t, AnnotationConstraint Ord t) => Ord (Identifier t)

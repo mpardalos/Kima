@@ -31,7 +31,19 @@ calculateDomains (Program funcDefs) =
         (addBindings hoistedCtx)
         (traverse calculateDomains funcDefs)
 calculateDomains (FuncDef _name args _ body) = functionDomain args body
-calculateDomains (DataDef _ _) = pure []
+calculateDomains (DataDef name members) = do
+    let declaredType = KUserType name
+    let accessorBindings = (\(memberName, memberType) ->
+                                ( Accessor memberName
+                                , Binding Constant [KFunc ([declaredType] $-> memberType)]))
+                           <$> members
+    let memberTypes = snd <$> members
+    let constructorType = KFunc (memberTypes $-> declaredType)
+
+    modify (addType    name               declaredType)
+    modify (addBinding (Identifier name) (Binding Constant [constructorType]))
+    modify (addBindings (Map.fromList accessorBindings))
+    return []
 calculateDomains (LiteralE _) = pure []
 calculateDomains (IdentifierE name) = lookupIdentifier name >>= \case
     Binding { types } -> pure [(nameType name, types)]
@@ -52,7 +64,7 @@ calculateDomains (If (IfStmt cond ifBlk elseBlk)) = do
     elseBlkDs <- calculateDomains elseBlk
     return (condDs <> ifBlkDs <> elseBlkDs)
 calculateDomains (Assign name expr) = do
-    (Binding mut ts) <- lookupIdentifier name
+    Binding mut ts <- lookupIdentifier name
     case mut of
         Constant -> throwError (AssignToConst (deTypeAnnotate name))
         Variable -> do

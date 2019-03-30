@@ -70,15 +70,19 @@ bindTopLevel (FuncDef name args rt body) = do
     bind (TIdentifier name funcType) function
     return function
 bindTopLevel (DataDef name members)       = do
+    let declaredType = KUserType name
+    let memberTypes = snd <$> members
     let constructor = BuiltinFunction (return . ProductData)
-    let constructorType = KFunc ((snd <$> members) $-> KUserType name)
-    forM_ (zip [0..] members) $ \(i, (accessorName, memberType)) ->
-        bind (TAccessor accessorName memberType) $ BuiltinFunction $ \case
+    let constructorType = KFunc (memberTypes $-> declaredType)
+
+    forM_ (zip [0..] members) $ \(i, (memberName, memberType)) ->
+        let accessorType = KFunc ([declaredType] $-> memberType) in
+        bind (TAccessor memberName accessorType) $ BuiltinFunction $ \case
             [ProductData vals] -> case vals `atMay` i of
                 Just v -> return v
-                Nothing -> throwError (BuiltinFunctionError (show accessorName <> " failed"))
+                Nothing -> throwError (BuiltinFunctionError (show memberName <> " failed"))
             v -> throwError (BuiltinFunctionError (
-                    "Can't use accessor " <> show accessorName <> " on " <> show v))
+                    "Can't use accessor " <> show memberName <> " on " <> show v))
     bind (TIdentifier name constructorType) constructor
     return constructor
 

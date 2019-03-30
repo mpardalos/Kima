@@ -132,14 +132,12 @@ accessCall = do
     argLists <- some callOrAccess
     return (foldl combiner callee argLists)
     where
-        -- callOrAccess =
-        --     Left  <$> (symbol Dot *> identifier) <|>
-        --     Right <$> parens (expr `sepBy` symbol Comma)
-        callOrAccess = parens (expr `sepBy` symbol Comma)
+        callOrAccess =
+            Left  <$> (symbol Dot *> identifier) <|>
+            Right <$> parens (expr `sepBy` symbol Comma)
 
-        combiner = Call
-        -- combiner acc (Left  attr) = Call (Identifier (Accessor attr)) [acc]
-        -- combiner acc (Right args) = Call acc args
+        combiner acc (Left  attr) = Call (IdentifierE (Accessor attr)) [acc]
+        combiner acc (Right args) = Call acc args
 
 typeExpr :: Parser TypeExpr
 typeExpr = uncurry SignatureType <$> try anonymousSignature
