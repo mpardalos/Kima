@@ -14,7 +14,7 @@ import           Kima.Typechecking.Types
 import           Kima.AST
 import           Kima.KimaTypes
 
-makeConstraints :: AnnotatedTVarAST p -> EqConstraintSet
+makeConstraints :: TVarAST p -> EqConstraintSet
 makeConstraints (ProgramAST ast) = (writeProgramConstraints >>> execWriter) ast
 makeConstraints (TopLevelAST ast) = (writeTopLevelConstraints >>> execWriter) ast
 makeConstraints (StmtAST    ast) = (stmtReturnTVar >>> execWriter) ast
@@ -27,20 +27,20 @@ writeConstraint c = tell [c]
 
 -- | Generate constraints for a top-level AST
 writeProgramConstraints
-    :: MonadConstraintWriter m => AnnotatedTVarAST 'Module -> m ()
+    :: MonadConstraintWriter m => TVarAST 'Module -> m ()
 writeProgramConstraints (Program funcDefs) =
     traverse_ writeTopLevelConstraints funcDefs
 
 -- | Write the constraints for a function definition
 writeTopLevelConstraints
-    :: MonadConstraintWriter m => AnnotatedTVarAST 'TopLevel -> m ()
-writeTopLevelConstraints (FuncDefAnn _ _ _ body) = void (stmtReturnTVar body)
-writeTopLevelConstraints (DataDefAnn _ _members) = pure ()
+    :: MonadConstraintWriter m => TVarAST 'TopLevel -> m ()
+writeTopLevelConstraints (FuncDef _ _ _ body) = void (stmtReturnTVar body)
+writeTopLevelConstraints (DataDef _ _members) = pure ()
 
 -- | Compute the return type of a statement and write the constraints required
 -- | for typing it
 stmtReturnTVar
-    :: MonadConstraintWriter m => AnnotatedTVarAST 'Stmt -> m TypeVar
+    :: MonadConstraintWriter m => TVarAST 'Stmt -> m TypeVar
 stmtReturnTVar (ExprStmt expr) = do
     tvar <- exprTVar expr
     writeConstraint (tvar =#= tvar)
@@ -63,11 +63,13 @@ stmtReturnTVar (If (IfStmt cond ifBlk elseBlk)) = do
     writeConstraint $ ifBlkT =#= elseBlkT
 
     pure (TheType KUnit)
-stmtReturnTVar (Var name declaredTyped expr) = do
-    checkLocalAssignment name declaredTyped expr
+stmtReturnTVar (Var _name declaredType expr) = do
+    valueTVar <- exprTVar expr
+    writeConstraint $ valueTVar =#= TheType declaredType
     pure (TheType KUnit)
-stmtReturnTVar (Let name t expr) = do
-    checkLocalAssignment name t expr
+stmtReturnTVar (Let _name declaredType expr) = do
+    valueTVar <- exprTVar expr
+    writeConstraint $ valueTVar =#= TheType declaredType
     pure (TheType KUnit)
 stmtReturnTVar (Assign name expr) = do
     exprType <- exprTVar expr
@@ -76,10 +78,11 @@ stmtReturnTVar (Assign name expr) = do
 
 -- | Compute the type of an expression and write the constraints required for
 -- | typing it
-exprTVar :: MonadConstraintWriter m => AnnotatedTVarAST 'Expr -> m TypeVar
+exprTVar :: MonadConstraintWriter m => TVarAST 'Expr -> m TypeVar
 exprTVar (LiteralE   l            ) = pure (TheType $ literalType l)
-exprTVar (Identifier idName       ) = pure (nameType idName)
-exprTVar (FuncExprAnn args rt body) = TheType <$> functionType args rt body
+exprTVar (IdentifierE idName      ) = pure (nameType idName)
+exprTVar (FuncExpr    args rt body) = let argTypes = snd <$> args in
+    TheType <$> functionType argTypes rt body
 exprTVar (Call callee args        ) = do
     calleeT <- exprTVar callee
     argT    <- traverse exprTVar args
@@ -87,29 +90,15 @@ exprTVar (Call callee args        ) = do
 
 functionType
     :: MonadConstraintWriter m
-    => [(TVarName, KType)]
-    -> KType
-    -> AnnotatedTVarAST 'Stmt
+    => [KType]       -- arg types
+    -> KType         -- return type
+    -> TVarAST 'Stmt -- body
     -> m KType
-functionType args rt body = do
+functionType argTypes rt body = do
     returnTVar <- stmtReturnTVar body
     writeConstraint $ returnTVar =#= TheType rt
 
-    pure . KFunc $ ((snd <$> args) $-> rt)
-
--- | Assert that the declared type of an assignment matches the actual type
--- | as well as that the binding does not shadow another name. Shadowing is 
--- | only allowed at the top level.
-checkLocalAssignment
-    :: MonadConstraintWriter m
-    => TVarName
-    -> KType
-    -> AnnotatedTVarAST 'Expr
-    -> m ()
-checkLocalAssignment name declaredType expr = do
-    exprType <- exprTVar expr
-    writeConstraint $ nameType name =#= TheType declaredType
-    writeConstraint $ exprType =#= TheType declaredType
+    pure . KFunc $ (argTypes $-> rt)
 
 literalType :: Literal -> KType
 literalType IntExpr{}    = KInt

@@ -1,59 +1,64 @@
 {-# LANGUAGE OverloadedLists, AllowAmbiguousTypes #-}
 module Kima.Typechecking.DomainCalculation where
 
-import Debug.Trace
-
 import           Kima.Control.Monad.State.Extended
 import           Control.Arrow
 import           Control.Monad.Except
-import           Data.Bifunctor
-import           Data.Map                       ( Map )
+import           Data.Foldable
+import           Data.List
 import qualified Data.Map                      as Map
-import           Data.Set                       ( Set )
-import qualified Data.Set                      as Set
 import           Kima.AST
 import           Kima.KimaTypes
 import           Kima.Typechecking.Types
 
 type MonadDomain m = (MonadState TypeCtx m, MonadError TypecheckingError m)
 
-makeDomains :: TypeCtx -> AnnotatedTVarAST p -> Either TypecheckingError Domains
+makeDomains :: TypeCtx -> TVarAST p -> Either TypecheckingError Domains
 makeDomains mutTypeCtx ast = evalStateT (calculateDomains ast) mutTypeCtx
 
-makeDomainsWithTypeCtx :: TypeCtx -> AnnotatedTVarAST p -> Either TypecheckingError (Domains, TypeCtx)
+makeDomainsWithTypeCtx :: TypeCtx -> TVarAST p -> Either TypecheckingError (Domains, TypeCtx)
 makeDomainsWithTypeCtx mutTypeCtx ast = runStateT (calculateDomains ast) mutTypeCtx
 
-calculateDomains :: MonadDomain m => AnnotatedTVarAST p -> m Domains
-calculateDomains (Program funcDefs) = do
-    let funcTypes = Map.fromList $ funcDefs >>= \case
-            FuncDefAnn name (fmap snd -> argTypes) rt _ ->
-                [(name, [KFunc (argTypes $-> rt)])]
-            DataDefAnn{} -> []
-    let hoistedCtx =
-            Binding Constant <$> Map.mapKeysWith (<>) deTypeAnnotate funcTypes
-    let funcDomains = Map.mapKeysWith (<>) nameType funcTypes
-    innerDomains <- mconcat <$> withState
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+(<&>) = flip (<$>)
+
+calculateDomains :: MonadDomain m => TVarAST p -> m Domains
+calculateDomains (Program topLevel) = do
+    -- Deal with data defs first. Hoists them to the top
+    let (dataDefs, notDataDefs) = partition isDataDef topLevel
+    traverse_ calculateDomains dataDefs
+
+    -- Then function **declarations**
+    let hoistedCtx = Map.fromListWith (<>) (notDataDefs >>= \case
+            FuncDef name args rt _ -> [(Identifier name, Binding Constant [KFunc ((snd <$> args) $-> rt)])]
+            DataDef _name _members -> [] {- Shouldn't happen -})
+
+    -- Then the actual bodies
+    mconcat <$> withState
         (addBindings hoistedCtx)
-        (traverse calculateDomains funcDefs)
-    return (innerDomains <> funcDomains)
-calculateDomains (FuncDefAnn _name args _ body) = functionDomain args body
-calculateDomains (DataDefAnn (TypedName name constructorType) members) =
-    let dataType = KUserType name in
-    pure
-    -- Constructor
-    (  [(constructorType, [KFunc ((snd <$> members) $-> dataType)])]
-    -- Accessors, the annotation corresponds to the attribute type
-    <> Map.fromList (bimap nameType (makeAccessorDomain dataType) <$> members)
-    )
-    where
-      makeAccessorDomain :: KType -> KType -> Set KType
-      makeAccessorDomain dataType attrType = [KFunc ([dataType] $-> attrType)]
-calculateDomains (DataDefAnn invalidName _) = throwError
-    (UnexpectedNameType (deTypeAnnotate invalidName))
+        (traverse calculateDomains notDataDefs)
+        where
+            isDataDef DataDef{} = True
+            isDataDef _         = False
+
+calculateDomains (FuncDef _name args _ body) = functionDomain args body
+calculateDomains (DataDef name members) = do
+    let declaredType = KUserType name
+    let accessorBindings = (\(memberName, memberType) ->
+                                ( Accessor memberName
+                                , Binding Constant [KFunc ([declaredType] $-> memberType)]))
+                           <$> members
+    let memberTypes = snd <$> members
+    let constructorType = KFunc (memberTypes $-> declaredType)
+
+    modify (addType    name               declaredType)
+    modify (addBinding (Identifier name) (Binding Constant [constructorType]))
+    modify (addBindings (Map.fromList accessorBindings))
+    return []
 calculateDomains (LiteralE _) = pure []
-calculateDomains (Identifier name) = lookupIdentifier name >>= \case
+calculateDomains (IdentifierE name) = lookupIdentifier name >>= \case
     Binding { types } -> pure [(nameType name, types)]
-calculateDomains (FuncExprAnn args _ body) = functionDomain args body
+calculateDomains (FuncExpr args _ body) = functionDomain args body
 calculateDomains (Call callee args       ) = do
     calleeDs <- calculateDomains callee
     argDs    <- mconcat <$> traverse calculateDomains args
@@ -70,40 +75,36 @@ calculateDomains (If (IfStmt cond ifBlk elseBlk)) = do
     elseBlkDs <- calculateDomains elseBlk
     return (condDs <> ifBlkDs <> elseBlkDs)
 calculateDomains (Assign name expr) = do
-    (Binding mut ts) <- lookupIdentifier name
+    Binding mut ts <- lookupIdentifier name
     case mut of
-        Constant -> throwError (AssignToConst name)
+        Constant -> throwError (AssignToConst (deTypeAnnotate name))
         Variable -> do
             let nameDs = [(nameType name, ts)]
             exprDs <- calculateDomains expr
             return (nameDs <> exprDs)
-calculateDomains (Var name t expr) =
-    gets (bindings >>> Map.lookup (deTypeAnnotate name)) >>= \case
+calculateDomains (Var name declaredType expr) =
+    gets (bindings >>> Map.lookup (Identifier name)) >>= \case
         Nothing -> do
-            modify (addBinding (deTypeAnnotate name) (Binding Variable [t]))
-            Map.union (Map.singleton (nameType name) [t])
-                <$> calculateDomains expr
+            modify (addBinding (Identifier name) (Binding Variable [declaredType]))
+            calculateDomains expr
         Just _ -> throwError (NameShadowed name)
-calculateDomains (Let name t expr) =
-    gets (bindings >>> Map.lookup (deTypeAnnotate name)) >>= \case
+calculateDomains (Let name declaredType expr) =
+    gets (bindings >>> Map.lookup (Identifier name)) >>= \case
         Nothing -> do
-            modify (addBinding (deTypeAnnotate name) (Binding Constant [t]))
-            Map.union (Map.singleton (nameType name) [t])
-                <$> calculateDomains expr
+            modify (addBinding (Identifier name) (Binding Constant [declaredType]))
+            calculateDomains expr
         Just _ -> throwError (NameShadowed name)
 
-lookupIdentifier :: MonadDomain m => TVarName -> m Binding
+lookupIdentifier :: MonadDomain m => TVarIdentifier -> m Binding
 lookupIdentifier name = gets (bindings >>> Map.lookup (deTypeAnnotate name)) >>= \case
     Just b  -> return b
-    Nothing -> (traceShowM =<< gets bindings) >> throwError (UnboundName name)
+    Nothing -> throwError (UnboundName name)
 
 functionDomain
     :: MonadDomain m
-    => [(TVarName, KType)]
-    -> AnnotatedTVarAST p
-    -> m (Map TypeVar (Set KType))
+    => [(Name, KType)]
+    -> TVarAST p
+    -> m Domains
 functionDomain args body =
-    let argBindings = Map.fromList (bimap deTypeAnnotate (Binding Constant . Set.singleton) <$> args)
-        argDomains  = Map.fromList (bimap nameType Set.singleton <$> args)
-    in  (argDomains <>) <$> withState (addBindings argBindings) (calculateDomains body)
-
+    let argBindings = Map.fromList (args <&> \(argName, argType) -> (Identifier argName, Binding Constant [argType])) in
+    withState (addBindings argBindings) (calculateDomains body)

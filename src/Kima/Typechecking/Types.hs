@@ -1,7 +1,5 @@
 module Kima.Typechecking.Types
     ( (=#=)
-    , AnnotatedTVarProgram
-    , AnnotatedTVarAST
     , Binding(..)
     , mapTypes
     , Domains
@@ -9,7 +7,7 @@ module Kima.Typechecking.Types
     , Mutability(..)
     , Substitution
     , TVarAST
-    , TVarName
+    , TVarIdentifier
     , TVarProgram
     , TypeAnnotatedAST
     , TypeAnnotatedProgram
@@ -34,15 +32,15 @@ import           Kima.AST
 import           Kima.KimaTypes
 
 data TypecheckingError = AmbiguousVariable TypeVar [KType]
-                       | AssignToConst TVarName
+                       | AssignToConst (Identifier 'NoAnnotation)
                        | CantUnify TypeVar TypeVar
                        | CantUnifyCall TypeVar [TypeVar]
                        | MultipleSolutions TypeVar [KType]
-                       | NameShadowed TVarName
+                       | NameShadowed Name
                        | NoSolution TypeVar
                        | TypeResolutionError TypeExpr
-                       | UnexpectedNameType DesugaredName
-                       | UnboundName TVarName
+                       | UnexpectedBuiltin BuiltinName
+                       | UnboundName TVarIdentifier
     deriving (Eq, Show)
 
 -------------------------------- Constraints ---------------------------------------
@@ -73,24 +71,20 @@ instance Semigroup Binding where
     (Binding mutL typesL) <> (Binding mutR typesR) = 
         Binding (mutL <> mutR) (typesL <> typesR)
 
-
--- For now, when a name is declared, it has to have an associated type, so this
--- type is OK. If type inference is implemented to any degree, this will have to
--- be changed to map to a [TypeVar]
 data TypeCtx = TypeCtx {
     typeBindings :: Map TypeName KType,
-    bindings :: Map DesugaredName Binding
+    bindings :: Map (Identifier 'NoAnnotation) Binding
 }
 
 addType :: TypeName -> KType -> TypeCtx -> TypeCtx
 addType name t ctx@TypeCtx { typeBindings } =
     ctx { typeBindings = Map.insert name t typeBindings }
 
-addBinding :: DesugaredName -> Binding -> TypeCtx -> TypeCtx
+addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =
     ctx { bindings = Map.insert n b bindings }
 
-addBindings :: Map DesugaredName Binding -> TypeCtx -> TypeCtx
+addBindings :: Map (Identifier 'NoAnnotation) Binding -> TypeCtx -> TypeCtx
 addBindings newBindings ctx@TypeCtx { bindings } =
     ctx { bindings = bindings <> newBindings }
 
@@ -102,13 +96,10 @@ data TypeVar = TypeVar Int
              | ApplicationTVar TypeVar [TypeVar]
     deriving (Eq, Ord, Generic)
 
-type TVarName         = GenericName ('Just TypeVar) 'True
+type TVarIdentifier     = Identifier ('Annotation TypeVar)
 
-type TVarAST p          = AST p 'NoSugar TVarName 'Nothing
+type TVarAST (p :: ASTPart) = AST p 'NoSugar ('Annotation TypeVar) KType
 type TVarProgram        = TVarAST 'Module
-
-type AnnotatedTVarAST p = AST p 'NoSugar TVarName ('Just KType)
-type AnnotatedTVarProgram = AnnotatedTVarAST 'Module
 
 ---------------------- Show -----------------------------
 instance Show EqConstraint where
@@ -147,8 +138,8 @@ instance Pretty TypecheckingError where
         "Typevar" <+> pretty var <+> "has no solution"
     pretty (TypeResolutionError expr ) =
         "Can't resolve type" <+> pretty expr
-    pretty (UnexpectedNameType name) =
-        "Got " <+> pretty name <+> "where a different type name was expected"
+    pretty (UnexpectedBuiltin name) =
+        "Got builtin" <+> pretty name <+> "where a normal name was expected"
     pretty (UnboundName         name ) =
         "Reference to unbound name" <+> pretty name
 

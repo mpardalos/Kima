@@ -4,7 +4,6 @@ module Kima.Test.Gen where
 
 import           Test.QuickCheck
 import           Control.Monad
-import           Control.Monad.Writer
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as Set
 import           Data.Set                       ( Set
@@ -90,23 +89,20 @@ instance Arbitrary a => Arbitrary (Binary a) where
 instance Arbitrary a => Arbitrary (Unary a) where
     arbitrary = genericArbitraryU
 
-getFreeVars :: AST p s n t -> [n]
-getFreeVars = execWriter . traverseNames (\n -> tell [n])
-
-instance (Arbitrary t, Arbitrary n) => Arbitrary (AST 'Expr 'NoSugar n ('Just t)) where
+instance (Arbitrary t, Arbitrary (Identifier idAnn)) => Arbitrary (AST 'Expr 'NoSugar idAnn t) where
     arbitrary = oneof
         [ LiteralE <$> arbitrary
-        , Identifier <$> arbitrary
-        , FuncExprAnn <$> arbitrary <*> arbitrary <*> arbitrary
+        , IdentifierE <$> arbitrary
+        , FuncExpr <$> arbitrary <*> arbitrary <*> arbitrary
         , Call <$> arbitrary <*> arbitrary
         ]
 
     shrink (LiteralE lit) = LiteralE <$> shrink lit
-    shrink (Identifier name) = Identifier <$> shrink name
-    shrink (FuncExprAnn args rt body) = FuncExprAnn <$> shrink args <*> shrink rt <*> shrink body
+    shrink (IdentifierE name) = IdentifierE <$> shrink name
+    shrink (FuncExpr args rt body) = FuncExpr <$> shrink args <*> shrink rt <*> shrink body
     shrink (Call callee args) = Call <$> shrink callee <*> shrink args
 
-instance (Arbitrary t, Arbitrary n) => Arbitrary (AST 'Stmt 'NoSugar n ('Just t)) where
+instance (Arbitrary t, Arbitrary (Identifier idAnn)) => Arbitrary (AST 'Stmt 'NoSugar idAnn t) where
     arbitrary = oneof
         [ ExprStmt <$> arbitrary
         , Block    <$> scale (`div` 2) arbitrary
@@ -120,47 +116,35 @@ instance (Arbitrary t, Arbitrary n) => Arbitrary (AST 'Stmt 'NoSugar n ('Just t)
 instance Arbitrary BuiltinName where
     arbitrary = genericArbitraryU
 
-instance Arbitrary (GenericName 'Nothing 'False) where
-    arbitrary = Name <$> arbitrary
-    shrink = shrinkUntypedName
-instance Arbitrary (GenericName 'Nothing 'True) where
+instance Arbitrary (Identifier 'NoAnnotation) where
     arbitrary = oneof 
-        [ Name <$> (getNonEmpty <$> arbitrary)
+        [ Identifier <$> (getNonEmpty <$> arbitrary)
         , Builtin <$> arbitrary
         ]
     shrink = shrinkUntypedName
-instance Arbitrary t => Arbitrary (GenericName ('Just t) 'False) where
-    arbitrary = typeAnnotate 
-        <$> arbitrary @t
-        <*> arbitrary @(GenericName 'Nothing 'False)
-    shrink (TypedName n t) = TypedName <$> shrink n <*> shrink t
-    shrink (TAccessor n t) = join 
-        [ TAccessor <$> shrink n <*> shrink t
-        , TypedName <$> shrink n <*> shrink t
-        ]
 
-instance Arbitrary t => Arbitrary (GenericName ('Just t) 'True) where
+instance Arbitrary t => Arbitrary (Identifier ('Annotation t)) where
     arbitrary = typeAnnotate 
         <$> arbitrary @t
-        <*> arbitrary @(GenericName 'Nothing 'True)
-    shrink (TypedName n t) 
-        | length n > 1 = TypedName <$> shrink n <*> shrink t
-        | otherwise    = TypedName n <$> shrink t
+        <*> arbitrary @(Identifier 'NoAnnotation)
+    shrink (TIdentifier n t)
+        | length n > 1 = TIdentifier <$> shrink n <*> shrink t
+        | otherwise    = TIdentifier n <$> shrink t
     shrink (TBuiltin n t) = join 
         [ TBuiltin n <$> shrink t
-        , TypedName (show n) <$> shrink t
+        , TIdentifier (show n) <$> shrink t
         ]
     shrink (TAccessor n t) = join 
         [ TAccessor <$> shrink n <*> shrink t 
-        , TypedName (show n) <$> shrink t
+        , TIdentifier (show n) <$> shrink t
         ]
 
-shrinkUntypedName :: GenericName 'Nothing b -> [GenericName 'Nothing b]
-shrinkUntypedName (Name    n) 
-    | length n > 1 = Name <$> shrink n
+shrinkUntypedName :: Identifier 'NoAnnotation -> [Identifier 'NoAnnotation]
+shrinkUntypedName (Identifier    n)
+    | length n > 1 = Identifier <$> shrink n
     | otherwise    = []
 shrinkUntypedName (Accessor n) 
-    | length n > 1 = join [Name <$> shrink n, Accessor <$> shrink n]
+    | length n > 1 = join [Identifier <$> shrink n, Accessor <$> shrink n]
     | otherwise    = []
 -- Base names are smaller than builtins 
-shrinkUntypedName (Builtin n) = [Name (show n)] 
+shrinkUntypedName (Builtin n) = [Identifier (show n)]

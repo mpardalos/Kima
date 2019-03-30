@@ -8,7 +8,6 @@ import qualified Kima.Frontend.Tokenizer as T (Symbol(Mod))
 import Kima.Frontend.Types
 
 import Control.Monad.Combinators.Expr
-import Data.Bifunctor
 import GHC.Exts
 import Text.Megaparsec
 
@@ -21,7 +20,7 @@ topLevel = funcDef <|> dataDef
 
 funcDef :: Parser (ParsedAST 'TopLevel)
 funcDef = reserved RFun *> (
-    FuncDefAnn
+    FuncDef
     <$> identifier
     <*> parens typedArgList
     <*> (symbol Arrow *> typeExpr)
@@ -29,12 +28,12 @@ funcDef = reserved RFun *> (
 
 dataDef :: Parser (ParsedAST 'TopLevel)
 dataDef = reserved RData *> (
-    DataDefAnn 
+    DataDef
     <$> identifier
-    <*> parens ((first Accessor <$> typedArg) `sepBy` symbol Comma))
+    <*> parens (typedArg `sepBy` symbol Comma))
     <?> "Datatype declaration"
 
-typedArgList :: Parser [(ParsedName, TypeExpr)]
+typedArgList :: Parser [(Name, TypeExpr)]
 typedArgList = typedArg `sepBy` symbol Comma
     <?> "Argument list"
 
@@ -53,15 +52,15 @@ block = Block <$> braces (stmt `sepEndBy` stmtEnd)
 
 letStmt :: Parser (ParsedAST 'Stmt)
 letStmt = Let
-    <$> (reserved RLet *> identifier) 
-    <*> (symbol Colon *> typeExpr) 
+    <$> (reserved RLet *> identifier)
+    <*> (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
     <?> "let statement"
 
 varStmt :: Parser (ParsedAST 'Stmt)
 varStmt = Var 
-    <$> (reserved RVar *> identifier) 
-    <*> (symbol Colon *> typeExpr) 
+    <$> (reserved RVar *> identifier)
+    <*> (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
     <?> "var statement"
 
@@ -117,11 +116,11 @@ term = try accessCall <|> baseTerm
 -- | A term without calls (Useful for parsing calls)
 baseTerm :: Parser (ParsedAST 'Expr)
 baseTerm = parens expr
-       <|> LiteralE . StringExpr     <$> try string
-       <|> LiteralE . FloatExpr      <$> try floatLiteral
-       <|> LiteralE . IntExpr        <$> try intLiteral
-       <|> LiteralE . BoolExpr       <$> try boolLiteral
-       <|>            Identifier     <$> try identifier
+       <|> LiteralE    . StringExpr <$> try string
+       <|> LiteralE    . FloatExpr  <$> try floatLiteral
+       <|> LiteralE    . IntExpr    <$> try intLiteral
+       <|> LiteralE    . BoolExpr   <$> try boolLiteral
+       <|> IdentifierE . Identifier <$> try identifier
 
 argList :: Parser [ParsedAST 'Expr]
 argList = parens (expr `sepBy` symbol Comma)
@@ -137,7 +136,7 @@ accessCall = do
             Left  <$> (symbol Dot *> identifier) <|>
             Right <$> parens (expr `sepBy` symbol Comma)
 
-        combiner acc (Left  attr) = Call (Identifier (Accessor attr)) [acc]
+        combiner acc (Left  attr) = Call (IdentifierE (Accessor attr)) [acc]
         combiner acc (Right args) = Call acc args
 
 typeExpr :: Parser TypeExpr

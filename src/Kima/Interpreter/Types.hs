@@ -3,6 +3,7 @@ module Kima.Interpreter.Types where
 import           Prelude                 hiding ( lookup )
 
 import           Kima.AST
+import           Kima.KimaTypes
 
 import           Control.Newtype.Generics
 
@@ -17,13 +18,13 @@ import           Data.Map                hiding ( toList
 import           GHC.Generics
 import           GHC.Exts
 
-type RuntimeName = TypedName
+type RuntimeIdentifier = Identifier ('Annotation KType)
 
 type MonadRE m = (Monad m, MonadError RuntimeError m)
 type MonadEnv m = (Monad m, MonadState (Environment Value) m)
 type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m)
 
-data RuntimeError = NotInScope RuntimeName
+data RuntimeError = NotInScope RuntimeIdentifier
                   | WrongArgumentCount Int Int
                   | WrongConditionType Value
                   | NotAFunction Value
@@ -34,7 +35,7 @@ data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           | Function [RuntimeName] (RuntimeAST 'Stmt)
+           | Function [RuntimeIdentifier] (RuntimeAST 'Stmt)
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
            | Unit
@@ -43,7 +44,7 @@ class Monad m => MonadConsole m where
     consoleWrite :: String -> m ()
     consoleRead :: m String
 
-newtype Environment a = Environment {unEnv :: Map RuntimeName a}
+newtype Environment a = Environment {unEnv :: Map RuntimeIdentifier a}
     deriving (Functor, Semigroup, Generic, Show)
 instance Newtype (Environment a)
 

@@ -9,7 +9,6 @@ import System.IO
 import Text.Megaparsec
 import Data.Text.Prettyprint.Doc
 
-import Kima.AST
 import Kima.Builtins
 import Kima.Desugar
 import Kima.Interpreter
@@ -43,7 +42,6 @@ runLine typeCtx interpreterEnv input = runExceptT $ do
         $   ( runParser stmt ""            >>> first errorBundlePretty ) input
         >>= ( desugar                      >>> pure                    )
         >>= ( typecheckWithTypeCtx typeCtx >>> first (show . pretty )  )
-        >>= ( first removeTypeAnnotations  >>> pure                     )
     -- Run the typedAST, lifting as needed
     (value, newEnv) <- liftEither =<< liftIO 
         (first (show . pretty) <$> runWithEnv interpreterEnv typedAST)

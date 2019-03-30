@@ -13,7 +13,6 @@ import           Data.Char
 import           Data.Either
 import           Data.Bifunctor
 
-import           Kima.AST                      as A
 import           Kima.Builtins                 as B
 import           Kima.Desugar                  as D
 import           Kima.Frontend                 as F
@@ -63,7 +62,6 @@ runFileTest test@FileTest { fileName, contents, input } = case test of
         runResult = testableEither (F.parseProgram fileName contents)
             >>= (pure . D.desugar)
             >>= (testableEither . T.typecheck baseTypeCtx)
-            >>= (pure . A.removeTypeAnnotations)
             >>= (testableEither . runInTestInterpreterWithInput input)
 
 readTestFiles
