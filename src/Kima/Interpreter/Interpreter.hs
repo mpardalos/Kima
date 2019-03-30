@@ -15,9 +15,9 @@ import qualified Data.Map                      as Map
 
 ---------- Expressions ----------
 evalExpr :: (MonadInterpreter m) => RuntimeAST 'Expr -> m Value
-evalExpr (LiteralE   l     ) = return $ evalLiteral l
-evalExpr (Identifier name  ) = getName name
-evalExpr (FuncExpr sig body) = return $ Function sig body
+evalExpr (LiteralE   l     )     = return $ evalLiteral l
+evalExpr (IdentifierE name )     = getName name
+evalExpr (FuncExpr args _rt body) = return $ Function (uncurry TIdentifier <$> args) body
 evalExpr (Call callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 
@@ -33,6 +33,8 @@ runStmt (Block stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
 runStmt (Assign name expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (Let    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
+runStmt (Var    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (ExprStmt expr) = evalExpr expr
 runStmt loop@(While WhileStmt { cond, body }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt body *> runStmt loop
@@ -51,10 +53,10 @@ runFunc (Function argNames body) args = withState (<> argEnv) (runStmt body)
 runFunc (BuiltinFunction f) args                 = f args
 runFunc v _ = throwError (NotAFunction v)
 
-bind :: (MonadEnv m) => RuntimeName -> Value -> m ()
+bind :: (MonadEnv m) => RuntimeIdentifier -> Value -> m ()
 bind name val = modify (over Environment $ Map.insert name val)
 
-getName :: (MonadEnv m, MonadRE m) => RuntimeName -> m Value
+getName :: (MonadEnv m, MonadRE m) => RuntimeIdentifier -> m Value
 getName name = gets (Map.lookup name . unEnv) >>= \case
     Just val -> return val
     Nothing  -> throwError (NotInScope name)
@@ -62,25 +64,27 @@ getName name = gets (Map.lookup name . unEnv) >>= \case
 -- | Bind either a function or the constructor and accessors of a
 -- | DataDef
 bindTopLevel :: MonadInterpreter m => RuntimeAST 'TopLevel -> m Value
-bindTopLevel (FuncDef name signature body) = do
-    let result = Function signature body 
-    bind name result
-    return result
+bindTopLevel (FuncDef name args rt body) = do
+    let funcType = KFunc ((snd <$> args) $-> rt)
+    let function = Function (uncurry TIdentifier <$> args) body
+    bind (TIdentifier name funcType) function
+    return function
 bindTopLevel (DataDef name members)       = do
     let constructor = BuiltinFunction (return . ProductData)
-    forM_ (zip [0..] members) $ \(i, accessorName) ->
-        bind accessorName $ BuiltinFunction $ \case
+    let constructorType = KFunc ((snd <$> members) $-> KUserType name)
+    forM_ (zip [0..] members) $ \(i, (accessorName, memberType)) ->
+        bind (TAccessor accessorName memberType) $ BuiltinFunction $ \case
             [ProductData vals] -> case vals `atMay` i of
                 Just v -> return v
                 Nothing -> throwError (BuiltinFunctionError (show accessorName <> " failed"))
             v -> throwError (BuiltinFunctionError (
                     "Can't use accessor " <> show accessorName <> " on " <> show v))
-    bind name constructor
+    bind (TIdentifier name constructorType) constructor
     return constructor
 
 runProgram :: MonadInterpreter m => RuntimeProgram -> m ()
 runProgram (Program defs) = do
     forM_ defs bindTopLevel
-    mainFunc <- getName (TypedName "main" (KFunc ([] $-> KUnit)))
+    mainFunc <- getName (TIdentifier "main" (KFunc ([] $-> KUnit)))
     _        <- runFunc mainFunc []
     return ()
