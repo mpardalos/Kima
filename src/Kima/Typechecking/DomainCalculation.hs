@@ -4,6 +4,8 @@ module Kima.Typechecking.DomainCalculation where
 import           Kima.Control.Monad.State.Extended
 import           Control.Arrow
 import           Control.Monad.Except
+import           Data.Foldable
+import           Data.List
 import qualified Data.Map                      as Map
 import           Kima.AST
 import           Kima.KimaTypes
@@ -21,13 +23,24 @@ makeDomainsWithTypeCtx mutTypeCtx ast = runStateT (calculateDomains ast) mutType
 (<&>) = flip (<$>)
 
 calculateDomains :: MonadDomain m => TVarAST p -> m Domains
-calculateDomains (Program funcDefs) =
-    let hoistedCtx = Map.fromListWith (<>) (funcDefs >>= \case
+calculateDomains (Program topLevel) = do
+    -- Deal with data defs first. Hoists them to the top
+    let (dataDefs, notDataDefs) = partition isDataDef topLevel
+    traverse_ calculateDomains dataDefs
+
+    -- Then function **declarations**
+    let hoistedCtx = Map.fromListWith (<>) (notDataDefs >>= \case
             FuncDef name args rt _ -> [(Identifier name, Binding Constant [KFunc ((snd <$> args) $-> rt)])]
-            DataDef _name _members -> []) in
+            DataDef _name _members -> [] {- Shouldn't happen -})
+
+    -- Then the actual bodies
     mconcat <$> withState
         (addBindings hoistedCtx)
-        (traverse calculateDomains funcDefs)
+        (traverse calculateDomains notDataDefs)
+        where
+            isDataDef DataDef{} = True
+            isDataDef _         = False
+
 calculateDomains (FuncDef _name args _ body) = functionDomain args body
 calculateDomains (DataDef name members) = do
     let declaredType = KUserType name
