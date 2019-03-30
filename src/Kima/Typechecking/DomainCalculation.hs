@@ -24,7 +24,7 @@ makeDomainsWithTypeCtx mutTypeCtx ast = runStateT (calculateDomains ast) mutType
 
 calculateDomains :: MonadDomain m => TVarAST p -> m Domains
 calculateDomains (Program funcDefs) =
-    let hoistedCtx = Map.fromList (funcDefs >>= \case
+    let hoistedCtx = Map.fromListWith (<>) (funcDefs >>= \case
             FuncDef name args rt _ -> [(Identifier name, Binding Constant [KFunc ((snd <$> args) $-> rt)])]
             DataDef _name _members -> []) in
     mconcat <$> withState
