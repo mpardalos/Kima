@@ -40,7 +40,7 @@ desugarAST' = return . desugar
 tVarAnnotateFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST')
 tVarAnnotateAST = runMonadInterface . tVarAnnotateAST'
 tVarAnnotateAST' :: MonadInterface m => DesugaredAST p -> m (T.TVarAST p)
-tVarAnnotateAST' = runEither . (`evalStateT` baseTypeCtx) . (fmap T.addTVars . T.resolveTypes)
+tVarAnnotateAST' = runEither . (`evalStateT` (T.typeBindings baseTypeCtx)) . (fmap T.addTVars . T.resolveTypes)
 
 constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> constraintAST')
 constraintAST = runMonadInterface . constraintAST'

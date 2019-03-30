@@ -213,7 +213,7 @@ instance (AnnotationConstraint Show t) => Show (Identifier t) where
     show (TAccessor n t  ) = "{." ++ show n ++ " : " ++ show t ++ "}"
     show (Identifier  str) = "{"  ++ str    ++ "}"
     show (Builtin n      ) = "{"  ++ show n ++ "}"
-    show (Accessor n     ) = "{." ++ show n ++ "}"
+    show (Accessor str   ) = "{." ++ str    ++ "}"
 
 instance Pretty BuiltinName where
     pretty AddOp     = "(+)"

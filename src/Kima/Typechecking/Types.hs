@@ -71,10 +71,6 @@ instance Semigroup Binding where
     (Binding mutL typesL) <> (Binding mutR typesR) = 
         Binding (mutL <> mutR) (typesL <> typesR)
 
-
--- For now, when a name is declared, it has to have an associated type, so this
--- type is OK. If type inference is implemented to any degree, this will have to
--- be changed to map to a [TypeVar]
 data TypeCtx = TypeCtx {
     typeBindings :: Map TypeName KType,
     bindings :: Map (Identifier 'NoAnnotation) Binding

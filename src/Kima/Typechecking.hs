@@ -30,7 +30,7 @@ import           Kima.Typechecking.Types       as E
                                                 , TVarProgram
                                                 , TypecheckingError(..)
                                                 , TypeVar(..)
-                                                , TypeCtx
+                                                , TypeCtx(typeBindings)
                                                 )
 
 import qualified Data.Map                      as Map
@@ -46,10 +46,10 @@ typecheck typeCtx dAST = fst <$> typecheckWithTypeCtx typeCtx dAST
 
 typecheckWithTypeCtx :: TypeCtx -> DesugaredAST p -> Either TypecheckingError (TypedAST p, TypeCtx)
 typecheckWithTypeCtx baseTypeCtx dAST = do
-    (typeAnnotatedAST, computedTypeCtx) <- runStateT (resolveTypes dAST) baseTypeCtx
+    (typeAnnotatedAST, computedTypeBindings) <- runStateT (resolveTypes dAST) (typeBindings baseTypeCtx)
     let tVarAST = addTVars typeAnnotatedAST
     let constraints = makeConstraints tVarAST
-    (domains, finalTypeCtx) <- makeDomainsWithTypeCtx computedTypeCtx tVarAST
+    (domains, finalTypeCtx) <- makeDomainsWithTypeCtx (baseTypeCtx { typeBindings = computedTypeBindings }) tVarAST
     substitution <- unify constraints domains
     resultAST <- traverseIdAnnotations (applySubstitution substitution) tVarAST
     return (resultAST, finalTypeCtx)

@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedLists, AllowAmbiguousTypes #-}
 module Kima.Typechecking.DomainCalculation where
 
-import Debug.Trace
-
 import           Kima.Control.Monad.State.Extended
 import           Control.Arrow
 import           Control.Monad.Except
@@ -87,7 +85,7 @@ calculateDomains (Let name declaredType expr) =
 lookupIdentifier :: MonadDomain m => TVarIdentifier -> m Binding
 lookupIdentifier name = gets (bindings >>> Map.lookup (deTypeAnnotate name)) >>= \case
     Just b  -> return b
-    Nothing -> (traceShowM =<< gets bindings) >> throwError (UnboundName name)
+    Nothing -> throwError (UnboundName name)
 
 functionDomain
     :: MonadDomain m
