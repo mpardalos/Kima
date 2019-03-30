@@ -269,6 +269,11 @@ deriving instance (AnnotationConstraint Eq i, Eq t) => Eq (AST p s i t)
 
 -- Traverals
 
+traverseAnnotation :: Functor m => (t1 -> m t2) -> Identifier ('Annotation t1) -> m (Identifier ('Annotation t2))
+traverseAnnotation f (TIdentifier n t) = TIdentifier n <$> f t
+traverseAnnotation f (TBuiltin    n t) = TBuiltin    n <$> f t
+traverseAnnotation f (TAccessor   n t) = TAccessor   n <$> f t
+
 mapTypeAnnotations :: forall t1 t2 p s i. (t1 -> t2) -> AST p s i t1 -> AST p s i t2
 mapTypeAnnotations = coerce (traverseTypeAnnotations :: (t1 -> Identity t2) -> AST p s i t1 -> Identity (AST p s i t2))
 
@@ -290,29 +295,44 @@ traverseTypeAnnotations f (Assign n e)          = Assign n <$> traverseTypeAnnot
 traverseTypeAnnotations f (Var n t e)           = Var n    <$> f t <*> traverseTypeAnnotations f e
 traverseTypeAnnotations f (Let n t e)           = Let n    <$> f t <*> traverseTypeAnnotations f e
 
--- mapNames :: forall n1 n2 p sug t. (n1 -> n2) -> AST p sug n1 t -> AST p sug n2 t
--- mapNames = coerce (traverseNames :: (n1 -> Identity n2) -> AST p sug n1 t -> Identity (AST p sug n2 t))
+addIdAnnotations :: Applicative m => m idAnn -> AST p sug 'NoAnnotation t -> m (AST p sug ('Annotation idAnn) t)
+addIdAnnotations f (Program ast)            = Program <$> traverse (addIdAnnotations f) ast
+addIdAnnotations f (ExprStmt e)             = ExprStmt <$> addIdAnnotations f e
+addIdAnnotations _ (LiteralE lit)           = pure $ LiteralE lit
+addIdAnnotations f (IdentifierE n)          = IdentifierE <$> (typeAnnotate <$> f <*> pure n)
+addIdAnnotations f (BinE bin)               = BinE   <$> traverse (addIdAnnotations f) bin
+addIdAnnotations f (UnaryE unary)           = UnaryE <$> traverse (addIdAnnotations f) unary
+addIdAnnotations f (While stmt)             = While  <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
+addIdAnnotations f (If stmt)                = If     <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
+addIdAnnotations f (Block blk)              = Block  <$> traverse (addIdAnnotations f) blk
+addIdAnnotations f (FuncDef n args rt b)    = FuncDef  n args rt <$> addIdAnnotations f b
+addIdAnnotations f (FuncExpr args rt b)     = FuncExpr args rt <$> addIdAnnotations f b
+addIdAnnotations _ (DataDef n members)      = pure $ DataDef n members
+addIdAnnotations f (Call callee args)       = Call    <$> addIdAnnotations f callee <*> traverse (addIdAnnotations f) args
+addIdAnnotations f (Assign n e)             = Assign  <$> (typeAnnotate <$> f <*> pure n)<*> addIdAnnotations f e
+addIdAnnotations f (Var n t e)              = Var n t <$> addIdAnnotations f e
+addIdAnnotations f (Let n t e)              = Let n t <$> addIdAnnotations f e
 
--- traverseNames :: Applicative m => (n1 -> m n2) -> AST p sug n1 t -> m (AST p sug n2 t)
--- traverseNames f (Program ast)            = Program <$> traverse (traverseNames f) ast
--- traverseNames f (ExprStmt e)             = ExprStmt <$> traverseNames f e
--- traverseNames _ (LiteralE lit)           = pure $ LiteralE lit
--- traverseNames f (Identifier n)           = Identifier <$> f n
--- traverseNames f (BinE bin)               = BinE       <$> traverse (traverseNames f) bin
--- traverseNames f (UnaryE unary)           = UnaryE     <$> traverse (traverseNames f) unary
--- traverseNames f (While stmt)             = While <$> bitraverse (traverseNames f) (traverseNames f) stmt
--- traverseNames f (If stmt)                = If    <$> bitraverse (traverseNames f) (traverseNames f) stmt
--- traverseNames f (Block blk)              = Block <$> traverse   (traverseNames f)                   blk
--- traverseNames f (FuncDef n args rt b) = FuncDefAnn  <$> f n <*> traverse (traverseTuple1 f) args <*> pure rt <*> traverseNames f b
--- traverseNames f (FuncExpr args rt b)  = FuncExprAnn <$>         traverse (traverseTuple1 f) args <*> pure rt <*> traverseNames f b
--- traverseNames f (DataDef n members)   = DataDefAnn  <$> f n <*> traverse (traverseTuple1 f) members
--- traverseNames f (Call callee args)       = Call        <$> traverseNames f callee                               <*> traverse (traverseNames f) args
--- traverseNames f (Assign n e)             = Assign <$> f n            <*> traverseNames f e
--- traverseNames f (Var n t e)              = Var    <$> f n <*> pure t <*> traverseNames f e
--- traverseNames f (Let n t e)              = Let    <$> f n <*> pure t <*> traverseNames f e
-
--- traverseTuple1 :: Applicative m => (a -> m c) -> (a, b) -> m (c, b)
--- traverseTuple1 f (a, b) = liftA2 (,) (f a) (pure b)
+traverseIdAnnotations :: Applicative m
+                      => (idAnn1 -> m idAnn2)
+                      ->    AST p sug ('Annotation idAnn1) t
+                      -> m (AST p sug ('Annotation idAnn2) t)
+traverseIdAnnotations f (Program ast)            = Program <$> traverse (traverseIdAnnotations f) ast
+traverseIdAnnotations f (ExprStmt e)             = ExprStmt <$> traverseIdAnnotations f e
+traverseIdAnnotations _ (LiteralE lit)           = pure $ LiteralE lit
+traverseIdAnnotations f (IdentifierE n)          = IdentifierE <$> traverseAnnotation f n
+traverseIdAnnotations f (BinE bin)               = BinE   <$> traverse (traverseIdAnnotations f) bin
+traverseIdAnnotations f (UnaryE unary)           = UnaryE <$> traverse (traverseIdAnnotations f) unary
+traverseIdAnnotations f (While stmt)             = While  <$> bitraverse (traverseIdAnnotations f) (traverseIdAnnotations f) stmt
+traverseIdAnnotations f (If stmt)                = If     <$> bitraverse (traverseIdAnnotations f) (traverseIdAnnotations f) stmt
+traverseIdAnnotations f (Block blk)              = Block  <$> traverse (traverseIdAnnotations f) blk
+traverseIdAnnotations f (FuncDef n args rt b)    = FuncDef  n args rt <$> traverseIdAnnotations f b
+traverseIdAnnotations f (FuncExpr args rt b)     = FuncExpr args rt <$> traverseIdAnnotations f b
+traverseIdAnnotations _ (DataDef n members)      = pure $ DataDef n members
+traverseIdAnnotations f (Call callee args)       = Call    <$> traverseIdAnnotations f callee <*> traverse (traverseIdAnnotations f) args
+traverseIdAnnotations f (Assign n e)             = Assign  <$> traverseAnnotation f n <*> traverseIdAnnotations f e
+traverseIdAnnotations f (Var n t e)              = Var n t <$> traverseIdAnnotations f e
+traverseIdAnnotations f (Let n t e)              = Let n t <$> traverseIdAnnotations f e
 
 -- Patterns
 {-# COMPLETE StmtAST, ExprAST, ProgramAST, TopLevelAST#-}

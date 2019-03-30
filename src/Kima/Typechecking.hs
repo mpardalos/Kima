@@ -22,8 +22,8 @@ import           Kima.Typechecking.DomainCalculation
                                                 , makeDomainsWithTypeCtx 
                                                 )
 import           Kima.Typechecking.Types       as E
-                                                ( AnnotatedTVarAST
-                                                , AnnotatedTVarProgram
+                                                ( TVarAST
+                                                , TVarProgram
                                                 , Domains
                                                 , EqConstraintSet
                                                 , TVarAST
@@ -38,8 +38,8 @@ import           Control.Monad.State
 import           Kima.AST
 
 -- | Add type variables to the names of an AST
-addTVars = (`evalState` 0) . traverseNames @(State Int)
-    (\name -> state $ \n -> (typeAnnotate (TypeVar n) name, n + 1))
+addTVars = (`evalState` 0) . addIdAnnotations @(State Int)
+    (state $ \n -> (TypeVar n, n+1))
 
 typecheck :: TypeCtx -> DesugaredAST p -> Either TypecheckingError (TypedAST p)
 typecheck typeCtx dAST = fst <$> typecheckWithTypeCtx typeCtx dAST
@@ -51,10 +51,10 @@ typecheckWithTypeCtx baseTypeCtx dAST = do
     let constraints = makeConstraints tVarAST
     (domains, finalTypeCtx) <- makeDomainsWithTypeCtx computedTypeCtx tVarAST
     substitution <- unify constraints domains
-    resultAST <- traverseNames (applySubstitution substitution) tVarAST
+    resultAST <- traverseIdAnnotations (applySubstitution substitution) tVarAST
     return (resultAST, finalTypeCtx)
   where
-    applySubstitution substitution name =
-        case Map.lookup (nameType name) substitution of
-            Just t  -> pure (typeAnnotate t name)
-            Nothing -> Left (NoSolution (nameType name))
+    applySubstitution substitution tvar =
+        case Map.lookup tvar substitution of
+            Just t  -> Right t
+            Nothing -> Left (NoSolution tvar)

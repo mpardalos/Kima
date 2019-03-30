@@ -25,27 +25,23 @@ resolveTypes ast = traverseTypeAnnotations resolveTypeExpr ast
 
 processDataDefs :: MonadTypeResolution m => DesugaredAST 'Module -> m ()
 processDataDefs (Program topLevelDecls) = forM_ topLevelDecls $ \case 
-    DataDefAnn (Name typeName) members -> do
+    DataDef typeName members -> do
         let declaredType = KUserType typeName
         -- Declares a new type
         modify (addType typeName declaredType)
+        typedMembers <- traverse (traverse resolveTypeExpr) members
 
-        -- Accessors for its members
-        forM_ members $ \(memberName, memberTypeExpr) -> do
-            memberType <- resolveTypeExpr memberTypeExpr
-            boundName <- case memberName of
-                name@Accessor{} -> pure name
-                name            -> throwError (UnexpectedNameType name)
-            modify (addBinding boundName
-                (Binding Constant [KFunc ([declaredType] $-> memberType)]))
+        -- Accessors
+        forM_ typedMembers $ \(memberName, memberType) ->
+            modify (addBinding (Identifier memberName)
+                    (Binding Constant [KFunc ([declaredType] $-> memberType)]))
 
         -- And a constructor
-        memberTypes <- forM (snd <$> members) resolveTypeExpr
-        modify (addBinding (Name typeName) (Binding Constant [
-            KFunc (memberTypes $-> declaredType)]))
+        let memberTypes = snd <$> typedMembers
+        modify (addBinding (Identifier typeName)
+                (Binding Constant [KFunc (memberTypes $-> declaredType)]))
 
-    DataDefAnn n _ -> throwError (UnexpectedNameType n)
-    FuncDefAnn{} -> pure ()
+    FuncDef{} -> pure ()
 
 resolveTypeExpr :: MonadTypeResolution m => TypeExpr -> m KType
 resolveTypeExpr tExpr@(TypeName name) =
