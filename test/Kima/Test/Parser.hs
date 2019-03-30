@@ -26,13 +26,13 @@ spec = parallel $ describe "Parser" $ do
 
 termTests :: [(String, ParsedAST 'Expr)]
 termTests =
-    [ ("name"   , Identifier "name")
-    , ("1.23"   , LiteralE (FloatExpr 1.23))
-    , ("5"      , LiteralE (IntExpr 5))
-    , ("\"hi\"" , LiteralE (StringExpr "hi"))
-    , ("\"123\"", LiteralE (StringExpr "123"))
-    , ("False"  , LiteralE (BoolExpr False))
-    , ("True"   , LiteralE (BoolExpr True))
+    [ ("name"   , IdentifierE "name")
+    , ("1.23"   , LiteralE    (FloatExpr 1.23))
+    , ("5"      , LiteralE    (IntExpr 5))
+    , ("\"hi\"" , LiteralE    (StringExpr "hi"))
+    , ("\"123\"", LiteralE    (StringExpr "123"))
+    , ("False"  , LiteralE    (BoolExpr False))
+    , ("True"   , LiteralE    (BoolExpr True))
     ]
 
 expressionTests :: [(String, ParsedAST 'Expr)]
@@ -47,10 +47,10 @@ expressionTests =
       , BinE (LiteralE (StringExpr "a") `Add` LiteralE (StringExpr "b"))
       )
     , ("10(5)", Call (LiteralE (IntExpr 10)) [LiteralE (IntExpr 5)])
-    , ("func(5)", Call (Identifier "func") [LiteralE (IntExpr 5)])
+    , ("func(5)", Call (IdentifierE "func") [LiteralE (IntExpr 5)])
     , ("func(5)(\"hi\")"
       , Call 
-            (Call (Identifier "func") [LiteralE (IntExpr 5)])
+            (Call (IdentifierE "func") [LiteralE (IntExpr 5)])
             [LiteralE (StringExpr "hi")]
       )
     ]
@@ -59,13 +59,13 @@ statementTests :: [(String, ParsedAST 'Stmt)]
 statementTests = 
     [ ("while True { print(name); }", While (
         WhileStmt (LiteralE $ BoolExpr True) $ Block [
-            ExprStmt $ Call (Identifier "print") [Identifier "name"]
+            ExprStmt $ Call (IdentifierE "print") [IdentifierE "name"]
         ]))
     , ("if True { print(name1); } else { print(name2); }", If (
         IfStmt (LiteralE $ BoolExpr True) (Block [
-            ExprStmt $ Call (Identifier "print") [Identifier "name1"]
+            ExprStmt $ Call (IdentifierE "print") [IdentifierE "name1"]
         ]) $ Block [
-            ExprStmt $ Call (Identifier "print") [Identifier "name2"]
+            ExprStmt $ Call (IdentifierE "print") [IdentifierE "name2"]
         ]
         ))
     ]

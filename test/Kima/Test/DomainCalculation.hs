@@ -25,11 +25,11 @@ spec = describe "Domain Calculator" $ do
 
     it "Allows assign to variable" $
         calculateDomains (Assign 
-            (TypedName "a" (TypeVar 1)) 
+            (TIdentifier "a" (TypeVar 1))
             (LiteralE (IntExpr 5)))
         `withTypeCtx` TypeCtx 
             []
-            [(Name "a", Binding Variable [KFloat])]
+            [(Identifier "a", Binding Variable [KFloat])]
         `shouldSatisfy` isRight
     
 withTypeCtx

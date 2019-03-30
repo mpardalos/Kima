@@ -39,7 +39,7 @@ instance MonadConsole TestInterpreter where
         consoleRead = ask
         consoleWrite = tell
 
-constraintsFor :: AnnotatedTVarAST p -> EqConstraintSet
+constraintsFor :: TVarAST p -> EqConstraintSet
 constraintsFor = execWriter . \case 
         ProgramAST ast  -> writeProgramConstraints ast
         TopLevelAST func -> writeTopLevelConstraints func
