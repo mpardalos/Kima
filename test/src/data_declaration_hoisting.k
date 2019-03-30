@@ -1,4 +1,4 @@
-fun f() -> Position {
+fun main() -> Unit {
     Position(1, 5);
 }
 
