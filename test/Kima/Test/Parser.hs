@@ -53,6 +53,10 @@ expressionTests =
             (Call (IdentifierE "func") [LiteralE (IntExpr 5)])
             [LiteralE (StringExpr "hi")]
       )
+    , ( "a.b", _)
+    , ( "a().b", _)
+    , ( "(1+4).b", _)
+    , ( "a.b.c", _)
     ]
 
 statementTests :: [(String, ParsedAST 'Stmt)]
