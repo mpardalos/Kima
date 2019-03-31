@@ -9,8 +9,9 @@ import           Kima.AST
 
 desugar :: ParsedAST p -> DesugaredAST p
 -- The only cases that actually change
-desugar (BinE    bin  ) = desugarBinary (desugar <$> bin)
-desugar (UnaryE  unary) = desugarUnary (desugar <$> unary)
+desugar (BinE    bin  )  = desugarBinary (desugar <$> bin)
+desugar (UnaryE  unary)  = desugarUnary (desugar <$> unary)
+desugar (AccessE access) = _desugarAccess access
 
 -- Basically just traverse
 desugar (Program ast  ) = Program (desugar <$> ast)
@@ -24,7 +25,7 @@ desugar (FuncExpr args rt body) = FuncExpr args rt (desugar body)
 desugar (Call callee args) = Call (desugar callee) (desugar <$> args)
 desugar (ExprStmt expr   ) = ExprStmt (desugar expr)
 desugar (Block    stmts  ) = Block (desugar <$> stmts)
-desugar (Assign name expr) = Assign (desugarIdentifier name) (desugar expr)
+desugar (Assign name expr) = Assign (desugarIdentifier <$> name) (desugar expr)
 desugar (Let name t expr ) = Let name t (desugar expr)
 desugar (Var name t expr ) = Var name t (desugar expr)
 desugar (While stmt      ) = While (bimap desugar desugar stmt)

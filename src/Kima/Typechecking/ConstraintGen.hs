@@ -7,6 +7,7 @@ import           Control.Arrow                 as Arrow
                                                 )
 import           Control.Monad.Writer
 import           Data.Foldable
+import           Data.List.NonEmpty (NonEmpty(..))
 
 import           Safe
 
@@ -71,10 +72,11 @@ stmtReturnTVar (Let _name declaredType expr) = do
     valueTVar <- exprTVar expr
     writeConstraint $ valueTVar =#= TheType declaredType
     pure (TheType KUnit)
-stmtReturnTVar (Assign name expr) = do
+stmtReturnTVar (Assign (WriteAccess (name :| [])) expr) = do
     exprType <- exprTVar expr
     writeConstraint (nameType name =#= exprType)
     pure (TheType KUnit)
+stmtReturnTVar (Assign (WriteAccess (name :| field)) expr) = _fieldAccess name field expr
 
 -- | Compute the type of an expression and write the constraints required for
 -- | typing it

@@ -4,6 +4,7 @@ module Kima.Test.DomainCalculation where
 
 import Control.Monad.State
 import Data.Either
+import Data.List.NonEmpty (NonEmpty(..))
 import Kima.Typechecking.DomainCalculation
 import Kima.Typechecking.Types
 import Kima.KimaTypes
@@ -16,8 +17,8 @@ import Test.QuickCheck
 spec :: Spec
 spec = describe "Domain Calculator" $ do
     prop "Doesn't allow assign to constant" $ 
-        forAll arbitrary $ \name -> 
-        calculateDomains (Assign name (LiteralE (IntExpr 5)))
+        forAll arbitrary $ \name ->
+        calculateDomains (Assign (WriteAccess (name :| [])) (LiteralE (IntExpr 5)))
         `withTypeCtx` TypeCtx
             []
             [(deTypeAnnotate name, Binding Constant [KInt])]
@@ -25,7 +26,7 @@ spec = describe "Domain Calculator" $ do
 
     it "Allows assign to variable" $
         calculateDomains (Assign 
-            (TIdentifier "a" (TypeVar 1))
+            (WriteAccess ((TIdentifier "a" (TypeVar 1)) :| []))
             (LiteralE (IntExpr 5)))
         `withTypeCtx` TypeCtx 
             []

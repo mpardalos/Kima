@@ -53,10 +53,10 @@ expressionTests =
             (Call (IdentifierE "func") [LiteralE (IntExpr 5)])
             [LiteralE (StringExpr "hi")]
       )
-    , ( "a.b", _)
-    , ( "a().b", _)
-    , ( "(1+4).b", _)
-    , ( "a.b.c", _)
+    , ( "a.b",     AccessE (IdentifierE "a" `Access` "b"))
+    , ( "a().b",   AccessE (Call (IdentifierE "a") [] `Access` "b"))
+    , ( "(1+4).b", AccessE (BinE (LiteralE (IntExpr 1) `Add` LiteralE (IntExpr 4)) `Access` "b"))
+    , ( "a.b.c",   AccessE (AccessE (IdentifierE "a" `Access` "b") `Access` "c"))
     ]
 
 statementTests :: [(String, ParsedAST 'Stmt)]

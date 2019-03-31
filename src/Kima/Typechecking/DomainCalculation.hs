@@ -6,6 +6,7 @@ import           Control.Arrow
 import           Control.Monad.Except
 import           Data.Foldable
 import           Data.List
+import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map                      as Map
 import           Kima.AST
 import           Kima.KimaTypes
@@ -74,7 +75,7 @@ calculateDomains (If (IfStmt cond ifBlk elseBlk)) = do
     ifBlkDs   <- calculateDomains ifBlk
     elseBlkDs <- calculateDomains elseBlk
     return (condDs <> ifBlkDs <> elseBlkDs)
-calculateDomains (Assign name expr) = do
+calculateDomains (Assign (WriteAccess (name :| [])) expr) = do
     Binding mut ts <- lookupIdentifier name
     case mut of
         Constant -> throwError (AssignToConst (deTypeAnnotate name))
@@ -82,6 +83,7 @@ calculateDomains (Assign name expr) = do
             let nameDs = [(nameType name, ts)]
             exprDs <- calculateDomains expr
             return (nameDs <> exprDs)
+calculateDomains (Assign (WriteAccess (name :| field)) expr) = _fieldMutation name field expr
 calculateDomains (Var name declaredType expr) =
     gets (bindings >>> Map.lookup (Identifier name)) >>= \case
         Nothing -> do

@@ -9,6 +9,7 @@ import qualified Data.Set                      as Set
 import           Data.Set                       ( Set
                                                 , (\\)
                                                 )
+import           Data.List.NonEmpty (NonEmpty(..))
 import           Kima.KimaTypes
 import           Kima.AST
 import           Kima.Typechecking.Types
@@ -55,6 +56,9 @@ disjointSets gen = do
 arbitrarySingleType :: Gen KType
 arbitrarySingleType = baseCase
 
+arbitraryWriteIdentifier :: Arbitrary ident => Gen (WriteAccess ident)
+arbitraryWriteIdentifier = WriteAccess <$> ((:|) <$> arbitrary <*> pure [])
+
 instance Arbitrary KType where
     arbitrary = sized $ \case
         n | n <= 1 -> arbitrarySingleType
@@ -88,6 +92,9 @@ instance Arbitrary a => Arbitrary (Binary a) where
 
 instance Arbitrary a => Arbitrary (Unary a) where
     arbitrary = genericArbitraryU
+
+instance Arbitrary ident => Arbitrary (WriteAccess ident) where
+    arbitrary = WriteAccess <$> ((:|) <$> arbitrary <*> arbitrary)
 
 instance (Arbitrary t, Arbitrary (Identifier idAnn)) => Arbitrary (AST 'Expr 'NoSugar idAnn t) where
     arbitrary = oneof

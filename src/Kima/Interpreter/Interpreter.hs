@@ -5,6 +5,8 @@ import           Prelude                 hiding ( lookup )
 import           Control.Newtype.Generics
 import           Control.Monad.Except
 
+import           Data.List.NonEmpty (NonEmpty(..))
+
 import           Kima.AST
 import           Kima.Control.Monad.State.Extended
 import           Kima.Interpreter.Types
@@ -32,7 +34,8 @@ runStmt :: MonadInterpreter m => RuntimeAST 'Stmt -> m Value
 runStmt (Block stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
-runStmt (Assign name expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (Assign (WriteAccess (name :| [])) expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (Assign (WriteAccess (name :| field)) expr) = _fieldMutation name field expr
 runStmt (Let    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (Var    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (ExprStmt expr) = evalExpr expr
