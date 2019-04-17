@@ -8,6 +8,7 @@ module Kima.Typechecking.Types
     , Substitution
     , TVarAST
     , TVarIdentifier
+    , TVarName
     , TVarProgram
     , TypeAnnotatedAST
     , TypeAnnotatedProgram
@@ -32,7 +33,7 @@ import           Kima.AST
 import           Kima.KimaTypes
 
 data TypecheckingError = AmbiguousVariable TypeVar [KType]
-                       | AssignToConst (Identifier 'NoAnnotation)
+                       | AssignToConst (WriteAccess TVarName)
                        | CantUnify TypeVar TypeVar
                        | CantUnifyCall TypeVar [TypeVar]
                        | MultipleSolutions TypeVar [KType]
@@ -41,6 +42,7 @@ data TypecheckingError = AmbiguousVariable TypeVar [KType]
                        | TypeResolutionError TypeExpr
                        | UnexpectedBuiltin BuiltinName
                        | UnboundName TVarIdentifier
+                       | NoSuchField (WriteAccess Name) [KType] Name
     deriving (Eq, Show)
 
 -------------------------------- Constraints ---------------------------------------
@@ -96,7 +98,8 @@ data TypeVar = TypeVar Int
              | ApplicationTVar TypeVar [TypeVar]
     deriving (Eq, Ord, Generic)
 
-type TVarIdentifier     = Identifier ('Annotation TypeVar)
+type TVarIdentifier = Identifier ('Annotation TypeVar)
+type TVarName       = AnnotatedName ('Annotation TypeVar)
 
 type TVarAST (p :: ASTPart) = AST p 'NoSugar ('Annotation TypeVar) KType
 type TVarProgram        = TVarAST 'Module
@@ -121,8 +124,8 @@ instance Pretty TypecheckingError where
         "Typevar" <+> pretty var <+> "is ambiguous. Available types:" 
         <> line 
         <> indent 4 (bulletList types) 
-    pretty (AssignToConst name         ) = 
-        "Assigned to constant" <+> pretty name
+    pretty (AssignToConst accessor     ) =
+        "Assigned to constant" <+> pretty accessor
     pretty (CantUnify l r              ) = 
         "Can't unify" <+> pretty l <+> pretty r
     pretty (CantUnifyCall callee args  ) = 
@@ -142,6 +145,18 @@ instance Pretty TypecheckingError where
         "Got builtin" <+> pretty name <+> "where a normal name was expected"
     pretty (UnboundName         name ) =
         "Reference to unbound name" <+> pretty name
+    pretty (NoSuchField accessor baseType requiredField) =
+        "In the accessor"
+        <> line <>
+        indent 4 (pretty accessor)
+        <> line <>
+        "None of the available types have the field"
+        <> line <>
+        indent 4 (pretty requiredField)
+        <> line <>
+        "The available types are:"
+        <> line <>
+        indent 4 (bulletList baseType)
 
 bulletList :: Pretty a => [a] -> Doc ann
 bulletList = vsep . fmap (("•" <+>) . pretty)

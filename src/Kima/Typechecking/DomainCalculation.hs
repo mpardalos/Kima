@@ -6,7 +6,7 @@ import           Control.Arrow
 import           Control.Monad.Except
 import           Data.Foldable
 import           Data.List
-import           Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
 import           Kima.AST
 import           Kima.KimaTypes
@@ -44,7 +44,7 @@ calculateDomains (Program topLevel) = do
 
 calculateDomains (FuncDef _name args _ body) = functionDomain args body
 calculateDomains (DataDef name members) = do
-    let declaredType = KUserType name
+    let declaredType = KUserType name members
     let accessorBindings = (\(memberName, memberType) ->
                                 ( Accessor memberName
                                 , Binding Constant [KFunc ([declaredType] $-> memberType)]))
@@ -75,15 +75,7 @@ calculateDomains (If (IfStmt cond ifBlk elseBlk)) = do
     ifBlkDs   <- calculateDomains ifBlk
     elseBlkDs <- calculateDomains elseBlk
     return (condDs <> ifBlkDs <> elseBlkDs)
-calculateDomains (Assign (WriteAccess (name :| [])) expr) = do
-    Binding mut ts <- lookupIdentifier name
-    case mut of
-        Constant -> throwError (AssignToConst (deTypeAnnotate name))
-        Variable -> do
-            let nameDs = [(nameType name, ts)]
-            exprDs <- calculateDomains expr
-            return (nameDs <> exprDs)
-calculateDomains (Assign (WriteAccess (name :| field)) expr) = _fieldMutation name field expr
+calculateDomains (Assign access expr) = assignDomain access expr
 calculateDomains (Var name declaredType expr) =
     gets (bindings >>> Map.lookup (Identifier name)) >>= \case
         Nothing -> do
@@ -96,6 +88,29 @@ calculateDomains (Let name declaredType expr) =
             modify (addBinding (Identifier name) (Binding Constant [declaredType]))
             calculateDomains expr
         Just _ -> throwError (NameShadowed name)
+
+assignDomain :: forall m. MonadDomain m => WriteAccess TVarName -> TVarAST 'Expr -> m Domains
+assignDomain accessor@(WriteAccess (TName baseName baseTVar) subfields) expr =
+    lookupIdentifier (TIdentifier baseName baseTVar) >>= \case
+        Binding Constant _  -> throwError (AssignToConst accessor)
+        Binding Variable ts -> do
+            let nameDs = [(baseTVar, ts)]
+            subfieldDs <- subfieldDomains (toList ts) subfields
+            exprDs     <- calculateDomains expr
+            return (nameDs <> exprDs <> subfieldDs)
+    where
+        subfieldDomains :: [KType]    -- | The possible types of the base of the access
+                       -> [TVarName] -- | The sequence of subfields
+                       -> m Domains
+        subfieldDomains _ []  = return []
+        subfieldDomains baseTypes (TName fieldName fieldTVar : subfields) =
+            case lookupAll fieldName (fields =<< baseTypes) of
+                []            -> throwError (NoSuchField ((\(TName n _) -> n) <$> accessor) baseTypes fieldName)
+                possibleTypes -> Map.union [(fieldTVar, Set.fromList possibleTypes)]
+                    <$> subfieldDomains possibleTypes subfields
+
+        lookupAll :: Eq a => a -> [(a, b)] -> [b]
+        lookupAll x = fmap snd . filter ((==x) . fst)
 
 lookupIdentifier :: MonadDomain m => TVarIdentifier -> m Binding
 lookupIdentifier name = gets (bindings >>> Map.lookup (deTypeAnnotate name)) >>= \case

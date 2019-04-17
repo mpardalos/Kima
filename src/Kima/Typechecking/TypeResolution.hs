@@ -3,6 +3,7 @@ module Kima.Typechecking.TypeResolution where
 
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Bitraversable
 import           Data.Map   (Map)
 import qualified Data.Map as Map
 import Kima.AST
@@ -25,7 +26,9 @@ resolveTypes ast = traverseTypeAnnotations resolveTypeExpr ast
 
 processDataDefs :: MonadTypeResolution m => DesugaredAST 'Module -> m ()
 processDataDefs (Program topLevelDecls) = forM_ topLevelDecls $ \case 
-    DataDef typeName _members -> modify (Map.insert typeName (KUserType typeName))
+    DataDef typeName members -> do
+        resolvedMembers <- traverse @[] (bitraverse @(,) pure resolveTypeExpr) members
+        modify (Map.insert typeName (KUserType typeName resolvedMembers))
     FuncDef{} -> pure ()
 
 resolveTypeExpr :: MonadTypeResolution m => TypeExpr -> m KType

@@ -5,8 +5,6 @@ import           Prelude                 hiding ( lookup )
 import           Control.Newtype.Generics
 import           Control.Monad.Except
 
-import           Data.List.NonEmpty (NonEmpty(..))
-
 import           Kima.AST
 import           Kima.Control.Monad.State.Extended
 import           Kima.Interpreter.Types
@@ -34,8 +32,8 @@ runStmt :: MonadInterpreter m => RuntimeAST 'Stmt -> m Value
 runStmt (Block stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
-runStmt (Assign (WriteAccess (name :| [])) expr) = Unit <$ (evalExpr expr >>= bind name)
-runStmt (Assign (WriteAccess (name :| field)) expr) = _fieldMutation name field expr
+runStmt (Assign (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind (toIdentifier name))
+runStmt (Assign (WriteAccess name field) expr) = _fieldMutation name field expr
 runStmt (Let    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (Var    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (ExprStmt expr) = evalExpr expr
@@ -73,7 +71,7 @@ bindTopLevel (FuncDef name args rt body) = do
     bind (TIdentifier name funcType) function
     return function
 bindTopLevel (DataDef name members)       = do
-    let declaredType = KUserType name
+    let declaredType = KUserType name members
     let memberTypes = snd <$> members
     let constructor = BuiltinFunction (return . ProductData)
     let constructorType = KFunc (memberTypes $-> declaredType)

@@ -22,23 +22,22 @@ desugar (DataDef name members) =
     DataDef name members
 desugar (FuncDef name args rt body) =
     FuncDef name args rt (desugar body)
-desugar (LiteralE     lit) = LiteralE lit
-desugar (IdentifierE name) = IdentifierE (desugarIdentifier name)
+desugar (LiteralE     lit)   = LiteralE lit
+desugar (IdentifierE name)   = IdentifierE (desugarIdentifier name)
 desugar (FuncExpr args rt body) = FuncExpr args rt (desugar body)
-desugar (Call callee args) = Call (desugar callee) (desugar <$> args)
-desugar (ExprStmt expr   ) = ExprStmt (desugar expr)
-desugar (Block    stmts  ) = Block (desugar <$> stmts)
-desugar (Assign name expr) = Assign (desugarIdentifier <$> name) (desugar expr)
-desugar (Let name t expr ) = Let name t (desugar expr)
-desugar (Var name t expr ) = Var name t (desugar expr)
-desugar (While stmt      ) = While (bimap desugar desugar stmt)
-desugar (If    stmt      ) = If (bimap desugar desugar stmt)
+desugar (Call callee args)   = Call (desugar callee) (desugar <$> args)
+desugar (ExprStmt expr   )   = ExprStmt (desugar expr)
+desugar (Block    stmts  )   = Block (desugar <$> stmts)
+desugar (Assign target expr) = Assign target (desugar expr)
+desugar (Let name t expr )   = Let name t (desugar expr)
+desugar (Var name t expr )   = Var name t (desugar expr)
+desugar (While stmt      )   = While (bimap desugar desugar stmt)
+desugar (If    stmt      )   = If (bimap desugar desugar stmt)
 
 desugarIdentifier :: Identifier t -> Identifier t
 desugarIdentifier (Identifier "print") = Builtin PrintFunc
 desugarIdentifier (Identifier "input") = Builtin InputFunc
 desugarIdentifier name = name
--- desugarName (Accessor n  ) = Accessor n
 
 desugarBinary :: Binary (DesugaredAST 'Expr) -> DesugaredAST 'Expr
 desugarBinary (Add     l r) = Call (IdentifierE $ Builtin AddOp) [l, r]

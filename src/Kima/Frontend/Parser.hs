@@ -66,11 +66,15 @@ varStmt = Var
 
 assignStmt :: Parser (ParsedAST 'Stmt)
 assignStmt = try (Assign
-    -- Possibly unsafe, converts [] to NonEmpty
-    -- Ok because the list comes from sepBy1
-    <$> (WriteAccess . fromList <$> identifier `sepBy1` symbol Dot)
+    <$> writeAccess
     <*> (symbol Equals *> expr))
     <?> "assignment"
+
+writeAccess :: IsString s => Parser (WriteAccess s)
+writeAccess = label "accessor" $ do
+    base <- identifier
+    fields <- option [] (symbol Dot *> identifier `sepBy1` symbol Dot)
+    return (WriteAccess base fields)
 
 whileStmt :: Parser (ParsedAST 'Stmt)
 whileStmt = While <$> (WhileStmt
