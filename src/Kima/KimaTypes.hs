@@ -7,7 +7,8 @@ import GHC.Generics
 -- | The types of the kima programming language
 data KType = KString | KUnit | KBool | KInt | KFloat 
            | KFunc (Signature KType)
-           | KUserType String
+           -- | A user defined type is defined by its name and fields
+           | KUserType String [(String, KType)]
   deriving (Eq, Ord, Generic)
 
 data Signature kt = Signature {
@@ -23,10 +24,19 @@ instance Show KType where
   show = show . pretty
 
 instance Pretty KType where
-  pretty KString       = "String"
-  pretty KUnit         = "Unit"
-  pretty KBool         = "Bool"
-  pretty KInt          = "Int"
-  pretty KFloat        = "Float"
-  pretty (KFunc sig)   = "[" <> viaShow sig <> "]"
-  pretty (KUserType n) = pretty n
+  pretty KString          = "String"
+  pretty KUnit            = "Unit"
+  pretty KBool            = "Bool"
+  pretty KInt             = "Int"
+  pretty KFloat           = "Float"
+  pretty (KFunc sig)      = "[" <> viaShow sig <> "]"
+  pretty (KUserType n _f) = pretty n
+
+fields :: KType -> [(String, KType)]
+fields KString = []
+fields KUnit   = []
+fields KBool   = []
+fields KInt    = []
+fields KFloat  = []
+fields KFunc{} = []
+fields (KUserType _name fs) = fs

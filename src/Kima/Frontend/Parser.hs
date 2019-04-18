@@ -66,9 +66,15 @@ varStmt = Var
 
 assignStmt :: Parser (ParsedAST 'Stmt)
 assignStmt = try (Assign
-    <$> identifier 
+    <$> writeAccess
     <*> (symbol Equals *> expr))
     <?> "assignment"
+
+writeAccess :: IsString s => Parser (WriteAccess s)
+writeAccess = label "accessor" $ do
+    base <- identifier
+    fields <- option [] (symbol Dot *> identifier `sepBy1` symbol Dot)
+    return (WriteAccess base fields)
 
 whileStmt :: Parser (ParsedAST 'Stmt)
 whileStmt = While <$> (WhileStmt
@@ -136,7 +142,7 @@ accessCall = do
             Left  <$> (symbol Dot *> identifier) <|>
             Right <$> parens (expr `sepBy` symbol Comma)
 
-        combiner acc (Left  attr) = Call (IdentifierE (Accessor attr)) [acc]
+        combiner acc (Left  attr) = AccessE (Access acc attr)
         combiner acc (Right args) = Call acc args
 
 typeExpr :: Parser TypeExpr

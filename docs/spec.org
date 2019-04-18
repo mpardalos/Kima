@@ -77,3 +77,8 @@ fun what_event(ev: Event) -> String {
 
 Incomplete patterns are an error.
 * Accessors
+Accessors allow reading and mutating record fields.
+They have the form `EXPRESSION . IDENTIFIER`.
+Any accessor of this form may be used for reading. To be used for mutating,
+the object refered to be the expression must have mutable type, and its
+IDENTIFIER field must also be mutable.

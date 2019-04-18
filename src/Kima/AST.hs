@@ -60,8 +60,19 @@ data WhileStmt cond body = WhileStmt {
     body :: body
 } deriving Eq
 
+data Access ident expr = Access expr Name | IdAccess ident
+    deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
+
+data WriteAccess ident = WriteAccess ident [ident]
+    deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
+
 data HasAnnotation = NoAnnotation | Annotation Type
 type Name = String
+-- TODO Unify AnnotatedName, Name and Identifier under a typeclass
+data AnnotatedName :: HasAnnotation -> Type where
+    Name  :: String      -> AnnotatedName 'NoAnnotation
+    TName :: String -> t -> AnnotatedName ('Annotation t)
+
 data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn :: Type) where
     Program :: [AST 'TopLevel s i t] -> AST 'Module s i t
 
@@ -77,16 +88,17 @@ data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn ::
     Call        :: AST 'Expr s i t -> [AST 'Expr s i t] -> AST 'Expr s i t
 
     -- Sugar
-    BinE   :: Binary (AST 'Expr 'Sugar i t) -> AST 'Expr 'Sugar i t
-    UnaryE :: Unary (AST 'Expr 'Sugar i t)  -> AST 'Expr 'Sugar i t
+    AccessE :: Access (Identifier i) (AST 'Expr 'Sugar i t) -> AST 'Expr 'Sugar i t
+    BinE    :: Binary (AST 'Expr 'Sugar i t)                -> AST 'Expr 'Sugar i t
+    UnaryE  :: Unary (AST 'Expr 'Sugar i t)                 -> AST 'Expr 'Sugar i t
 
     ----------------------- Statements  ----------------------- 
     -- Interpreted Core
-    ExprStmt :: AST 'Expr s i t                               -> AST 'Stmt s i t
-    Block    :: [AST 'Stmt s i t]                             -> AST 'Stmt s i t
-    While    :: WhileStmt (AST 'Expr s i t) (AST 'Stmt s i t) -> AST 'Stmt s i t
-    If       :: IfStmt (AST 'Expr s i t) (AST 'Stmt s i t)    -> AST 'Stmt s i t
-    Assign   :: Identifier i -> AST 'Expr s i t               -> AST 'Stmt s i t
+    ExprStmt :: AST 'Expr s i t                                  -> AST 'Stmt s i t
+    Block    :: [AST 'Stmt s i t]                                -> AST 'Stmt s i t
+    While    :: WhileStmt (AST 'Expr s i t) (AST 'Stmt s i t)    -> AST 'Stmt s i t
+    If       :: IfStmt (AST 'Expr s i t) (AST 'Stmt s i t)       -> AST 'Stmt s i t
+    Assign   :: WriteAccess (AnnotatedName i) -> AST 'Expr s i t -> AST 'Stmt s i t
 
     -- Typed versions
     Var      :: Name -> t -> AST 'Expr s i t -> AST 'Stmt s i t
@@ -133,6 +145,10 @@ nameType (TIdentifier _ t) = t
 nameType (TBuiltin    _ t) = t
 nameType (TAccessor   _ t) = t
 
+toIdentifier :: AnnotatedName t -> Identifier t
+toIdentifier (Name n) = Identifier n
+toIdentifier (TName n t) = TIdentifier n t
+
 --------------- Show instances ---------------------
 prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann
 prettyArgList = tupled . fmap (\(name, t) -> pretty name <> ": " <> pretty t)
@@ -168,10 +184,16 @@ instance Pretty a => Pretty (Unary a) where
     pretty (Negate e) = "-" <> pretty e
     pretty (Invert e) = "!" <> pretty e
 
-instance (AnnotationConstraint Pretty i, Pretty t) => Show (AST p s i t) where
+instance (AnnotationConstraint Pretty i,
+          Pretty (AnnotatedName i),
+          Pretty t) =>
+         Show (AST p s i t) where
     show = show . pretty
 
-instance (AnnotationConstraint Pretty i, Pretty t) => Pretty (AST p s i t) where
+instance (AnnotationConstraint Pretty i,
+          Pretty (AnnotatedName i),
+          Pretty t) =>
+         Pretty (AST p s i t) where
     pretty (Program ast) = vcat (pretty <$> ast)
     pretty (FuncDef name sig rt body) =
         "fun" <+> pretty name <> prettyArgList sig <+> "->" <+> pretty rt <+> pretty body
@@ -189,6 +211,7 @@ instance (AnnotationConstraint Pretty i, Pretty t) => Pretty (AST p s i t) where
     pretty (Call callee args) = pretty callee <> tupled (pretty <$> args)
     pretty (BinE bin) = pretty bin
     pretty (UnaryE unary) = pretty unary
+    pretty (AccessE access) = pretty access
     pretty (ExprStmt expr) = pretty expr
     pretty (Block stmts) = "{" <> line
         <> indent 4 (vcat (pretty <$> stmts))
@@ -196,7 +219,6 @@ instance (AnnotationConstraint Pretty i, Pretty t) => Pretty (AST p s i t) where
     pretty (Assign name expr) = pretty name <+> "=" <+> pretty expr
     pretty (While stmt) = pretty stmt 
     pretty (If stmt) = pretty stmt
-
 
 instance Show TypeExpr where
     show (TypeName s) = "#\"" ++ s ++ "\""
@@ -215,6 +237,10 @@ instance (AnnotationConstraint Show t) => Show (Identifier t) where
     show (Builtin n      ) = "{"  ++ show n ++ "}"
     show (Accessor str   ) = "{." ++ str    ++ "}"
 
+instance (AnnotationConstraint Show t) => Show (AnnotatedName t) where
+    show (TName n t) = "{"  ++ n   ++ " : " ++ show t ++ "}"
+    show (Name  str) = "{"  ++ str ++ "}"
+
 instance Pretty BuiltinName where
     pretty AddOp     = "(+)"
     pretty SubOp     = "(-)"
@@ -230,6 +256,19 @@ instance Pretty BuiltinName where
     pretty NegateOp  = "(!)"
     pretty PrintFunc = "b'print"
     pretty InputFunc = "b'input"
+
+instance Pretty ident => Pretty (WriteAccess ident) where
+    pretty (WriteAccess ident rest) = hcat $ punctuate "." (pretty <$> ident:rest)
+instance Pretty ident => Show (WriteAccess ident) where
+    show = show . pretty
+
+instance (Pretty ident, Pretty expr) => Pretty (Access ident expr) where
+    pretty (Access record field) = pretty record <> "." <> pretty field
+    pretty (IdAccess identifier) = pretty identifier
+
+instance AnnotationConstraint Pretty t => Pretty (AnnotatedName t) where
+    pretty (TName str t) = "{"  <> fromString str <+> ":" <+> pretty t <> "}"
+    pretty (Name str) = "{" <> fromString str <> "}"
 
 instance AnnotationConstraint Pretty t => Pretty (Identifier t) where
     pretty (TIdentifier str t) = "{"  <> fromString str <+> ":" <+> pretty t <> "}"
@@ -260,13 +299,31 @@ instance Bifoldable WhileStmt where
 instance Bitraversable WhileStmt where
     bitraverse f g WhileStmt { cond, body } = uncurry WhileStmt <$> bitraverse f g (cond, body)
 
+instance Bifunctor Access where
+    bimap f _ (IdAccess      ident) = IdAccess (f ident)
+    bimap _ g (Access record field) = Access (g record) field
+
+instance Bifoldable Access where
+    bifoldMap f _ (IdAccess  ident) = f ident
+    bifoldMap _ g (Access record _) = g record
+
+instance Bitraversable Access where
+    bitraverse f _ (IdAccess      ident) = IdAccess <$> f ident
+    bitraverse _ g (Access record field) = Access <$> g record <*> pure field
+
 instance IsString (Identifier 'NoAnnotation) where
     fromString ('.':name) = Accessor name
     fromString name       = Identifier name
 
+instance IsString (AnnotatedName 'NoAnnotation) where
+    fromString = Name
+
 deriving instance AnnotationConstraint Eq t => Eq (Identifier t)
+deriving instance AnnotationConstraint Eq t => Eq (AnnotatedName t)
 deriving instance (AnnotationConstraint Eq t, AnnotationConstraint Ord t) => Ord (Identifier t)
-deriving instance (AnnotationConstraint Eq i, Eq t) => Eq (AST p s i t)
+deriving instance (AnnotationConstraint Eq i,
+                   Eq (AnnotatedName i),
+                   Eq t) => Eq (AST p s i t)
 
 -- Traverals
 
@@ -286,6 +343,7 @@ traverseTypeAnnotations _ (LiteralE lit)        = pure $ LiteralE lit
 traverseTypeAnnotations _ (IdentifierE n)       = pure $ IdentifierE n
 traverseTypeAnnotations f (FuncExpr args rt b)  = FuncExpr <$> traverse (traverse f) args       <*> f rt <*> traverseTypeAnnotations f b
 traverseTypeAnnotations f (Call callee args)    = Call     <$> traverseTypeAnnotations f callee <*> traverse (traverseTypeAnnotations f) args
+traverseTypeAnnotations f (AccessE access)      = AccessE  <$> bitraverse pure (traverseTypeAnnotations f) access
 traverseTypeAnnotations f (BinE bin)            = BinE     <$> traverse (traverseTypeAnnotations f) bin
 traverseTypeAnnotations f (UnaryE unary)        = UnaryE   <$> traverse (traverseTypeAnnotations f) unary
 traverseTypeAnnotations f (ExprStmt e)          = ExprStmt <$> traverseTypeAnnotations f e
@@ -297,22 +355,23 @@ traverseTypeAnnotations f (Var n t e)           = Var n    <$> f t <*> traverseT
 traverseTypeAnnotations f (Let n t e)           = Let n    <$> f t <*> traverseTypeAnnotations f e
 
 addIdAnnotations :: Applicative m => m idAnn -> AST p sug 'NoAnnotation t -> m (AST p sug ('Annotation idAnn) t)
-addIdAnnotations f (Program ast)            = Program <$> traverse (addIdAnnotations f) ast
-addIdAnnotations f (ExprStmt e)             = ExprStmt <$> addIdAnnotations f e
-addIdAnnotations _ (LiteralE lit)           = pure $ LiteralE lit
+addIdAnnotations f (Program ast)         = Program <$> traverse (addIdAnnotations f) ast
+addIdAnnotations f (ExprStmt e)          = ExprStmt <$> addIdAnnotations f e
+addIdAnnotations _ (LiteralE lit)        = pure $ LiteralE lit
 addIdAnnotations f (IdentifierE n)          = IdentifierE <$> (typeAnnotate <$> f <*> pure n)
-addIdAnnotations f (BinE bin)               = BinE   <$> traverse (addIdAnnotations f) bin
-addIdAnnotations f (UnaryE unary)           = UnaryE <$> traverse (addIdAnnotations f) unary
-addIdAnnotations f (While stmt)             = While  <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
-addIdAnnotations f (If stmt)                = If     <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
-addIdAnnotations f (Block blk)              = Block  <$> traverse (addIdAnnotations f) blk
-addIdAnnotations f (FuncDef n args rt b)    = FuncDef  n args rt <$> addIdAnnotations f b
-addIdAnnotations f (FuncExpr args rt b)     = FuncExpr args rt <$> addIdAnnotations f b
-addIdAnnotations _ (DataDef n members)      = pure $ DataDef n members
-addIdAnnotations f (Call callee args)       = Call    <$> addIdAnnotations f callee <*> traverse (addIdAnnotations f) args
-addIdAnnotations f (Assign n e)             = Assign  <$> (typeAnnotate <$> f <*> pure n)<*> addIdAnnotations f e
-addIdAnnotations f (Var n t e)              = Var n t <$> addIdAnnotations f e
-addIdAnnotations f (Let n t e)              = Let n t <$> addIdAnnotations f e
+addIdAnnotations f (BinE bin)            = BinE   <$> traverse (addIdAnnotations f) bin
+addIdAnnotations f (UnaryE unary)        = UnaryE <$> traverse (addIdAnnotations f) unary
+addIdAnnotations f (While stmt)          = While  <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
+addIdAnnotations f (If stmt)             = If     <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
+addIdAnnotations f (Block blk)           = Block  <$> traverse (addIdAnnotations f) blk
+addIdAnnotations f (FuncDef n args rt b) = FuncDef  n args rt <$> addIdAnnotations f b
+addIdAnnotations f (FuncExpr args rt b)  = FuncExpr args rt <$> addIdAnnotations f b
+addIdAnnotations _ (DataDef n members)   = pure $ DataDef n members
+addIdAnnotations f (Call callee args)    = Call    <$> addIdAnnotations f callee <*> traverse (addIdAnnotations f) args
+addIdAnnotations f (AccessE access)      = AccessE <$> bitraverse (\n -> typeAnnotate <$> f <*> pure n) (addIdAnnotations f) access
+addIdAnnotations f (Assign access e)     = Assign  <$> traverse (\(Name n) -> TName n <$> f) access <*> addIdAnnotations f e
+addIdAnnotations f (Var n t e)           = Var n t <$> addIdAnnotations f e
+addIdAnnotations f (Let n t e)           = Let n t <$> addIdAnnotations f e
 
 traverseIdAnnotations :: Applicative m
                       => (idAnn1 -> m idAnn2)
@@ -331,7 +390,8 @@ traverseIdAnnotations f (FuncDef n args rt b)    = FuncDef  n args rt <$> traver
 traverseIdAnnotations f (FuncExpr args rt b)     = FuncExpr args rt <$> traverseIdAnnotations f b
 traverseIdAnnotations _ (DataDef n members)      = pure $ DataDef n members
 traverseIdAnnotations f (Call callee args)       = Call    <$> traverseIdAnnotations f callee <*> traverse (traverseIdAnnotations f) args
-traverseIdAnnotations f (Assign n e)             = Assign  <$> traverseAnnotation f n <*> traverseIdAnnotations f e
+traverseIdAnnotations f (AccessE access)         = AccessE <$> bitraverse (traverseAnnotation f) (traverseIdAnnotations f) access
+traverseIdAnnotations f (Assign access e)        = Assign  <$> traverse (\(TName n t) -> TName n <$> f t) access <*> traverseIdAnnotations f e
 traverseIdAnnotations f (Var n t e)              = Var n t <$> traverseIdAnnotations f e
 traverseIdAnnotations f (Let n t e)              = Let n t <$> traverseIdAnnotations f e
 
@@ -346,9 +406,10 @@ isStmt stmt@Assign{}   = Just stmt
 isStmt BinE{}          = Nothing
 isStmt stmt@Block{}    = Just stmt
 isStmt Call{}          = Nothing
-isStmt DataDef{}    = Nothing
+isStmt AccessE{}       = Nothing
+isStmt DataDef{}       = Nothing
 isStmt stmt@ExprStmt{} = Just stmt
-isStmt FuncDef{}    = Nothing
+isStmt FuncDef{}       = Nothing
 isStmt FuncExpr{}      = Nothing
 isStmt IdentifierE{}    = Nothing
 isStmt stmt@If{}       = Just stmt
@@ -366,6 +427,7 @@ isExpr Assign{}           = Nothing
 isExpr expr@BinE{}        = Just expr
 isExpr Block{}            = Nothing
 isExpr expr@Call{}        = Just expr
+isExpr expr@AccessE{}     = Just expr
 isExpr DataDef{}          = Nothing
 isExpr ExprStmt{}         = Nothing
 isExpr FuncDef{}          = Nothing
@@ -386,6 +448,7 @@ isProgram Assign{}      = Nothing
 isProgram BinE{}        = Nothing
 isProgram Block{}       = Nothing
 isProgram Call{}        = Nothing
+isProgram AccessE{}     = Nothing
 isProgram DataDef{}     = Nothing
 isProgram ExprStmt{}    = Nothing
 isProgram FuncDef{}     = Nothing
@@ -406,6 +469,7 @@ isTopLevelAST Assign{}         = Nothing
 isTopLevelAST BinE{}           = Nothing
 isTopLevelAST Block{}          = Nothing
 isTopLevelAST Call{}           = Nothing
+isTopLevelAST AccessE{}        = Nothing
 isTopLevelAST ast@DataDef{}    = Just ast
 isTopLevelAST ExprStmt{}       = Nothing
 isTopLevelAST ast@FuncDef{}    = Just ast

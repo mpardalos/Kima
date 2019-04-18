@@ -71,10 +71,17 @@ stmtReturnTVar (Let _name declaredType expr) = do
     valueTVar <- exprTVar expr
     writeConstraint $ valueTVar =#= TheType declaredType
     pure (TheType KUnit)
-stmtReturnTVar (Assign name expr) = do
+stmtReturnTVar (Assign (WriteAccess (TName _ t) []) expr) = do
     exprType <- exprTVar expr
-    writeConstraint (nameType name =#= exprType)
+    writeConstraint (t =#= exprType)
     pure (TheType KUnit)
+stmtReturnTVar (Assign (WriteAccess (TName _ nameTVar) subfields) expr) = do
+    let lhsTVar = case lastMay subfields of
+            Nothing -> nameTVar
+            Just (TName _ lastFieldTVar) -> lastFieldTVar
+    rhsTVar <- exprTVar expr
+    writeConstraint (lhsTVar =#= rhsTVar)
+    pure lhsTVar
 
 -- | Compute the type of an expression and write the constraints required for
 -- | typing it

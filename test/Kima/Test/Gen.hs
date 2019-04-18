@@ -55,14 +55,24 @@ disjointSets gen = do
 arbitrarySingleType :: Gen KType
 arbitrarySingleType = baseCase
 
+arbitraryProductType :: Gen (KType, [(String, KType)])
+arbitraryProductType = do
+    name       <- arbitrary
+    typeFields <- scale (`div` 3) arbitrary
+    return (KUserType name typeFields, typeFields)
+
+arbitraryWriteIdentifier :: Arbitrary ident => Gen (WriteAccess ident)
+arbitraryWriteIdentifier = WriteAccess <$> arbitrary <*> pure []
+
 instance Arbitrary KType where
     arbitrary = sized $ \case
         n | n <= 1 -> arbitrarySingleType
         n          -> frequency
-            [ (3, arbitrarySingleType)
+            [ (1, arbitrarySingleType)
+            , (2, fst <$> arbitraryProductType)
             -- Shrink the type parameter quickly because otherwise it keeps
             -- recursing and making huge signature types which take forever
-            , (1, KFunc <$> resize (n `div` 3) (arbitrary @(Signature KType)))
+            , (2, KFunc <$> resize (n `div` 3) (arbitrary @(Signature KType)))
             ]
 
     shrink (KFunc sig) = KFunc <$> shrink sig
@@ -89,7 +99,13 @@ instance Arbitrary a => Arbitrary (Binary a) where
 instance Arbitrary a => Arbitrary (Unary a) where
     arbitrary = genericArbitraryU
 
-instance (Arbitrary t, Arbitrary (Identifier idAnn)) => Arbitrary (AST 'Expr 'NoSugar idAnn t) where
+instance Arbitrary ident => Arbitrary (WriteAccess ident) where
+    arbitrary = WriteAccess <$> arbitrary <*> arbitrary
+
+instance (Arbitrary t,
+          Arbitrary (Identifier idAnn),
+          Arbitrary (AnnotatedName idAnn)) =>
+         Arbitrary (AST 'Expr 'NoSugar idAnn t) where
     arbitrary = oneof
         [ LiteralE <$> arbitrary
         , IdentifierE <$> arbitrary
@@ -102,7 +118,10 @@ instance (Arbitrary t, Arbitrary (Identifier idAnn)) => Arbitrary (AST 'Expr 'No
     shrink (FuncExpr args rt body) = FuncExpr <$> shrink args <*> shrink rt <*> shrink body
     shrink (Call callee args) = Call <$> shrink callee <*> shrink args
 
-instance (Arbitrary t, Arbitrary (Identifier idAnn)) => Arbitrary (AST 'Stmt 'NoSugar idAnn t) where
+instance (Arbitrary t,
+          Arbitrary (Identifier idAnn),
+          Arbitrary (AnnotatedName idAnn)) =>
+         Arbitrary (AST 'Stmt 'NoSugar idAnn t) where
     arbitrary = oneof
         [ ExprStmt <$> arbitrary
         , Block    <$> scale (`div` 2) arbitrary
@@ -138,6 +157,13 @@ instance Arbitrary t => Arbitrary (Identifier ('Annotation t)) where
         [ TAccessor <$> shrink n <*> shrink t 
         , TIdentifier (show n) <$> shrink t
         ]
+
+instance Arbitrary (AnnotatedName 'NoAnnotation) where
+    arbitrary = Name <$> arbitrary
+
+instance Arbitrary t => Arbitrary (AnnotatedName ('Annotation t)) where
+    arbitrary = TName <$> arbitrary <*> arbitrary
+
 
 shrinkUntypedName :: Identifier 'NoAnnotation -> [Identifier 'NoAnnotation]
 shrinkUntypedName (Identifier    n)

@@ -38,6 +38,7 @@ data Value = Integer Integer
            | Function [RuntimeIdentifier] (RuntimeAST 'Stmt)
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
+           | AccessorIdx Name Int -- | Just gives the index of the accessed value
            | Unit
 
 class Monad m => MonadConsole m where
@@ -61,6 +62,7 @@ instance Pretty Value where
     pretty (Float v)            = pretty v
     pretty (Bool v)             = pretty v
     pretty (String v)           = pretty v
+    pretty (AccessorIdx name _) = "{." <> pretty name <> "}"
     pretty (Function args body) =
         "fun" <+> tupled (pretty <$> args) <+> "{" 
         <> line

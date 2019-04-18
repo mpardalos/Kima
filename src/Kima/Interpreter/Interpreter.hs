@@ -2,6 +2,7 @@ module Kima.Interpreter.Interpreter where
 
 import           Prelude                 hiding ( lookup )
 
+import           Data.Foldable
 import           Control.Newtype.Generics
 import           Control.Monad.Except
 
@@ -28,11 +29,40 @@ evalLiteral (BoolExpr   b) = Bool b
 evalLiteral (StringExpr s) = String s
 
 ---------- Statements ----------
-runStmt :: MonadInterpreter m => RuntimeAST 'Stmt -> m Value
+runStmt :: forall m. MonadInterpreter m => RuntimeAST 'Stmt -> m Value
 runStmt (Block stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
-runStmt (Assign name expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (Assign (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind (toIdentifier name))
+runStmt (Assign (WriteAccess name field) expr) = do
+    newVal <- evalExpr expr
+    accessors <- lookupFields (nameType . toIdentifier $ name) field --(getName . \(TName n t) -> TAccessor n t) field
+    modifyField (toIdentifier name) accessors newVal
+    return Unit
+    where
+        modifyField :: RuntimeIdentifier -> [Value] -> Value -> m ()
+        modifyField baseName subfields newVal = do
+            oldVal <- getName baseName
+            bind baseName (makeModified oldVal subfields newVal)
+
+        lookupFields :: KType -> [AnnotatedName ('Annotation KType)] -> m [Value]
+        lookupFields _ []            = pure []
+        lookupFields base (TName subName subType:subs) = do
+            sub' <- getName $ TAccessor subName (KFunc ([base] $-> subType))
+            (sub':) <$> lookupFields subType subs
+
+        makeModified :: Value -> [Value] -> Value -> Value
+        makeModified (ProductData subvals) (AccessorIdx _ idx:accessors) newVal =
+            ProductData (update idx subvals (makeModified (subvals !! idx) accessors newVal))
+        makeModified _ [] newVal = newVal
+        makeModified _ (AccessorIdx fieldName _:_) _ = error ("Tried to access " ++ fieldName ++ " in non-product data")
+        makeModified _ (val:_) _ = error ("Tried to use " ++ show val ++ " as an accessor")
+
+        update :: Int -> [a] -> a -> [a]
+        update _ []     _ = []
+        update 0 (_:xs) y = y:xs
+        update n (x:xs) y = x:update (n-1) xs y
+
 runStmt (Let    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (Var    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (ExprStmt expr) = evalExpr expr
@@ -51,6 +81,11 @@ runFunc (Function argNames body) args = withState (<> argEnv) (runStmt body)
     argEnv :: Environment Value
     argEnv = Environment $ Map.fromList (zip argNames args)
 runFunc (BuiltinFunction f) args                 = f args
+runFunc (AccessorIdx memberName idx) [ProductData vals] = case vals `atMay` idx of
+    Just v -> return v
+    Nothing -> throwError (BuiltinFunctionError (show memberName <> " failed"))
+runFunc (AccessorIdx memberName _) args = throwError (BuiltinFunctionError (
+    "Can't use accessor " <> show memberName <> " on " <> show args))
 runFunc v _ = throwError (NotAFunction v)
 
 bind :: (MonadEnv m) => RuntimeIdentifier -> Value -> m ()
@@ -70,19 +105,14 @@ bindTopLevel (FuncDef name args rt body) = do
     bind (TIdentifier name funcType) function
     return function
 bindTopLevel (DataDef name members)       = do
-    let declaredType = KUserType name
+    let declaredType = KUserType name members
     let memberTypes = snd <$> members
     let constructor = BuiltinFunction (return . ProductData)
     let constructorType = KFunc (memberTypes $-> declaredType)
 
     forM_ (zip [0..] members) $ \(i, (memberName, memberType)) ->
         let accessorType = KFunc ([declaredType] $-> memberType) in
-        bind (TAccessor memberName accessorType) $ BuiltinFunction $ \case
-            [ProductData vals] -> case vals `atMay` i of
-                Just v -> return v
-                Nothing -> throwError (BuiltinFunctionError (show memberName <> " failed"))
-            v -> throwError (BuiltinFunctionError (
-                    "Can't use accessor " <> show memberName <> " on " <> show v))
+        bind (TAccessor memberName accessorType) (AccessorIdx memberName i)
     bind (TIdentifier name constructorType) constructor
     return constructor
 
