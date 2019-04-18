@@ -68,6 +68,7 @@ data WriteAccess ident = WriteAccess ident [ident]
 
 data HasAnnotation = NoAnnotation | Annotation Type
 type Name = String
+-- TODO Unify AnnotatedName, Name and Identifier under a typeclass
 data AnnotatedName :: HasAnnotation -> Type where
     Name  :: String      -> AnnotatedName 'NoAnnotation
     TName :: String -> t -> AnnotatedName ('Annotation t)

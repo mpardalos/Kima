@@ -85,6 +85,7 @@ showValue Unit              = Just "()"
 showValue Function{}        = Nothing
 showValue BuiltinFunction{} = Nothing
 showValue ProductData{}     = Nothing
+showValue AccessorIdx{}     = Nothing
 
 kimaPrint :: (MonadRE m, MonadConsole m) => [Value] -> m Value
 kimaPrint [v] = case showValue v of
