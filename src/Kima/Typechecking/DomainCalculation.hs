@@ -90,16 +90,16 @@ calculateDomains (Let name declaredType expr) =
         Just _ -> throwError (NameShadowed name)
 
 assignDomain :: forall m. MonadDomain m => WriteAccess TVarName -> TVarAST 'Expr -> m Domains
-assignDomain accessor@(WriteAccess (TName baseName baseTVar) subfields) expr =
+assignDomain accessor@(WriteAccess (TName baseName baseTVar) targetField) expr =
     lookupIdentifier (TIdentifier baseName baseTVar) >>= \case
         Binding Constant _  -> throwError (AssignToConst accessor)
-        Binding Variable ts -> do
-            let nameDs = [(baseTVar, ts)]
-            subfieldDs <- subfieldDomains (toList ts) subfields
+        Binding Variable baseTypes -> do
+            let nameDs = [(baseTVar, baseTypes)]
+            subfieldDs <- subfieldDomains (toList baseTypes) targetField
             exprDs     <- calculateDomains expr
             return (nameDs <> exprDs <> subfieldDs)
     where
-        subfieldDomains :: [KType]    -- | The possible types of the base of the access
+        subfieldDomains :: [KType]   -- | The possible types of the base of the access
                        -> [TVarName] -- | The sequence of subfields
                        -> m Domains
         subfieldDomains _ []  = return []
