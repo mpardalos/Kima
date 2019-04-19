@@ -13,7 +13,6 @@ data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
                  | PrintFunc | InputFunc -- Builtin functions
     deriving (Show, Eq, Ord, Generic)
 
-type TypeName = String
 type Name = String
 
 data Identifier :: HasAnnotation -> Type where
@@ -29,7 +28,6 @@ data Identifier :: HasAnnotation -> Type where
     Accessor    :: String      -> Identifier 'NoAnnotation
     TAccessor   :: String -> t -> Identifier ('Annotation t)
 
--- TODO Unify AnnotatedName, Name and Identifier under a typeclass
 data AnnotatedName :: HasAnnotation -> Type where
     Name  :: String      -> AnnotatedName 'NoAnnotation
     TName :: String -> t -> AnnotatedName ('Annotation t)
@@ -98,24 +96,40 @@ traverseAnnotation f (TBuiltin    n t) = TBuiltin    n <$> f t
 traverseAnnotation f (TAccessor   n t) = TAccessor   n <$> f t
 
 --------- Useful functions ----------
-typeAnnotate :: t -> Identifier a -> Identifier ('Annotation t)
-typeAnnotate t (Identifier  n  ) = TIdentifier n t
-typeAnnotate t (TIdentifier n _) = TIdentifier n t
-typeAnnotate t (Builtin     n  ) = TBuiltin n t
-typeAnnotate t (TBuiltin    n _) = TBuiltin n t
-typeAnnotate t (Accessor    n  ) = TAccessor n t
-typeAnnotate t (TAccessor   n _) = TAccessor n t
 
-deTypeAnnotate :: Identifier ('Annotation t)  -> Identifier 'NoAnnotation
-deTypeAnnotate (TIdentifier n _) = Identifier n
-deTypeAnnotate (TBuiltin    n _) = Builtin n
-deTypeAnnotate (TAccessor   n _) = Accessor n
+class IdentifierLike ident where
+    typeAnnotate :: t -> ident a -> ident ('Annotation t)
+    deTypeAnnotate :: ident ('Annotation t) -> ident 'NoAnnotation
+    nameType :: ident ('Annotation t) -> t
 
-nameType :: Identifier ('Annotation t) -> t
-nameType (TIdentifier _ t) = t
-nameType (TBuiltin    _ t) = t
-nameType (TAccessor   _ t) = t
+    toIdentifier :: ident a -> Identifier a
 
-toIdentifier :: AnnotatedName t -> Identifier t
-toIdentifier (Name n) = Identifier n
-toIdentifier (TName n t) = TIdentifier n t
+instance IdentifierLike AnnotatedName where
+    toIdentifier (Name n) = Identifier n
+    toIdentifier (TName n t) = TIdentifier n t
+
+    typeAnnotate t (Name  n  ) = TName n t
+    typeAnnotate t (TName n _) = TName n t
+
+    deTypeAnnotate (TName n _) = Name n
+
+    nameType (TName _ t) = t
+
+instance IdentifierLike Identifier where
+    toIdentifier = id
+
+    typeAnnotate t (Identifier  n  ) = TIdentifier n t
+    typeAnnotate t (TIdentifier n _) = TIdentifier n t
+    typeAnnotate t (Builtin     n  ) = TBuiltin n t
+    typeAnnotate t (TBuiltin    n _) = TBuiltin n t
+    typeAnnotate t (Accessor    n  ) = TAccessor n t
+    typeAnnotate t (TAccessor   n _) = TAccessor n t
+
+    deTypeAnnotate (TIdentifier n _) = Identifier n
+    deTypeAnnotate (TBuiltin    n _) = Builtin n
+    deTypeAnnotate (TAccessor   n _) = Accessor n
+
+    nameType (TIdentifier _ t) = t
+    nameType (TBuiltin    _ t) = t
+    nameType (TAccessor   _ t) = t
+
