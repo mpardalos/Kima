@@ -22,6 +22,8 @@ library
 
         Kima.AST
         Kima.AST.AST
+        Kima.AST.Kinds
+        Kima.AST.Names
 
         Kima.Builtins
 

@@ -6,40 +6,15 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Kind
-import Data.String
 import Data.Text.Prettyprint.Doc
 
 import GHC.Generics
 
+import Kima.AST.Kinds
+import Kima.AST.Names
 import Kima.KimaTypes
 
----------- Names (identifiers) ---------- 
-data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
-                 | GTOp | GTEOp | LTOp | LTEOp | EqualsOp
-                 | InvertOp | NegateOp -- Unary ops
-                 | PrintFunc | InputFunc -- Builtin functions
-    deriving (Show, Eq, Ord, Generic)
-
-type TypeName        = String
-
-data Identifier :: HasAnnotation -> Type where
-    -- Strings
-    Identifier   :: String      -> Identifier 'NoAnnotation
-    TIdentifier  :: String -> t -> Identifier ('Annotation t)
-
-    -- Builtins
-    Builtin     :: BuiltinName -> Identifier 'NoAnnotation
-    TBuiltin    :: BuiltinName -> t -> Identifier ('Annotation t)
-
-    -- Accessors
-    Accessor    :: String      -> Identifier 'NoAnnotation
-    TAccessor   :: String -> t -> Identifier ('Annotation t)
-    
----------- AST ----------  
-data Sugar = Sugar | NoSugar
-data ASTPart = Expr | Stmt | TopLevel | Module
-
-data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e | Less e e 
+data Binary e = Add e e | Sub e e | Div e e | Mul e e | Mod e e | Less e e
               | LessEq e e | Greater e e | GreatEq e e | Eq e e | NotEq e e
     deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
 
@@ -65,13 +40,6 @@ data Access ident expr = Access expr Name | IdAccess ident
 
 data WriteAccess ident = WriteAccess ident [ident]
     deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
-
-data HasAnnotation = NoAnnotation | Annotation Type
-type Name = String
--- TODO Unify AnnotatedName, Name and Identifier under a typeclass
-data AnnotatedName :: HasAnnotation -> Type where
-    Name  :: String      -> AnnotatedName 'NoAnnotation
-    TName :: String -> t -> AnnotatedName ('Annotation t)
 
 data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn :: Type) where
     Program :: [AST 'TopLevel s i t] -> AST 'Module s i t
@@ -125,29 +93,6 @@ type RuntimeProgram       = RuntimeAST       'Module
 data TypeExpr = TypeName TypeName
               | SignatureType [TypeExpr] TypeExpr
     deriving Eq
-
---------- Useful functions ----------
-typeAnnotate :: t -> Identifier a -> Identifier ('Annotation t)
-typeAnnotate t (Identifier  n  ) = TIdentifier n t
-typeAnnotate t (TIdentifier n _) = TIdentifier n t
-typeAnnotate t (Builtin     n  ) = TBuiltin n t
-typeAnnotate t (TBuiltin    n _) = TBuiltin n t
-typeAnnotate t (Accessor    n  ) = TAccessor n t
-typeAnnotate t (TAccessor   n _) = TAccessor n t
-
-deTypeAnnotate :: Identifier ('Annotation t)  -> Identifier 'NoAnnotation
-deTypeAnnotate (TIdentifier n _) = Identifier n
-deTypeAnnotate (TBuiltin    n _) = Builtin n
-deTypeAnnotate (TAccessor   n _) = Accessor n
-
-nameType :: Identifier ('Annotation t) -> t
-nameType (TIdentifier _ t) = t
-nameType (TBuiltin    _ t) = t
-nameType (TAccessor   _ t) = t
-
-toIdentifier :: AnnotatedName t -> Identifier t
-toIdentifier (Name n) = Identifier n
-toIdentifier (TName n t) = TIdentifier n t
 
 --------------- Show instances ---------------------
 prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann
@@ -229,34 +174,6 @@ instance Pretty TypeExpr where
     pretty (SignatureType args returnType) =
         tupled (pretty <$> args) <+> "->" <+> pretty returnType
 
-instance (AnnotationConstraint Show t) => Show (Identifier t) where
-    show (TIdentifier n t) = "{"  ++ n      ++ " : " ++ show t ++ "}"
-    show (TBuiltin n t   ) = "{"  ++ show n ++ " : " ++ show t ++ "}"
-    show (TAccessor n t  ) = "{." ++ show n ++ " : " ++ show t ++ "}"
-    show (Identifier  str) = "{"  ++ str    ++ "}"
-    show (Builtin n      ) = "{"  ++ show n ++ "}"
-    show (Accessor str   ) = "{." ++ str    ++ "}"
-
-instance (AnnotationConstraint Show t) => Show (AnnotatedName t) where
-    show (TName n t) = "{"  ++ n   ++ " : " ++ show t ++ "}"
-    show (Name  str) = "{"  ++ str ++ "}"
-
-instance Pretty BuiltinName where
-    pretty AddOp     = "(+)"
-    pretty SubOp     = "(-)"
-    pretty MulOp     = "(*)"
-    pretty ModOp     = "(%)"
-    pretty DivOp     = "(/)"
-    pretty GTOp      = "(>)"
-    pretty GTEOp     = "(>=)"
-    pretty LTOp      = "(<)"
-    pretty LTEOp     = "(<=)"
-    pretty EqualsOp  = "(==)"
-    pretty InvertOp  = "(-)"
-    pretty NegateOp  = "(!)"
-    pretty PrintFunc = "b'print"
-    pretty InputFunc = "b'input"
-
 instance Pretty ident => Pretty (WriteAccess ident) where
     pretty (WriteAccess ident rest) = hcat $ punctuate "." (pretty <$> ident:rest)
 instance Pretty ident => Show (WriteAccess ident) where
@@ -265,18 +182,6 @@ instance Pretty ident => Show (WriteAccess ident) where
 instance (Pretty ident, Pretty expr) => Pretty (Access ident expr) where
     pretty (Access record field) = pretty record <> "." <> pretty field
     pretty (IdAccess identifier) = pretty identifier
-
-instance AnnotationConstraint Pretty t => Pretty (AnnotatedName t) where
-    pretty (TName str t) = "{"  <> fromString str <+> ":" <+> pretty t <> "}"
-    pretty (Name str) = "{" <> fromString str <> "}"
-
-instance AnnotationConstraint Pretty t => Pretty (Identifier t) where
-    pretty (TIdentifier str t) = "{"  <> fromString str <+> ":" <+> pretty t <> "}"
-    pretty (TBuiltin n t)    = "{"  <> pretty n       <+> ":" <+> pretty t <> "}"
-    pretty (TAccessor n t)   = "{." <> pretty n       <+> ":" <+> pretty t <> "}"
-    pretty (Identifier str) = "{" <> fromString str <> "}"
-    pretty (Builtin n) = "{" <> pretty n <> "}"
-    pretty (Accessor n) = "{." <> fromString n <> "}"
 
 --------------- Boring instances ---------------------
 
@@ -311,27 +216,11 @@ instance Bitraversable Access where
     bitraverse f _ (IdAccess      ident) = IdAccess <$> f ident
     bitraverse _ g (Access record field) = Access <$> g record <*> pure field
 
-instance IsString (Identifier 'NoAnnotation) where
-    fromString ('.':name) = Accessor name
-    fromString name       = Identifier name
-
-instance IsString (AnnotatedName 'NoAnnotation) where
-    fromString = Name
-
-deriving instance AnnotationConstraint Eq t => Eq (Identifier t)
-deriving instance AnnotationConstraint Eq t => Eq (AnnotatedName t)
-deriving instance (AnnotationConstraint Eq t, AnnotationConstraint Ord t) => Ord (Identifier t)
 deriving instance (AnnotationConstraint Eq i,
                    Eq (AnnotatedName i),
                    Eq t) => Eq (AST p s i t)
 
 -- Traverals
-
-traverseAnnotation :: Functor m => (t1 -> m t2) -> Identifier ('Annotation t1) -> m (Identifier ('Annotation t2))
-traverseAnnotation f (TIdentifier n t) = TIdentifier n <$> f t
-traverseAnnotation f (TBuiltin    n t) = TBuiltin    n <$> f t
-traverseAnnotation f (TAccessor   n t) = TAccessor   n <$> f t
-
 mapTypeAnnotations :: forall t1 t2 p s i. (t1 -> t2) -> AST p s i t1 -> AST p s i t2
 mapTypeAnnotations = coerce (traverseTypeAnnotations :: (t1 -> Identity t2) -> AST p s i t1 -> Identity (AST p s i t2))
 
@@ -482,9 +371,3 @@ isTopLevelAST Program{}        = Nothing
 isTopLevelAST UnaryE{}         = Nothing
 isTopLevelAST Var{}            = Nothing
 isTopLevelAST While{}          = Nothing
-
--- Utils 
-
-type family AnnotationConstraint (f :: k -> Constraint) (x :: HasAnnotation) :: Constraint where
-    AnnotationConstraint f 'NoAnnotation   = ()
-    AnnotationConstraint f ('Annotation a) = f a
