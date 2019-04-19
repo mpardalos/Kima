@@ -21,6 +21,7 @@ library
         Kima.Control.Monad.State.Extended
 
         Kima.AST
+        Kima.AST.AST
 
         Kima.Builtins
 
