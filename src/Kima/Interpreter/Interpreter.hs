@@ -33,14 +33,14 @@ runStmt :: forall m. MonadInterpreter m => RuntimeAST 'Stmt -> m Value
 runStmt (Block stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
-runStmt (Assign (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind (toIdentifier name))
+runStmt (Assign (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind name)
 runStmt (Assign (WriteAccess name field) expr) = do
     newVal <- evalExpr expr
-    accessors <- lookupFields (nameType . toIdentifier $ name) field --(getName . \(TName n t) -> TAccessor n t) field
-    modifyField (toIdentifier name) accessors newVal
+    accessors <- lookupFields (nameType name) field --(getName . \(TName n t) -> TAccessor n t) field
+    modifyField name accessors newVal
     return Unit
     where
-        modifyField :: RuntimeIdentifier -> [Value] -> Value -> m ()
+        modifyField :: IdentifierLike ident => ident ('Annotation KType) -> [Value] -> Value -> m ()
         modifyField baseName subfields newVal = do
             oldVal <- getName baseName
             bind baseName (makeModified oldVal subfields newVal)
@@ -88,13 +88,13 @@ runFunc (AccessorIdx memberName _) args = throwError (BuiltinFunctionError (
     "Can't use accessor " <> show memberName <> " on " <> show args))
 runFunc v _ = throwError (NotAFunction v)
 
-bind :: (MonadEnv m) => RuntimeIdentifier -> Value -> m ()
-bind name val = modify (over Environment $ Map.insert name val)
+bind :: (MonadEnv m, IdentifierLike ident) => ident ('Annotation KType) -> Value -> m ()
+bind name val = modify (over Environment $ Map.insert (toIdentifier name) val)
 
-getName :: (MonadEnv m, MonadRE m) => RuntimeIdentifier -> m Value
-getName name = gets (Map.lookup name . unEnv) >>= \case
+getName :: (MonadEnv m, MonadRE m, IdentifierLike ident) => ident ('Annotation KType) -> m Value
+getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
     Just val -> return val
-    Nothing  -> throwError (NotInScope name)
+    Nothing  -> throwError (NotInScope (toIdentifier name))
 
 -- | Bind either a function or the constructor and accessors of a
 -- | DataDef
