@@ -70,10 +70,14 @@ instance Pretty BuiltinName where
     pretty PrintFunc = "b'print"
     pretty InputFunc = "b'input"
 
+-- | Prints a format that doesn't match the source, i.e. it doesn't parse.
+-- | Maybe it should be changed
 instance AnnotationConstraint Pretty t => Pretty (AnnotatedName t) where
     pretty (TName str t) = "{" <> fromString str <+> ":" <+> pretty t <> "}"
     pretty (Name str   ) = "{" <> fromString str <> "}"
 
+-- | Prints a format that doesn't match the source, i.e. it doesn't parse.
+-- | Maybe it should be changed
 instance AnnotationConstraint Pretty t => Pretty (Identifier t) where
     pretty (TIdentifier str t) =
         "{" <> fromString str <> ":" <+> pretty t <> "}"

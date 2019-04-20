@@ -15,6 +15,18 @@ import Kima.AST.Names
 import Kima.AST.Types
 import Kima.KimaTypes
 
+-- | The AST of the language. This is used for all phases of compilation/interpretation,
+-- | from parsing to execution. The type parameters govern what nodes are enabled.
+-- |
+-- | [@part@] What section (statement, expression, ...) of the AST this is.
+-- | [@sugar@] Whether sugar terms are enabled. Changed during desugaring
+-- | [@idAnn@] The type (or lack thereof) of annotations *on identifiers* these
+-- |           are the annotations that are not mandatory in the source language
+-- |           but get added later.
+-- | [@typeAnn@] The type of type annotations from the source language. These are
+-- |             always present since they come from the source language. The type
+-- |             parameter exists so that they can be converted into an internal
+-- |             representation during typechecking
 data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn :: Type) where
     Program :: [AST 'TopLevel s i t] -> AST 'Module s i t
 
@@ -30,6 +42,7 @@ data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn ::
     Call        :: AST 'Expr s i t -> [AST 'Expr s i t] -> AST 'Expr s i t
 
     -- Sugar
+    -- | Terms like @a().x@. This is sugar since it get converted to simple calls.
     AccessE :: Access (Identifier i) (AST 'Expr 'Sugar i t) -> AST 'Expr 'Sugar i t
     BinE    :: Binary (AST 'Expr 'Sugar i t)                -> AST 'Expr 'Sugar i t
     UnaryE  :: Unary (AST 'Expr 'Sugar i t)                 -> AST 'Expr 'Sugar i t
@@ -48,13 +61,11 @@ data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn ::
 
 ---------------- Factored out parts of the AST ------------------------------
 
--- | Binary expressions such as addition.
 data Binary e
     = Add e e | Sub e e | Div e e | Mul e e | Mod e e | Less e e | LessEq e e
     | Greater e e | GreatEq e e | Eq e e | NotEq e e
     deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
 
--- | Binary expressions such as negation
 data Unary e = Negate e | Invert e
     deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
 
@@ -76,6 +87,9 @@ data WhileStmt cond body = WhileStmt {
 data Access ident expr = Access expr Name | IdAccess ident
     deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
 
+-- | Similar to access but only used for assignment. Consists of a mandatory
+-- | base part and an optional list of sub-fields. E.g. @a@ is @WriteAccess "a" []@
+-- | and @a.b.c@ is @WriteAccess "a" ["b", "c"]@
 data WriteAccess ident = WriteAccess ident [ident]
     deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
 
