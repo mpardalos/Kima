@@ -42,16 +42,16 @@ deriving instance (AnnotationConstraint Eq t,
 
 -------------------- Show ---------------------------------------------
 instance (AnnotationConstraint Show t) => Show (Identifier t) where
-    show (TIdentifier n t) = "{"  ++ n      ++ " : " ++ show t ++ "}"
-    show (TBuiltin n t   ) = "{"  ++ show n ++ " : " ++ show t ++ "}"
-    show (TAccessor n t  ) = "{." ++ show n ++ " : " ++ show t ++ "}"
-    show (Identifier  str) = "{"  ++ str    ++ "}"
-    show (Builtin n      ) = "{"  ++ show n ++ "}"
-    show (Accessor str   ) = "{." ++ str    ++ "}"
+    show (TIdentifier n t) = "{" ++ n ++ " : " ++ show t ++ "}"
+    show (TBuiltin    n t) = "{" ++ show n ++ " : " ++ show t ++ "}"
+    show (TAccessor   n t) = "{." ++ show n ++ " : " ++ show t ++ "}"
+    show (Identifier str ) = "{" ++ str ++ "}"
+    show (Builtin    n   ) = "{" ++ show n ++ "}"
+    show (Accessor   str ) = "{." ++ str ++ "}"
 
 instance (AnnotationConstraint Show t) => Show (AnnotatedName t) where
-    show (TName n t) = "{"  ++ n   ++ " : " ++ show t ++ "}"
-    show (Name  str) = "{"  ++ str ++ "}"
+    show (TName n t) = "{" ++ n ++ " : " ++ show t ++ "}"
+    show (Name str ) = "{" ++ str ++ "}"
 
 -------------------- Pretty ---------------------------------------------
 instance Pretty BuiltinName where
@@ -71,29 +71,34 @@ instance Pretty BuiltinName where
     pretty InputFunc = "b'input"
 
 instance AnnotationConstraint Pretty t => Pretty (AnnotatedName t) where
-    pretty (TName str t) = "{"  <> fromString str <+> ":" <+> pretty t <> "}"
-    pretty (Name str) = "{" <> fromString str <> "}"
+    pretty (TName str t) = "{" <> fromString str <+> ":" <+> pretty t <> "}"
+    pretty (Name str   ) = "{" <> fromString str <> "}"
 
 instance AnnotationConstraint Pretty t => Pretty (Identifier t) where
-    pretty (TIdentifier str t) = "{"  <> fromString str <+> ":" <+> pretty t <> "}"
-    pretty (TBuiltin n t)    = "{"  <> pretty n       <+> ":" <+> pretty t <> "}"
-    pretty (TAccessor n t)   = "{." <> pretty n       <+> ":" <+> pretty t <> "}"
+    pretty (TIdentifier str t) =
+        "{" <> fromString str <> ":" <+> pretty t <> "}"
+    pretty (TBuiltin  n t ) = "{" <> pretty n <+> ":" <+> pretty t <> "}"
+    pretty (TAccessor n t ) = "{." <> pretty n <+> ":" <+> pretty t <> "}"
     pretty (Identifier str) = "{" <> fromString str <> "}"
-    pretty (Builtin n) = "{" <> pretty n <> "}"
-    pretty (Accessor n) = "{." <> fromString n <> "}"
+    pretty (Builtin    n  ) = "{" <> pretty n <> "}"
+    pretty (Accessor   n  ) = "{." <> fromString n <> "}"
 
 instance IsString (Identifier 'NoAnnotation) where
-    fromString ('.':name) = Accessor name
-    fromString name       = Identifier name
+    fromString ('.' : name) = Accessor name
+    fromString name         = Identifier name
 
 instance IsString (AnnotatedName 'NoAnnotation) where
     fromString = Name
 
 -------------------- Traversals --------------------------------------------
-traverseAnnotation :: Functor m => (t1 -> m t2) -> Identifier ('Annotation t1) -> m (Identifier ('Annotation t2))
+traverseAnnotation
+    :: Functor m
+    => (t1 -> m t2)
+    -> Identifier ( 'Annotation t1)
+    -> m (Identifier ( 'Annotation t2))
 traverseAnnotation f (TIdentifier n t) = TIdentifier n <$> f t
-traverseAnnotation f (TBuiltin    n t) = TBuiltin    n <$> f t
-traverseAnnotation f (TAccessor   n t) = TAccessor   n <$> f t
+traverseAnnotation f (TBuiltin    n t) = TBuiltin n <$> f t
+traverseAnnotation f (TAccessor   n t) = TAccessor n <$> f t
 
 --------- Useful functions ----------
 
@@ -105,10 +110,10 @@ class IdentifierLike ident where
     toIdentifier :: ident a -> Identifier a
 
 instance IdentifierLike AnnotatedName where
-    toIdentifier (Name n) = Identifier n
+    toIdentifier (Name n   ) = Identifier n
     toIdentifier (TName n t) = TIdentifier n t
 
-    typeAnnotate t (Name  n  ) = TName n t
+    typeAnnotate t (Name n   ) = TName n t
     typeAnnotate t (TName n _) = TName n t
 
     deTypeAnnotate (TName n _) = Name n
@@ -118,12 +123,12 @@ instance IdentifierLike AnnotatedName where
 instance IdentifierLike Identifier where
     toIdentifier = id
 
-    typeAnnotate t (Identifier  n  ) = TIdentifier n t
+    typeAnnotate t (Identifier n   ) = TIdentifier n t
     typeAnnotate t (TIdentifier n _) = TIdentifier n t
-    typeAnnotate t (Builtin     n  ) = TBuiltin n t
-    typeAnnotate t (TBuiltin    n _) = TBuiltin n t
-    typeAnnotate t (Accessor    n  ) = TAccessor n t
-    typeAnnotate t (TAccessor   n _) = TAccessor n t
+    typeAnnotate t (Builtin n      ) = TBuiltin n t
+    typeAnnotate t (TBuiltin n _   ) = TBuiltin n t
+    typeAnnotate t (Accessor n     ) = TAccessor n t
+    typeAnnotate t (TAccessor n _  ) = TAccessor n t
 
     deTypeAnnotate (TIdentifier n _) = Identifier n
     deTypeAnnotate (TBuiltin    n _) = Builtin n
@@ -132,4 +137,3 @@ instance IdentifierLike Identifier where
     nameType (TIdentifier _ t) = t
     nameType (TBuiltin    _ t) = t
     nameType (TAccessor   _ t) = t
-
