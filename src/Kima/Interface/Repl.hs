@@ -1,19 +1,43 @@
 module Kima.Interface.Repl where
 
-import Control.Arrow hiding (first, second)
-import Control.Monad
-import Control.Monad.Except
-import Data.Bifunctor
-import Data.IORef
-import System.IO
-import Text.Megaparsec
-import Data.Text.Prettyprint.Doc
+import           Control.Arrow           hiding ( first
+                                                , second
+                                                )
+import           Control.Monad
+import           Control.Monad.Except
+import           Control.Monad.State
+import           Data.Bifunctor
+import           Data.IORef
+import           System.IO
+import           Safe
+import           Text.Megaparsec
+import           Data.Text.Prettyprint.Doc
 
-import Kima.Builtins
-import Kima.Desugar
-import Kima.Interpreter
-import Kima.Typechecking
-import Kima.Frontend
+import           Kima.Builtins
+import           Kima.Desugar
+import           Kima.Interpreter
+import           Kima.Interpreter.Types
+import           Kima.Interpreter.Monad
+import           Kima.Typechecking
+import           Kima.Frontend
+
+-- | newtype wrapper around Interpreter whose MonadConsole makes sure
+-- | that any printed text ends with a newline
+newtype ReplInterpreter a = ReplInterpreter {
+    unReplInterpreter :: Interpreter a
+} deriving (
+    Functor,
+    Applicative,
+    Monad,
+    MonadError RuntimeError,
+    MonadState (Environment Value),
+    MonadIO)
+
+instance MonadConsole ReplInterpreter where
+    consoleRead  = liftIO getLine
+    consoleWrite = liftIO . putStr . \s -> case lastMay s of
+        Just '\n' -> s
+        _         -> s ++ "\n"
 
 repl :: IO ()
 repl = do
@@ -22,27 +46,31 @@ repl = do
     envRef     <- newIORef baseEnv
     forever $ do
         -- Output is line-buffered so we explicitly flush here
-        putStr ">>> "; hFlush stdout
-        lineResult <- join $ runLine
-            <$> readIORef typeCtxRef
-            <*> readIORef envRef
-            <*> getLine
+        putStr ">>> "
+        hFlush stdout
+        lineResult <- join $ runLine <$> readIORef typeCtxRef <*> readIORef envRef <*> getLine
         case lineResult of
-            Left  err -> putStrLn ("Error: " <> err)
+            Left  err                         -> putStrLn ("Error: " <> err)
             Right (value, newTypeCtx, newEnv) -> do
                 writeIORef typeCtxRef newTypeCtx
-                writeIORef envRef newEnv
+                writeIORef envRef     newEnv
                 putStrLn ("> " <> show (pretty value))
-
-
-runLine :: TypeCtx -> Environment Value -> String -> IO (Either String (Value, TypeCtx, Environment Value))
-runLine typeCtx interpreterEnv input = runExceptT $ do
-    -- Run up to typechecking, converting errors to strings (the parts after >>>)
-    (typedAST, newTypeCtx) <- liftEither
-        $   ( runParser stmt ""            >>> first errorBundlePretty ) input
-        >>= ( desugar                      >>> pure                    )
-        >>= ( typecheckWithTypeCtx typeCtx >>> first (show . pretty )  )
-    -- Run the typedAST, lifting as needed
-    (value, newEnv) <- liftEither =<< liftIO 
-        (first (show . pretty) <$> runWithEnv interpreterEnv typedAST)
-    return (value, newTypeCtx, newEnv)
+  where
+    runLine
+        :: TypeCtx
+        -> Environment Value
+        -> String
+        -> IO (Either String (Value, TypeCtx, Environment Value))
+    runLine typeCtx interpreterEnv input = runExceptT $ do
+        -- Run up to typechecking, converting errors to strings (the parts after >>>)
+        (typedAST, newTypeCtx) <-
+            liftEither
+            $   (runParser stmt "" >>> first errorBundlePretty) input
+            >>= (desugar >>> pure)
+            >>= (typecheckWithTypeCtx typeCtx >>> first (show . pretty))
+        -- Run the typedAST, lifting as needed
+        (value, newEnv) <- liftEither =<< liftIO
+            (   first (show . pretty)
+            <$> runInterpreter interpreterEnv (unReplInterpreter . runAST $ typedAST)
+            )
+        return (value, newTypeCtx, newEnv)
