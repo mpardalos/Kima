@@ -1,4 +1,4 @@
-module Kima.Interface.Repl where
+module Kima.Interface.Repl (ReplInterpreter, ReplState, repl) where
 
 import           Control.Arrow           hiding ( first
                                                 , second
@@ -39,29 +39,28 @@ instance MonadConsole ReplInterpreter where
         Just '\n' -> s
         _         -> s ++ "\n"
 
+-- | Combines all necessary persistent data in the repl
+data ReplState = ReplState {
+    typeCtx :: TypeCtx,
+    interpreterEnv :: Environment Value
+}
+
 repl :: IO ()
 repl = do
     hSetBuffering stdin LineBuffering
-    typeCtxRef <- newIORef baseTypeCtx
-    envRef     <- newIORef baseEnv
+    replStateRef <- newIORef (ReplState baseTypeCtx baseEnv)
     forever $ do
-        -- Output is line-buffered so we explicitly flush here
         putStr ">>> "
-        hFlush stdout
-        lineResult <- join $ runLine <$> readIORef typeCtxRef <*> readIORef envRef <*> getLine
+        hFlush stdout -- Output is line-buffered so we explicitly flush here
+        lineResult <- join $ runLine <$> readIORef replStateRef <*> getLine
         case lineResult of
-            Left  err                         -> putStrLn ("Error: " <> err)
-            Right (value, newTypeCtx, newEnv) -> do
-                writeIORef typeCtxRef newTypeCtx
-                writeIORef envRef     newEnv
+            Left  err                   -> putStrLn ("Error: " <> err)
+            Right (value, newReplState) -> do
+                writeIORef replStateRef newReplState
                 putStrLn ("> " <> show (pretty value))
   where
-    runLine
-        :: TypeCtx
-        -> Environment Value
-        -> String
-        -> IO (Either String (Value, TypeCtx, Environment Value))
-    runLine typeCtx interpreterEnv input = runExceptT $ do
+    runLine :: ReplState -> String -> IO (Either String (Value, ReplState))
+    runLine ReplState { typeCtx, interpreterEnv } input = runExceptT $ do
         -- Run up to typechecking, converting errors to strings (the parts after >>>)
         (typedAST, newTypeCtx) <-
             liftEither
@@ -73,4 +72,4 @@ repl = do
             (   first (show . pretty)
             <$> runInterpreter interpreterEnv (unReplInterpreter . runAST $ typedAST)
             )
-        return (value, newTypeCtx, newEnv)
+        return (value, ReplState newTypeCtx newEnv)
