@@ -74,6 +74,7 @@ library
         optparse-applicative -any,
         parser-combinators ==1.*,
         prettyprinter == 1.2.*,
+        haskeline == 0.7.*,
         safe -any
 
 test-suite spec
