@@ -117,7 +117,14 @@ prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)
 
 term :: Parser (ParsedAST 'Expr) 
-term = try accessCall <|> baseTerm
+term = try accessCall <|> funcExpr <|> baseTerm
+
+funcExpr :: Parser (ParsedAST 'Expr)
+funcExpr = reserved RFun *> (
+    FuncExpr
+    <$> parens typedArgList
+    <*> (symbol Arrow *> typeExpr)
+    <*> block)
 
 -- | A term without calls (Useful for parsing calls)
 baseTerm :: Parser (ParsedAST 'Expr)

@@ -57,6 +57,9 @@ expressionTests =
     , ( "a().b",   AccessE (Call (IdentifierE "a") [] `Access` "b"))
     , ( "(1+4).b", AccessE (BinE (LiteralE (IntExpr 1) `Add` LiteralE (IntExpr 4)) `Access` "b"))
     , ( "a.b.c",   AccessE (AccessE (IdentifierE "a" `Access` "b") `Access` "c"))
+    , ( "fun () -> Unit {}", FuncExpr [] "Unit" (Block []))
+    , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] "Unit" (Block []))
+    , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] "Unit" (Block []))
     ]
 
 statementTests :: [(String, ParsedAST 'Stmt)]

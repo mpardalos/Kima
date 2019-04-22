@@ -2,7 +2,8 @@
 
 module Kima.AST.Types where
 
-import Data.Text.Prettyprint.Doc
+import           Data.String
+import           Data.Text.Prettyprint.Doc
 
 type TypeName = String
 
@@ -18,5 +19,9 @@ instance Show TypeExpr where
     show (SignatureType args rt) = "#( (" ++ show args ++ ") -> " ++ show rt ++ ")"
 
 instance Pretty TypeExpr where
-    pretty (TypeName name                ) = pretty name
-    pretty (SignatureType args returnType) = tupled (pretty <$> args) <+> "->" <+> pretty returnType
+    pretty (TypeName name) = pretty name
+    pretty (SignatureType args returnType) =
+        tupled (pretty <$> args) <+> "->" <+> pretty returnType
+
+instance IsString TypeExpr where
+    fromString = TypeName
