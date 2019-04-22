@@ -14,6 +14,12 @@ import           Kima.KimaTypes
 import           Safe
 import qualified Data.Map                      as Map
 
+runAST :: MonadInterpreter m => RuntimeAST p -> m Value
+runAST (ProgramAST ast)  = Unit <$ runProgram ast
+runAST (TopLevelAST ast) = bindTopLevel ast
+runAST (StmtAST    ast)  = runStmt ast
+runAST (ExprAST    ast)  = evalExpr ast
+
 ---------- Expressions ----------
 evalExpr :: (MonadInterpreter m) => RuntimeAST 'Expr -> m Value
 evalExpr (LiteralE   l     )     = return $ evalLiteral l
