@@ -35,6 +35,7 @@ data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
+           -- | TODO functions should carry their closure
            | Function [RuntimeIdentifier] (RuntimeAST 'Stmt)
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
