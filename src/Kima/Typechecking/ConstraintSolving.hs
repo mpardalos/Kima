@@ -31,14 +31,18 @@ domainOf tvar@TypeVar{} = Map.lookup tvar <$> getDomains >>= \case
     Just domain               -> pure domain
     Nothing                   -> throwError (NoSolution tvar)
 domainOf (     TheType t                  ) = pure [t]
-domainOf tvar@(ApplicationTVar callee args) = do
+domainOf (ApplicationTVar callee args) = do
     argDomains   <- toList <$> domainOf `traverse` args
     calleeDomain <- toList <$> domainOf callee
     case filter (matches argDomains) calleeDomain of
         [t@(KFunc (Signature _ rt))] -> unifyVarToType callee t $> [rt]
-        [t] -> throwError (CantUnify (TheType t) callee)
+        [t                         ] -> throwError (CantUnify (TheType t) callee)
         []                           -> throwError (CantUnifyCall callee args)
-        ts                           -> throwError (AmbiguousVariable tvar ts)
+        ts                           -> case mapM returnTypeOf ts of
+            Just rts -> do
+                setDomain callee (Set.fromList ts)
+                return (Set.fromList rts)
+            Nothing -> throwError (CantUnifyCall callee args)
   where
     matches :: [Set KType] -> KType -> Bool
     matches argDomains (KFunc (Signature args' _)) =
@@ -54,8 +58,8 @@ extractSubstitution = Map.traverseWithKey extractSubstitution1 =<< getDomains
         throwError (MultipleSolutions tvar ts)
 
 -- | Try to unify two typevars under a given set of domains.
--- | Return the updated domains and a the substitution that unifies the two 
--- | typevars. 
+-- | Return the updated domains and a the substitution that unifies the two
+-- | typevars.
 unifyEquality :: MonadUnify m => EqConstraint -> m ()
 -- Unify concrete types
 unifyEquality (Equal (TheType t1) (TheType t2))
@@ -78,6 +82,17 @@ unifyVarToType tvar t = do
     domain <- domainOf tvar
     unless (t `elem` domain) (throwError (CantUnify tvar (TheType t)))
     setDomain tvar [t]
+    -- If we have an application tvar then unifying it also unifies the callee
+    case tvar of
+        (ApplicationTVar callee _) -> do
+            calleeDomain <- Set.toList <$> domainOf callee
+            let newCalleeDomain = Set.fromList $ filter ((== Just t) . returnTypeOf) calleeDomain
+            setDomain callee newCalleeDomain
+        _ -> pure ()
 
 isSubset :: (Ord a, Eq a) => Set a -> Set a -> Bool
 isSubset sub super = null (Set.difference sub super)
+
+returnTypeOf :: KType -> Maybe KType
+returnTypeOf (KFunc (Signature _ rt)) = Just rt
+returnTypeOf _                        = Nothing
