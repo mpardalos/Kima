@@ -109,6 +109,8 @@ test-suite spec
         megaparsec ==7.*,
         prettyprinter == 1.2.*,
         safe -any,
+        directory-tree == 0.12.*,
+        filepath == 1.4.*,
         Kima
 
 executable kima

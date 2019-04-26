@@ -1,14 +1,16 @@
-module Kima.Test.FileTests where
+module Kima.Test.FileTests (spec) where
 
 import           Test.Hspec
 
 import           Data.Maybe
+import           Data.Foldable
 import           Data.List
 import           Control.Monad
 import           Control.Arrow           hiding ( first
                                                 , second
                                                 )
-import           System.Directory
+import           System.FilePath
+import           System.Directory.Tree   hiding ( contents )
 import           Data.Char
 import           Data.Either
 import           Data.Bifunctor
@@ -31,77 +33,97 @@ data FileTest = FileTest {
     contents :: String
 }
 
+instance Show FileTest where
+    show FileTest { fileName, isPending } =
+        "FileTest { " <> "fileName = " <> fileName <> ", " <> "pending = " <> show isPending <> "}"
+
+    showList xs = (intercalate "\n" (show <$> xs) <>)
+
+instance Eq FileTest where
+    (==) FileTest { resultSpec = spec1, fileName = name1 } FileTest { resultSpec = spec2, fileName = name2 }
+        = (isRight spec1 == isRight spec2) && (name1 == name2)
+
+instance Ord FileTest where
+    compare FileTest { resultSpec = spec1, fileName = name1 } FileTest { resultSpec = spec2, fileName = name2 }
+        = compare (isLeft spec1) (isLeft spec2) <> compare name1 name2
+
 spec :: Spec
-spec = parallel $ do
-    -- Filenames and contents
-    files <- sortBy (
-        \FileTest { resultSpec = spec1, fileName = name1 } 
-         FileTest { resultSpec = spec2, fileName = name2 } ->
-            compare (isRight spec1) (isRight spec2) <> compare name1 name2) 
-        <$> runIO (readTestFiles "test/src")
+spec = do
+    (_ :/ testSources) <- runIO $ readDirectoryWith
+        (\fp -> do
+            src <- readFile fp
+            pure (takeFileName fp, src)
+        )
+        "test/src"
 
-    parallel $ context "Full File tests" $ forM_ files runFileTest 
+    case traverse (uncurry makeFileTest) testSources of
+        Right (Dir _ contents) ->
+            parallel $ context "Full File tests" $ traverse_ dirTreeSpec (sort contents)
+        --  Failed cases
+        Right (File name _) ->
+            it "Failed reading file tests" $ putStrLn (name <> " is not a directory")
+        Right (Failed _ err) -> it "Failed reading file tests" $ print err
+        Left  err            -> it "Failed reading file tests" $ putStrLn err
 
+dirTreeSpec :: DirTree FileTest -> Spec
+dirTreeSpec (Failed name err     ) = xit ("Error " <> show err <> " on " <> name) False
+dirTreeSpec (Dir    name contents) = context name (traverse_ dirTreeSpec (sort contents))
+dirTreeSpec (File   _    contents) = runFileTest contents
 
 runFileTest :: FileTest -> Spec
-runFileTest test@FileTest { fileName, contents, input } = case test of
-    FileTest { resultSpec = Left errorTest } ->
-        it ("Doesn't run " <> fileName) $ 
-            if isPending test then pending else
-                runResult `shouldSatisfy` \case
-                    Right{}  -> False
-                    Left err -> errorTest err
-    FileTest { resultSpec = Right outputTest } ->
-        it ("Runs " <> fileName) $
-            if isPending test then pending else
-                runResult `shouldSatisfy` \case
-                    Right (_, out) -> outputTest out
-                    Left{}    -> False
-    where
-
-        runResult = testableEither (F.parseProgram fileName contents)
+runFileTest test@FileTest { fileName, contents, input, resultSpec } = case resultSpec of
+    Left errorTest -> it ("Doesn't run " <> fileName) $ if isPending test
+        then pending
+        else runResult `shouldSatisfy` \case
+            Right{}  -> False
+            Left err -> errorTest err
+    Right outputTest -> it ("Runs " <> fileName) $ if isPending test
+        then pending
+        else runResult `shouldSatisfy` \case
+            Right (_, out) -> outputTest out
+            Left{}         -> False
+  where
+    runResult =
+        testableEither (F.parseProgram fileName contents)
             >>= (pure . D.desugar)
             >>= (testableEither . T.typecheck baseTypeCtx)
             >>= (testableEither . runInTestInterpreterWithInput input)
 
-readTestFiles
-    :: FilePath -> IO [FileTest]
-readTestFiles dir = listDirectory dir >>= traverse (\path -> do
-    contents <- readFile (dir <> "/" <> path)
-    let isPending          = not    $ null (findPragmas "pending" contents)
+makeFileTest :: String -> String -> Either String FileTest
+makeFileTest name contents = do
+    let isPending          = not $ null (findPragmas "pending" contents)
     let givenInput         = concat $ findPragmas "input" contents
     let expectedErrorNames = findPragmas "shouldFailWith" contents
     let expectedOut        = concat $ findPragmas "output" contents
-    when (not (null expectedErrorNames) && not (null expectedOut)) $
-        error ("Test " <> path <> " contains both an expectation for an error and for output")
+    when (not (null expectedErrorNames) && not (null expectedOut))
+        $ error ("Test " <> name <> " contains both an expectation for an error and for output")
 
-    return $ FileTest 
-        { fileName   = path
+    return $ FileTest
+        { fileName   = name
         , input      = givenInput
         , isPending
         , resultSpec = if not (null expectedOut)
-            then Right (==expectedOut)
-            else (if not (null expectedErrorNames)
-                then Left (errorMatcherFor expectedErrorNames)
-                else Right (const True))
+                           then Right (== expectedOut)
+                           else if not (null expectedErrorNames)
+                               then Left (errorMatcherFor expectedErrorNames)
+                               else Right (const True)
         , contents   = contents
-    })
+        }
   where
     errorMatcherFor = foldl (\f s e -> f e || matchesString s e) (const False)
     -- | Find the values of all occurences of the pragma in a string
     -- | findPragma "hi" "##hi: world" == ["world"]
     findPragmas p =
-        lines >>> mapMaybe (stripPrefix ("##" <> p))
+        lines
+            >>> mapMaybe (stripPrefix ("##" <> p))
             >>> fmap (dropWhile isSpace)
-            >>> fmap (\case
-                ':':xs -> xs
-                xs     -> xs
-            ) 
+            >>> fmap
+                    (\case
+                        ':' : xs -> xs
+                        xs       -> xs
+                    )
             >>> fmap (dropWhile isSpace)
 
 -- Pack a testable error in an either into an existential
-testableEither
-    :: (TestableError err, Show err)
-    => Either err a
-    -> Either SomeTestableError a
+testableEither :: (TestableError err, Show err) => Either err a -> Either SomeTestableError a
 testableEither = first SomeTestableError
