@@ -12,18 +12,25 @@ import qualified Data.Set                      as Set
 import           Kima.KimaTypes
 import           Kima.Typechecking.Types
 
-
 unify :: EqConstraintSet -> Domains -> Either TypecheckingError Substitution
 unify cs = evalStateT (traverse_ unifyEquality cs >> extractSubstitution)
 
-instance Monad m => MonadDomainState (StateT Domains m) where
-    getDomains = get
-    setDomain var d = modify (Map.insert var d)
-
-type MonadUnify m = (MonadDomainState m, MonadError TypecheckingError m)
-class MonadDomainState m where
+class (MonadError TypecheckingError m) => MonadUnify m where
     getDomains :: m Domains
     setDomain :: TypeVar -> Set KType -> m ()
+
+instance MonadError TypecheckingError m => MonadUnify (StateT Domains m) where
+    getDomains = get
+    setDomain var@(ApplicationTVar callee _args) d = do
+        -- Set the domain of the top-level var
+        modify (Map.insert var d)
+
+        -- Reduce callee domain to those types that return a type in d
+        newCalleeDomain <- Set.filter (any (`elem` d) . returnTypeOf) <$> domainOf callee
+
+        setDomain callee newCalleeDomain
+
+    setDomain var d = modify (Map.insert var d)
 
 domainOf :: MonadUnify m => TypeVar -> m (Set KType)
 domainOf tvar@TypeVar{} = Map.lookup tvar <$> getDomains >>= \case
@@ -82,13 +89,6 @@ unifyVarToType tvar t = do
     domain <- domainOf tvar
     unless (t `elem` domain) (throwError (CantUnify tvar (TheType t)))
     setDomain tvar [t]
-    -- If we have an application tvar then unifying it also unifies the callee
-    case tvar of
-        (ApplicationTVar callee _) -> do
-            calleeDomain <- Set.toList <$> domainOf callee
-            let newCalleeDomain = Set.fromList $ filter ((== Just t) . returnTypeOf) calleeDomain
-            setDomain callee newCalleeDomain
-        _ -> pure ()
 
 isSubset :: (Ord a, Eq a) => Set a -> Set a -> Bool
 isSubset sub super = null (Set.difference sub super)
