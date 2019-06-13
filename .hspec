@@ -1,4 +1,4 @@
 --failure-report=fails.log
 --rerun
 --rerun-all-on-success
---qc-max-success=1000
+--qc-max-success=100
