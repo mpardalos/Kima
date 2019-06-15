@@ -49,7 +49,7 @@ expressionTests =
     , ("10(5)", Call (LiteralE (IntExpr 10)) [LiteralE (IntExpr 5)])
     , ("func(5)", Call (IdentifierE "func") [LiteralE (IntExpr 5)])
     , ("func(5)(\"hi\")"
-      , Call 
+      , Call
             (Call (IdentifierE "func") [LiteralE (IntExpr 5)])
             [LiteralE (StringExpr "hi")]
       )
@@ -63,7 +63,7 @@ expressionTests =
     ]
 
 statementTests :: [(String, ParsedAST 'Stmt)]
-statementTests = 
+statementTests =
     [ ("while True { print(name); }", While (
         WhileStmt (LiteralE $ BoolExpr True) $ Block [
             ExprStmt $ Call (IdentifierE "print") [IdentifierE "name"]

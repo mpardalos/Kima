@@ -4,7 +4,7 @@ Kima
 TODO
 ----
 
-[x] Builtin types 
+[x] Builtin types
 [ ] Algebraic types
 [ ] Polymorphic types
 [ ] Effect system

@@ -42,9 +42,9 @@ newtype InterfaceM a = InterfaceM {
 type MonadInterface m = (MonadError UserThrowableError m, MonadIO m)
 
 runMonadInterface :: InterfaceM a -> IO a
-runMonadInterface = runInterfaceM 
-    >>> runExceptT 
-    >=> \case 
+runMonadInterface = runInterfaceM
+    >>> runExceptT
+    >=> \case
         Left err -> throwIO $ userError (show err)
         Right a -> pure a
 
@@ -52,8 +52,8 @@ userThrow :: (MonadInterface m, UserThrowable err) => err -> m a
 userThrow = throwError . UserThrowableError
 
 runEither :: (MonadInterface m, UserThrowable err) => Either err a -> m a
-runEither = liftEither . bimap UserThrowableError id 
+runEither = liftEither . bimap UserThrowableError id
 
 runMaybe :: (UserThrowable err, MonadInterface m) => err -> Maybe a -> m a
-runMaybe _   (Just a) = pure a 
+runMaybe _   (Just a) = pure a
 runMaybe err Nothing  = userThrow err

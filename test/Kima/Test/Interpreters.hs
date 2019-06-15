@@ -19,8 +19,8 @@ newtype TestInterpreter a = MockInterpreter {
                    WriterT String (
                    Either RuntimeError))) a
 } deriving (
-        Functor, Applicative, Monad, 
-        MonadError RuntimeError, 
+        Functor, Applicative, Monad,
+        MonadError RuntimeError,
         MonadReader String,
         MonadState (Environment Value),
         MonadWriter String)
@@ -40,7 +40,7 @@ instance MonadConsole TestInterpreter where
         consoleWrite = tell
 
 constraintsFor :: TVarAST p -> EqConstraintSet
-constraintsFor = execWriter . \case 
+constraintsFor = execWriter . \case
         ProgramAST ast  -> writeProgramConstraints ast
         TopLevelAST func -> writeTopLevelConstraints func
         StmtAST    stmt -> stmtReturnTVar stmt $> ()

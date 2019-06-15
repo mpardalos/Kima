@@ -19,7 +19,7 @@ import           Kima.Typechecking.ConstraintSolving
 import           Kima.Typechecking.DomainCalculation
                                                as E
                                                 ( makeDomains
-                                                , makeDomainsWithTypeCtx 
+                                                , makeDomainsWithTypeCtx
                                                 )
 import           Kima.Typechecking.Types       as E
                                                 ( TVarAST

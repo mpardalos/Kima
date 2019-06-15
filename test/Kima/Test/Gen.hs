@@ -80,9 +80,9 @@ instance Arbitrary KType where
 
 instance Arbitrary TypeVar where
     arbitrary = genericArbitrary'
-        $ (2 :: W "TypeVar") 
-        % (2 :: W "TheType") 
-        % (1 :: W "ApplicationTVar") 
+        $ (2 :: W "TypeVar")
+        % (2 :: W "TheType")
+        % (1 :: W "ApplicationTVar")
         % ()
 
 instance Arbitrary t => Arbitrary (Signature t) where
@@ -136,25 +136,25 @@ instance Arbitrary BuiltinName where
     arbitrary = genericArbitraryU
 
 instance Arbitrary (Identifier 'NoAnnotation) where
-    arbitrary = oneof 
+    arbitrary = oneof
         [ Identifier <$> (getNonEmpty <$> arbitrary)
         , Builtin <$> arbitrary
         ]
     shrink = shrinkUntypedName
 
 instance Arbitrary t => Arbitrary (Identifier ('Annotation t)) where
-    arbitrary = typeAnnotate 
+    arbitrary = typeAnnotate
         <$> arbitrary @t
         <*> arbitrary @(Identifier 'NoAnnotation)
     shrink (TIdentifier n t)
         | length n > 1 = TIdentifier <$> shrink n <*> shrink t
         | otherwise    = TIdentifier n <$> shrink t
-    shrink (TBuiltin n t) = join 
+    shrink (TBuiltin n t) = join
         [ TBuiltin n <$> shrink t
         , TIdentifier (show n) <$> shrink t
         ]
-    shrink (TAccessor n t) = join 
-        [ TAccessor <$> shrink n <*> shrink t 
+    shrink (TAccessor n t) = join
+        [ TAccessor <$> shrink n <*> shrink t
         , TIdentifier (show n) <$> shrink t
         ]
 
@@ -169,8 +169,8 @@ shrinkUntypedName :: Identifier 'NoAnnotation -> [Identifier 'NoAnnotation]
 shrinkUntypedName (Identifier    n)
     | length n > 1 = Identifier <$> shrink n
     | otherwise    = []
-shrinkUntypedName (Accessor n) 
+shrinkUntypedName (Accessor n)
     | length n > 1 = join [Identifier <$> shrink n, Accessor <$> shrink n]
     | otherwise    = []
--- Base names are smaller than builtins 
+-- Base names are smaller than builtins
 shrinkUntypedName (Builtin n) = [Identifier (show n)]

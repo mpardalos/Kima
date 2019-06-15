@@ -1,6 +1,6 @@
 module Kima.Frontend.Parser where
 
-import Prelude hiding (mod) 
+import Prelude hiding (mod)
 
 import Kima.AST
 import Kima.Frontend.Tokenizer hiding (Mod)
@@ -43,7 +43,7 @@ typedArg = (,) <$> identifier <*> (symbol Colon *> typeExpr)
 -- Statements
 
 stmt :: Parser (ParsedAST 'Stmt)
-stmt = letStmt <|> varStmt <|> whileStmt <|> ifStmt <|> assignStmt <|> exprStmt 
+stmt = letStmt <|> varStmt <|> whileStmt <|> ifStmt <|> assignStmt <|> exprStmt
     <?> "statement"
 
 block :: Parser (ParsedAST 'Stmt)
@@ -58,7 +58,7 @@ letStmt = Let
     <?> "let statement"
 
 varStmt :: Parser (ParsedAST 'Stmt)
-varStmt = Var 
+varStmt = Var
     <$> (reserved RVar *> identifier)
     <*> (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
@@ -87,9 +87,9 @@ exprStmt = ExprStmt <$> expr
     <?> "expression statement"
 
 ifStmt :: Parser (ParsedAST 'Stmt)
-ifStmt = If <$> (IfStmt 
+ifStmt = If <$> (IfStmt
     <$> (reserved RIf *> expr)
-    <*> block 
+    <*> block
     <*> (reserved RElse *> block))
 
 -- Expressions
@@ -116,7 +116,7 @@ binary  p f = InfixL  (f <$ p)
 prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)
 
-term :: Parser (ParsedAST 'Expr) 
+term :: Parser (ParsedAST 'Expr)
 term = try accessCall <|> funcExpr <|> baseTerm
 
 funcExpr :: Parser (ParsedAST 'Expr)
@@ -140,8 +140,8 @@ argList = parens (expr `sepBy` symbol Comma)
 
 -- | Parse a series of nested calls and accesses (a.b)
 accessCall :: Parser (ParsedAST 'Expr)
-accessCall = do 
-    callee <- baseTerm 
+accessCall = do
+    callee <- baseTerm
     argLists <- some callOrAccess
     return (foldl combiner callee argLists)
     where
@@ -158,8 +158,8 @@ typeExpr = uncurry SignatureType <$> try anonymousSignature
        <?> "type expression"
 
 anonymousSignature :: Parser ([TypeExpr], TypeExpr)
-anonymousSignature = (,) 
-    <$> parens (typeExpr `sepBy` symbol Comma) 
+anonymousSignature = (,)
+    <$> parens (typeExpr `sepBy` symbol Comma)
     <*> (symbol Arrow *> typeExpr)
     <?> "function signature"
 

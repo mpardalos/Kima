@@ -19,13 +19,13 @@ resolveTypes
     :: MonadTypeResolution m
     => DesugaredAST p
     -> m (TypeAnnotatedAST p)
-resolveTypes ast@Program{} = do 
+resolveTypes ast@Program{} = do
     processDataDefs ast
     traverseTypeAnnotations resolveTypeExpr ast
 resolveTypes ast = traverseTypeAnnotations resolveTypeExpr ast
 
 processDataDefs :: MonadTypeResolution m => DesugaredAST 'Module -> m ()
-processDataDefs (Program topLevelDecls) = forM_ topLevelDecls $ \case 
+processDataDefs (Program topLevelDecls) = forM_ topLevelDecls $ \case
     DataDef typeName members -> do
         resolvedMembers <- traverse @[] (bitraverse @(,) pure resolveTypeExpr) members
         modify (Map.insert typeName (KUserType typeName resolvedMembers))

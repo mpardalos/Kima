@@ -4,12 +4,12 @@ import Control.Monad.Except
 import Control.Monad.State
 import Kima.Interpreter.Types
 
-newtype Interpreter a = Interpreter { 
+newtype Interpreter a = Interpreter {
     unInterpreter :: StateT (Environment Value) (
-                     ExceptT RuntimeError 
-                     IO) a 
+                     ExceptT RuntimeError
+                     IO) a
 } deriving (
-    Functor, 
+    Functor,
     Applicative,
     Monad,
     MonadError RuntimeError,

@@ -62,7 +62,7 @@ instance Pretty Value where
     pretty (String v)           = pretty v
     pretty (AccessorIdx name _) = "{." <> pretty name <> "}"
     pretty (Function args body) =
-        "fun" <+> tupled (pretty <$> args) <+> "{" 
+        "fun" <+> tupled (pretty <$> args) <+> "{"
         <> line
             <> indent 4 (pretty body)
         <> line <> "}"
@@ -79,7 +79,7 @@ instance Pretty RuntimeError where
     pretty ( WrongArgumentCount got expected ) =
         "Expected" <+> pretty expected <+> "args" <+>
         "but got" <+> pretty got
-    pretty ( WrongConditionType v ) = 
+    pretty ( WrongConditionType v ) =
         "Expected a boolean condition value but got" <+> pretty v
     pretty ( NotAFunction v                  ) =
         "Expected a function but got" <+> pretty v
