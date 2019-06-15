@@ -42,10 +42,9 @@ data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn ::
     Call        :: AST 'Expr s i t -> [AST 'Expr s i t] -> AST 'Expr s i t
 
     -- Sugar
-    -- | Terms like @a().x@. This is sugar since it get converted to simple calls.
-    AccessE :: Access (Identifier i) (AST 'Expr 'Sugar i t) -> AST 'Expr 'Sugar i t
-    BinE    :: Binary (AST 'Expr 'Sugar i t)                -> AST 'Expr 'Sugar i t
-    UnaryE  :: Unary (AST 'Expr 'Sugar i t)                 -> AST 'Expr 'Sugar i t
+    AccessE :: AST 'Expr 'Sugar i t -> Name  -> AST 'Expr 'Sugar i t
+    BinE    :: Binary (AST 'Expr 'Sugar i t) -> AST 'Expr 'Sugar i t
+    UnaryE  :: Unary (AST 'Expr 'Sugar i t)  -> AST 'Expr 'Sugar i t
 
     ----------------------- Statements  -----------------------
     -- Interpreted Core
@@ -83,9 +82,6 @@ data WhileStmt cond body = WhileStmt {
     cond :: cond,
     body :: body
 } deriving (Eq, Generic)
-
-data Access ident expr = Access expr Name | IdAccess ident
-    deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
 
 -- | Similar to access but only used for assignment. Consists of a mandatory
 -- | base part and an optional list of sub-fields. E.g. @a@ is @WriteAccess "a" []@
@@ -191,7 +187,7 @@ instance (AnnotationConstraint Pretty i,
     pretty (Call callee args) = pretty callee <> tupled (pretty <$> args)
     pretty (BinE     bin    ) = pretty bin
     pretty (UnaryE   unary  ) = pretty unary
-    pretty (AccessE  access ) = pretty access
+    pretty (AccessE  expr name) = parens (pretty expr) <> "." <> pretty name
     pretty (ExprStmt expr   ) = pretty expr
     pretty (Block stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"
@@ -205,10 +201,6 @@ instance Pretty ident => Pretty (WriteAccess ident) where
 
 instance Pretty ident => Show (WriteAccess ident) where
     show = show . pretty
-
-instance (Pretty ident, Pretty expr) => Pretty (Access ident expr) where
-    pretty (Access record field) = pretty record <> "." <> pretty field
-    pretty (IdAccess identifier) = pretty identifier
 
 --------------- Boring instances ---------------------
 
@@ -235,18 +227,6 @@ instance Bitraversable WhileStmt where
     bitraverse f g WhileStmt { cond, body } =
         uncurry WhileStmt <$> bitraverse f g (cond, body)
 
-instance Bifunctor Access where
-    bimap f _ (IdAccess ident     ) = IdAccess (f ident)
-    bimap _ g (Access record field) = Access (g record) field
-
-instance Bifoldable Access where
-    bifoldMap f _ (IdAccess ident ) = f ident
-    bifoldMap _ g (Access record _) = g record
-
-instance Bitraversable Access where
-    bitraverse f _ (IdAccess ident     ) = IdAccess <$> f ident
-    bitraverse _ g (Access record field) = Access <$> g record <*> pure field
-
 deriving instance (AnnotationConstraint Eq i,
                    Eq (AnnotatedName i),
                    Eq t) => Eq (AST p s i t)
@@ -266,7 +246,7 @@ traverseTypeAnnotations f (FuncExpr args rt b) =
     FuncExpr <$> traverse (traverse f) args <*> f rt <*> traverseTypeAnnotations f b
 traverseTypeAnnotations f (Call callee args) =
     Call <$> traverseTypeAnnotations f callee <*> traverse (traverseTypeAnnotations f) args
-traverseTypeAnnotations f (AccessE  access) = AccessE <$> bitraverse pure (traverseTypeAnnotations f) access
+traverseTypeAnnotations f (AccessE  expr name) = AccessE <$> traverseTypeAnnotations f expr <*> pure name
 traverseTypeAnnotations f (BinE     bin   ) = BinE <$> traverse (traverseTypeAnnotations f) bin
 traverseTypeAnnotations f (UnaryE   unary ) = UnaryE <$> traverse (traverseTypeAnnotations f) unary
 traverseTypeAnnotations f (ExprStmt e     ) = ExprStmt <$> traverseTypeAnnotations f e
@@ -292,12 +272,12 @@ addIdAnnotations f (FuncDef n args rt b   ) = FuncDef n args rt <$> addIdAnnotat
 addIdAnnotations f (FuncExpr args rt b    ) = FuncExpr args rt <$> addIdAnnotations f b
 addIdAnnotations _ (DataDef n      members) = pure $ DataDef n members
 addIdAnnotations f (Call    callee args   ) = Call <$> addIdAnnotations f callee <*> traverse (addIdAnnotations f) args
-addIdAnnotations f (AccessE access) =
-    AccessE <$> bitraverse (\n -> typeAnnotate <$> f <*> pure n) (addIdAnnotations f) access
+addIdAnnotations f (AccessE expr name) = AccessE <$> addIdAnnotations f expr <*> pure name
 addIdAnnotations f (Assign access e) = Assign <$> traverse (\(Name n) -> TName n <$> f) access <*> addIdAnnotations f e
 addIdAnnotations f (Var n t e      ) = Var n t <$> addIdAnnotations f e
 addIdAnnotations f (Let n t e      ) = Let n t <$> addIdAnnotations f e
 
+-- | Traverse annotations on identifiers
 traverseIdAnnotations
     :: Applicative m
     => (idAnn1 -> m idAnn2)
@@ -317,8 +297,7 @@ traverseIdAnnotations f (FuncExpr args rt b ) = FuncExpr args rt <$> traverseIdA
 traverseIdAnnotations _ (DataDef n members  ) = pure $ DataDef n members
 traverseIdAnnotations f (Call callee args) =
     Call <$> traverseIdAnnotations f callee <*> traverse (traverseIdAnnotations f) args
-traverseIdAnnotations f (AccessE access) =
-    AccessE <$> bitraverse (traverseAnnotation f) (traverseIdAnnotations f) access
+traverseIdAnnotations f (AccessE expr name) = AccessE <$> traverseIdAnnotations f expr <*> pure name
 traverseIdAnnotations f (Assign access e) =
     Assign <$> traverse (\(TName n t) -> TName n <$> f t) access <*> traverseIdAnnotations f e
 traverseIdAnnotations f (Var n t e) = Var n t <$> traverseIdAnnotations f e

@@ -11,10 +11,7 @@ desugar :: ParsedAST p -> DesugaredAST p
 -- The only cases that actually change
 desugar (BinE    bin  )  = desugarBinary (desugar <$> bin)
 desugar (UnaryE  unary)  = desugarUnary (desugar <$> unary)
-desugar (AccessE access) = accessFold (desugar <$> access)
-    where
-        accessFold (Access expr field) = Call (IdentifierE (Accessor field)) [expr]
-        accessFold (IdAccess    ident) = IdentifierE ident
+desugar (AccessE expr field) = Call (IdentifierE (Accessor field)) [desugar expr]
 
 -- Basically just traverse
 desugar (Program ast              ) = Program (desugar <$> ast)

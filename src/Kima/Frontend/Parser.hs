@@ -149,7 +149,7 @@ accessCall = do
             Left  <$> (symbol Dot *> identifier) <|>
             Right <$> parens (expr `sepBy` symbol Comma)
 
-        combiner acc (Left  attr) = AccessE (Access acc attr)
+        combiner acc (Left  attr) = AccessE acc attr
         combiner acc (Right args) = Call acc args
 
 typeExpr :: Parser TypeExpr
