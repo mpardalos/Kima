@@ -70,7 +70,6 @@ library
         containers -any,
         megaparsec ==7.*,
         mtl -any,
-        newtype-generics >=0.5.3,
         optparse-applicative -any,
         parser-combinators ==1.*,
         prettyprinter == 1.2.*,
@@ -129,5 +128,4 @@ executable kima
                         UndecidableInstances EmptyCase
     build-depends:
         base >=4.7 && <5,
-        Kima -any,
-        newtype-generics >=0.5.3
+        Kima -any

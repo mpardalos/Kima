@@ -5,8 +5,6 @@ import           Prelude                 hiding ( lookup )
 import           Kima.AST
 import           Kima.KimaTypes
 
-import           Control.Newtype.Generics
-
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Text.Prettyprint.Doc
@@ -48,7 +46,6 @@ class Monad m => MonadConsole m where
 
 newtype Environment a = Environment {unEnv :: Map RuntimeIdentifier a}
     deriving (Functor, Semigroup, Generic, Show)
-instance Newtype (Environment a)
 
 instance Pretty a => Pretty (Environment a) where
     pretty (Environment envMap) = vcat (

@@ -3,7 +3,7 @@ module Kima.Interpreter.Interpreter where
 import           Prelude                 hiding ( lookup )
 
 import           Data.Foldable
-import           Control.Newtype.Generics
+import           Data.Coerce
 import           Control.Monad.Except
 
 import           Kima.AST
@@ -115,7 +115,7 @@ runFunc (AccessorIdx memberName _) args = throwError (BuiltinFunctionError (
 runFunc v _ = throwError (NotAFunction v)
 
 bind :: (MonadEnv m, IdentifierLike ident) => ident ('Annotation KType) -> Value -> m ()
-bind name val = modify (over Environment $ Map.insert (toIdentifier name) val)
+bind name val = modify (coerce $ Map.insert (toIdentifier name) val)
 
 getName :: (MonadEnv m, MonadRE m, IdentifierLike ident) => ident ('Annotation KType) -> m Value
 getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
