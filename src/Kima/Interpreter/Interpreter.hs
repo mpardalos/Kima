@@ -40,31 +40,51 @@ runStmt (Block stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
 runStmt (Assign (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind name)
-runStmt (Assign (WriteAccess name field) expr) = do
+runStmt (Assign (WriteAccess name path) expr) = do
+    oldVal <- getName name
     newVal <- evalExpr expr
-    accessors <- lookupFields (nameType name) field --(getName . \(TName n t) -> TAccessor n t) field
-    modifyField name accessors newVal
+
+    fieldIndices <- fmap fieldIndex <$> lookupFields (nameType name) path
+    bind name (modifyField oldVal fieldIndices newVal)
+
     return Unit
     where
-        modifyField :: IdentifierLike ident => ident ('Annotation KType) -> [Value] -> Value -> m ()
-        modifyField baseName subfields newVal = do
-            oldVal <- getName baseName
-            bind baseName (makeModified oldVal subfields newVal)
+        -- | Change a field inside a value.
+        modifyField
+            :: Value -- | Original value
+            -> [Int] -- | Path to the field, as a list of field indices
+            -> Value -- | Value to update the field to
+            -> Value
+        modifyField (ProductData vals) (field : subFields) newVal = let
+            updatedField = modifyField (vals !! field) subFields newVal
+            in ProductData (update field vals updatedField)
+        modifyField _ [] newVal = newVal
+        modifyField _ (n:_) _ = error
+            ("Tried to access field " ++ show n ++ " in non-product data")
 
-        lookupFields :: KType -> [AnnotatedName ('Annotation KType)] -> m [Value]
-        lookupFields _ []            = pure []
-        lookupFields base (TName subName subType:subs) = do
-            sub' <- getName $ TAccessor subName (KFunc ([base] $-> subType))
-            (sub':) <$> lookupFields subType subs
+        -- | Get the accessors for a path (list of fields) given the starting type
+        lookupFields
+            :: KType -- | Type of the starting value (first value in the path)
+            -> [AnnotatedName ('Annotation KType)] -- | Path
+            -> m [Value]
+        lookupFields baseType (TName subName subType:subFieldNames) = do
+            let accessorType = KFunc ([baseType] $-> subType)
+            thisField <- getName (TAccessor subName accessorType)
+            subFields <- lookupFields subType subFieldNames
+            return (thisField:subFields)
+        lookupFields _ [] = pure []
 
-        makeModified :: Value -> [Value] -> Value -> Value
-        makeModified (ProductData subvals) (AccessorIdx _ idx:accessors) newVal =
-            ProductData (update idx subvals (makeModified (subvals !! idx) accessors newVal))
-        makeModified _ [] newVal = newVal
-        makeModified _ (AccessorIdx fieldName _:_) _ = error ("Tried to access " ++ fieldName ++ " in non-product data")
-        makeModified _ (val:_) _ = error ("Tried to use " ++ show val ++ " as an accessor")
+        -- | Get the index that an Accessor accesses. Throws an error if the
+        -- | value is not an Accessor
+        fieldIndex :: Value -> Int
+        fieldIndex (AccessorIdx _ n) = n
+        fieldIndex val = error (show val ++ " is not an accessor")
 
-        update :: Int -> [a] -> a -> [a]
+        update
+            :: Int -- | Index to update
+            -> [a] -- | Original list
+            -> a -- | New value
+            -> [a]
         update _ []     _ = []
         update 0 (_:xs) y = y:xs
         update n (x:xs) y = x:update (n-1) xs y
