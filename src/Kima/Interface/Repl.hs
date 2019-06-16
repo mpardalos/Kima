@@ -6,6 +6,7 @@ import           Control.Arrow           hiding ( first
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Bifunctor
+import           Data.Functor
 import           Data.IORef
 import           Safe
 import           Text.Megaparsec
@@ -68,7 +69,7 @@ runLine ReplState { typeCtx, interpreterEnv } input = runExceptT $ do
     (typedAST, newTypeCtx) <-
         liftEither
         $   (runParser stmt "" >>> first errorBundlePretty) input
-        >>= (desugar >>> pure)
+        <&> desugar
         >>= (typecheckWithTypeCtx typeCtx >>> first (show . pretty))
     -- Run the typedAST, lifting as needed
     (value, newEnv) <- liftEither =<< liftIO

@@ -49,21 +49,21 @@ expressionTests =
     , ("10(5)", Call (LiteralE (IntExpr 10)) [LiteralE (IntExpr 5)])
     , ("func(5)", Call (IdentifierE "func") [LiteralE (IntExpr 5)])
     , ("func(5)(\"hi\")"
-      , Call 
+      , Call
             (Call (IdentifierE "func") [LiteralE (IntExpr 5)])
             [LiteralE (StringExpr "hi")]
       )
-    , ( "a.b",     AccessE (IdentifierE "a" `Access` "b"))
-    , ( "a().b",   AccessE (Call (IdentifierE "a") [] `Access` "b"))
-    , ( "(1+4).b", AccessE (BinE (LiteralE (IntExpr 1) `Add` LiteralE (IntExpr 4)) `Access` "b"))
-    , ( "a.b.c",   AccessE (AccessE (IdentifierE "a" `Access` "b") `Access` "c"))
+    , ( "a.b",     IdentifierE "a" `AccessE` "b")
+    , ( "a().b",   Call (IdentifierE "a") [] `AccessE` "b")
+    , ( "(1+4).b", BinE (LiteralE (IntExpr 1) `Add` LiteralE (IntExpr 4)) `AccessE` "b")
+    , ( "a.b.c",   (IdentifierE "a" `AccessE` "b") `AccessE` "c")
     , ( "fun () -> Unit {}", FuncExpr [] "Unit" (Block []))
     , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] "Unit" (Block []))
     , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] "Unit" (Block []))
     ]
 
 statementTests :: [(String, ParsedAST 'Stmt)]
-statementTests = 
+statementTests =
     [ ("while True { print(name); }", While (
         WhileStmt (LiteralE $ BoolExpr True) $ Block [
             ExprStmt $ Call (IdentifierE "print") [IdentifierE "name"]

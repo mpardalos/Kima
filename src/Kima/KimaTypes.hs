@@ -5,7 +5,7 @@ import Data.Text.Prettyprint.Doc
 import GHC.Generics
 
 -- | The types of the kima programming language
-data KType = KString | KUnit | KBool | KInt | KFloat 
+data KType = KString | KUnit | KBool | KInt | KFloat
            | KFunc (Signature KType)
            -- | A user defined type is defined by its name and fields
            | KUserType String [(String, KType)]

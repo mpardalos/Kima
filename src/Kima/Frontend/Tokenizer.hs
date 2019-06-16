@@ -101,7 +101,7 @@ reservedWords = toString <$> ([minBound .. maxBound] :: [Reserved])
 
 data Symbol = Quote | Bang | Plus | Minus | Star | Slash | Slashslash | Mod
             | Comma | Semicolon | Colon | Equals | Newline | Ellipsis | Arrow
-            | GreaterThan | GreaterEqual | LessThan | LessEqual | EqualsEquals 
+            | GreaterThan | GreaterEqual | LessThan | LessEqual | EqualsEquals
             | BangEquals | Dot
 
 symbol :: Symbol -> Parser ()

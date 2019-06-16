@@ -41,7 +41,7 @@ It defines a user type ~NAME~ along with the following:
 + Setters\\
 
 
-  
+
 ** Enums
 An enum declaration has the following form:
 #+BEGIN_SRC
@@ -71,7 +71,7 @@ fun what_event(ev: Event) -> String {
         Click(btn, pos) { btn + " click" }
         KeyPress(btn)   { "key " + btn   }
         Quit            { "quit"         }
-    } 
+    }
 }
 #+END_SRC
 

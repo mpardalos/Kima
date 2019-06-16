@@ -70,7 +70,7 @@ instance Semigroup Mutability where
     _ <> Constant = Constant
     _ <> _        = Variable
 instance Semigroup Binding where
-    (Binding mutL typesL) <> (Binding mutR typesR) = 
+    (Binding mutL typesL) <> (Binding mutR typesR) =
         Binding (mutL <> mutR) (typesL <> typesR)
 
 data TypeCtx = TypeCtx {
@@ -120,18 +120,18 @@ instance Pretty TypeVar where
     pretty = viaShow
 
 instance Pretty TypecheckingError where
-    pretty (AmbiguousVariable var types) = 
-        "Typevar" <+> pretty var <+> "is ambiguous. Available types:" 
-        <> line 
-        <> indent 4 (bulletList types) 
+    pretty (AmbiguousVariable var types) =
+        "Typevar" <+> pretty var <+> "is ambiguous. Available types:"
+        <> line
+        <> indent 4 (bulletList types)
     pretty (AssignToConst accessor     ) =
         "Assigned to constant" <+> pretty accessor
-    pretty (CantUnify l r              ) = 
+    pretty (CantUnify l r              ) =
         "Can't unify" <+> pretty l <+> pretty r
-    pretty (CantUnifyCall callee args  ) = 
+    pretty (CantUnifyCall callee args  ) =
         "Can't unify call to" <+> pretty callee
         <+> "with args" <+> tupled (pretty <$> args)
-    pretty (MultipleSolutions var sols ) = 
+    pretty (MultipleSolutions var sols ) =
         "Typevar" <+> pretty var <+> "has multiple solutions:"
         <> line
         <> indent 4 (bulletList sols)

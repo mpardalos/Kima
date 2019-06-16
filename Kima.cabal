@@ -70,7 +70,6 @@ library
         containers -any,
         megaparsec ==7.*,
         mtl -any,
-        newtype-generics >=0.5.3,
         optparse-applicative -any,
         parser-combinators ==1.*,
         prettyprinter == 1.2.*,
@@ -80,7 +79,7 @@ library
 test-suite spec
     type: exitcode-stdio-1.0
     main-is: Main.hs
-    other-modules: 
+    other-modules:
         Kima.Test.XmlFormatter
         Kima.Test.Errors
         Kima.Test.Interpreters
@@ -92,7 +91,7 @@ test-suite spec
         Kima.Test.Gen
     hs-source-dirs: test
     ghc-options: -Wall -fdefer-typed-holes
-    default-extensions: 
+    default-extensions:
         DeriveFunctor, DeriveGeneric, DerivingStrategies,
         GeneralizedNewtypeDeriving, ExistentialQuantification, DataKinds,
         LambdaCase, TypeApplications, BangPatterns, NamedFieldPuns,
@@ -129,5 +128,4 @@ executable kima
                         UndecidableInstances EmptyCase
     build-depends:
         base >=4.7 && <5,
-        Kima -any,
-        newtype-generics >=0.5.3
+        Kima -any

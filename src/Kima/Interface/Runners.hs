@@ -19,8 +19,8 @@ parseStmt =  F.runParser F.stmt ""
 parseExpr =  F.runParser F.expr ""
 
 parseRepl :: IO ()
-parseRepl = do 
-    hSetBuffering stdin LineBuffering 
+parseRepl = do
+    hSetBuffering stdin LineBuffering
     line <- putStr "> " >> getLine
     let res = F.runParser (foldl1 (<|>) (try <$> [show <$> F.expr, show <$> F.stmt, show <$> F.block])) "" line
     either (putStrLn . F.errorBundlePretty) putStrLn res
@@ -28,7 +28,7 @@ parseRepl = do
 
 parseFile = runMonadInterface . parseFile'
 parseFile' :: MonadInterface m => FilePath -> m ParsedProgram
-parseFile' fn = do 
+parseFile' fn = do
     src <- liftIO (readFile fn)
     runEither (F.runParser F.program fn src)
 

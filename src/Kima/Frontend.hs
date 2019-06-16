@@ -5,9 +5,9 @@ module Kima.Frontend(
 ) where
 
 import Kima.Frontend.Parser
-import Kima.Frontend.Types 
+import Kima.Frontend.Types
 import Text.Megaparsec
 
 -- | Parse a string as a Kima program and return either a ParseError that was
 -- | encoutered or the resulting AST
-parseProgram = runParser program 
+parseProgram = runParser program

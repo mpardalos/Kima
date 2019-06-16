@@ -91,7 +91,7 @@ kimaPrint :: (MonadRE m, MonadConsole m) => [Value] -> m Value
 kimaPrint [v] = case showValue v of
     Just str -> consoleWrite str $> Unit
     Nothing  -> throwError (BuiltinFunctionError "Can't print this value")
-kimaPrint _ = 
+kimaPrint _ =
     throwError (BuiltinFunctionError "print only accepts one argument")
 
 kimaInvert :: MonadRE m => [Value] -> m Value
@@ -129,7 +129,7 @@ liftIntegralOp _ _ = throwError
     (BuiltinFunctionError "Wrong argument count for numerical operator")
 
 liftNumOp
-    :: (MonadRE m) => (forall a . Num a => a -> a -> a) 
+    :: (MonadRE m) => (forall a . Num a => a -> a -> a)
     -> ([Value] -> m Value)
 liftNumOp op [Integer l, Integer r] = return $ Integer (l `op` r)
 liftNumOp op [Integer l, Float r  ] = return $ Float (fromInteger l `op` r)

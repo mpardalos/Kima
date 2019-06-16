@@ -35,14 +35,14 @@ spec = describe "Domain Calculator" $ do
         `shouldSatisfy` isLeft
 
     it "Allows assign to variable" $
-        calculateDomains (Assign 
+        calculateDomains (Assign
             (WriteAccess (TName "a" (TypeVar 1)) [])
             (LiteralE (IntExpr 5)))
-        `withTypeCtx` TypeCtx 
+        `withTypeCtx` TypeCtx
             []
             [(Identifier "a", Binding Variable [KFloat])]
         `shouldSatisfy` isRight
-    
+
 withTypeCtx
     :: StateT TypeCtx (Either TypecheckingError) a
     -> TypeCtx
