@@ -7,7 +7,7 @@ import           Data.Coerce
 import           Control.Monad.Except
 
 import           Kima.AST
-import           Kima.Control.Monad.State.Extended
+import           Control.Monad.State.Extended
 import           Kima.Interpreter.Types
 import           Kima.KimaTypes
 

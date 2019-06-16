@@ -2,7 +2,7 @@
 module Kima.Typechecking.ConstraintSolving where
 
 import           Control.Monad.Except
-import           Kima.Control.Monad.State.Extended
+import           Control.Monad.State.Extended
 import           Data.Foldable
 import           Data.Functor
 import qualified Data.Map                      as Map

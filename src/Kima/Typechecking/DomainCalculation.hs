@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedLists, AllowAmbiguousTypes #-}
 module Kima.Typechecking.DomainCalculation where
 
-import           Kima.Control.Monad.State.Extended
+import           Control.Monad.State.Extended
 import           Control.Arrow
 import           Control.Monad.Except
 import           Data.Foldable
