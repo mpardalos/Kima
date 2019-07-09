@@ -1,4 +1,4 @@
-##output: inner
+##shouldFailWith: NameShadowed
 
 fun shadows() -> () -> Unit {
     let s: String = "outer";
