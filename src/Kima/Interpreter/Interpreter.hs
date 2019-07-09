@@ -24,7 +24,7 @@ runAST (ExprAST    ast)  = evalExpr ast
 evalExpr :: (MonadInterpreter m) => RuntimeAST 'Expr -> m Value
 evalExpr (LiteralE   l     )     = return $ evalLiteral l
 evalExpr (IdentifierE name )     = getName name
-evalExpr (FuncExpr args _rt body) = return $ Function (uncurry TIdentifier <$> args) body
+evalExpr (FuncExpr args _rt body) = Function (uncurry TIdentifier <$> args) body <$> get
 evalExpr (Call callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 
@@ -102,7 +102,7 @@ runStmt (If IfStmt { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
     v            -> throwError (WrongConditionType v)
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
-runFunc (Function argNames body) args = withState (<> argEnv) (runStmt body)
+runFunc (Function argNames body closure) args = withState (<> (argEnv <> closure)) (runStmt body)
   where
     argEnv :: Environment Value
     argEnv = Environment $ Map.fromList (zip argNames args)
@@ -127,7 +127,8 @@ getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
 bindTopLevel :: MonadInterpreter m => RuntimeAST 'TopLevel -> m Value
 bindTopLevel (FuncDef name args rt body) = do
     let funcType = KFunc ((snd <$> args) $-> rt)
-    let function = Function (uncurry TIdentifier <$> args) body
+    closure <- get
+    let function = Function (uncurry TIdentifier <$> args) body closure
     bind (TIdentifier name funcType) function
     return function
 bindTopLevel (DataDef name members)       = do

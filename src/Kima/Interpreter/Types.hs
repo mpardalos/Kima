@@ -33,8 +33,7 @@ data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           -- | TODO functions should carry their closure
-           | Function [RuntimeIdentifier] (RuntimeAST 'Stmt)
+           | Function [RuntimeIdentifier] (RuntimeAST 'Stmt) (Environment Value)
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
            | AccessorIdx Name Int -- | Just gives the index of the accessed value
@@ -61,7 +60,7 @@ instance Pretty Value where
     pretty (Bool v)             = pretty v
     pretty (String v)           = pretty v
     pretty (AccessorIdx name _) = "{." <> pretty name <> "}"
-    pretty (Function args body) =
+    pretty (Function args body _closure) =
         "fun" <+> tupled (pretty <$> args) <+> "{"
         <> line
             <> indent 4 (pretty body)
