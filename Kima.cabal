@@ -38,18 +38,19 @@ library
         Kima.Frontend.Parser
 
         Kima.Typechecking
-        Kima.Typechecking.Types
-        Kima.Typechecking.TypeResolution
-        Kima.Typechecking.DomainCalculation
         Kima.Typechecking.ConstraintGen
         Kima.Typechecking.ConstraintSolving
+        Kima.Typechecking.Constraints
+        Kima.Typechecking.DomainCalculation
+        Kima.Typechecking.Errors
+        Kima.Typechecking.TypeCtx
+        Kima.Typechecking.TypeResolution
 
         Kima.KimaTypes
 
         Kima.Interpreter
         Kima.Interpreter.Types
         Kima.Interpreter.Interpreter
-        Kima.Interpreter.Monad
 
         Kima.Interface
         Kima.Interface.Repl

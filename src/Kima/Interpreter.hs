@@ -13,7 +13,6 @@ module Kima.Interpreter (
 
 import Kima.Interpreter.Interpreter as E
 import Kima.Interpreter.Types as E
-import Kima.Interpreter.Monad as E
 
 import Kima.AST
 

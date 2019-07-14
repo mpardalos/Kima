@@ -18,17 +18,9 @@ import           GHC.Exts
 
 type RuntimeIdentifier = Identifier ('Annotation KType)
 
-type MonadRE m = (Monad m, MonadError RuntimeError m)
-type MonadEnv m = (Monad m, MonadState (Environment Value) m)
-type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m)
+-- | There is circular dependencies around the following so we can't split them
 
-data RuntimeError = NotInScope RuntimeIdentifier
-                  | WrongArgumentCount Int Int
-                  | WrongConditionType Value
-                  | NotAFunction Value
-                  | BuiltinFunctionError String
-    deriving Show
-
+-- | ---------- Values ----------------
 data Value = Integer Integer
            | Float Double
            | Bool Bool
@@ -39,10 +31,6 @@ data Value = Integer Integer
            | ProductData [Value]
            | AccessorIdx Name Int -- | Just gives the index of the accessed value
            | Unit
-
-class Monad m => MonadConsole m where
-    consoleWrite :: String -> m ()
-    consoleRead :: m String
 
 newtype Environment a = Environment {unEnv :: Map RuntimeIdentifier a}
     deriving (Functor, Semigroup, Generic, Show)
@@ -73,6 +61,14 @@ instance Pretty Value where
         <> line <> "}"
     pretty Unit                = "()"
 
+-- | ---------- Errors ----------------
+data RuntimeError = NotInScope RuntimeIdentifier
+                  | WrongArgumentCount Int Int
+                  | WrongConditionType Value
+                  | NotAFunction Value
+                  | BuiltinFunctionError String
+    deriving Show
+
 instance Pretty RuntimeError where
     pretty ( NotInScope name                 ) =
         pretty name <+> "is not in scope"
@@ -84,3 +80,34 @@ instance Pretty RuntimeError where
     pretty ( NotAFunction v                  ) =
         "Expected a function but got" <+> pretty v
     pretty ( BuiltinFunctionError err        ) = pretty err
+
+-- | ---------- Execution ----------------
+type MonadRE m = (Monad m, MonadError RuntimeError m)
+type MonadEnv m = (Monad m, MonadState (Environment Value) m)
+type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m)
+
+newtype Interpreter a = Interpreter {
+    unInterpreter :: StateT (Environment Value) (
+                     ExceptT RuntimeError
+                     IO) a
+} deriving (
+    Functor,
+    Applicative,
+    Monad,
+    MonadError RuntimeError,
+    MonadState (Environment Value),
+    MonadIO)
+
+class Monad m => MonadConsole m where
+    consoleWrite :: String -> m ()
+    consoleRead :: m String
+
+instance MonadConsole Interpreter where
+    consoleRead = liftIO getLine
+    consoleWrite = liftIO . putStr
+
+execInterpreter :: Environment Value -> Interpreter a -> IO (Either RuntimeError a)
+execInterpreter env = runExceptT . (`evalStateT` env) . unInterpreter
+
+runInterpreter :: Environment Value -> Interpreter a -> IO (Either RuntimeError (a, Environment Value))
+runInterpreter env = runExceptT . (`runStateT` env) . unInterpreter

@@ -21,16 +21,17 @@ import           Kima.Typechecking.DomainCalculation
                                                 ( makeDomains
                                                 , makeDomainsWithTypeCtx
                                                 )
-import           Kima.Typechecking.Types       as E
+import           Kima.Typechecking.TypeCtx      as E (TypeCtx(typeBindings))
+
+import           Kima.Typechecking.Errors       as E (TypecheckingError(..))
+import           Kima.Typechecking.Constraints  as E
                                                 ( TVarAST
                                                 , TVarProgram
                                                 , Domains
                                                 , EqConstraintSet
                                                 , TVarAST
                                                 , TVarProgram
-                                                , TypecheckingError(..)
                                                 , TypeVar(..)
-                                                , TypeCtx(typeBindings)
                                                 )
 
 import qualified Data.Map                      as Map
