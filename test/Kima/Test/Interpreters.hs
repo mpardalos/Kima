@@ -29,7 +29,10 @@ runInTestInterpreter :: RuntimeAST p -> Either RuntimeError (Value, String)
 runInTestInterpreter = runInTestInterpreterWithInput ""
 
 runInTestInterpreterWithInput :: String -> RuntimeAST p -> Either RuntimeError (Value, String)
-runInTestInterpreterWithInput input = runWriterT . (`runReaderT` input) . (`evalStateT` baseEnv) . runInterpreter . \case
+runInTestInterpreterWithInput input = runWriterT
+    . (`runReaderT` input)
+    . (`evalStateT` baseEnv)
+    . Kima.Test.Interpreters.runInterpreter . \case
         ProgramAST  ast  -> runProgram ast $> Unit
         TopLevelAST ast  -> bindTopLevel ast
         StmtAST     stmt -> runStmt stmt

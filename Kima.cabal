@@ -51,7 +51,6 @@ library
         Kima.Interpreter
         Kima.Interpreter.Types
         Kima.Interpreter.Interpreter
-        Kima.Interpreter.Monad
 
         Kima.Interface
         Kima.Interface.Repl
