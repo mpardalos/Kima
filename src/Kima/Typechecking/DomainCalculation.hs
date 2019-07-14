@@ -10,7 +10,9 @@ import qualified Data.Set                      as Set
 import qualified Data.Map                      as Map
 import           Kima.AST
 import           Kima.KimaTypes
-import           Kima.Typechecking.Types
+import           Kima.Typechecking.TypeCtx
+import           Kima.Typechecking.Errors
+import           Kima.Typechecking.Constraints
 
 type MonadDomain m = (MonadState TypeCtx m, MonadError TypecheckingError m)
 

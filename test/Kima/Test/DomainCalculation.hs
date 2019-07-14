@@ -5,7 +5,9 @@ module Kima.Test.DomainCalculation where
 import Control.Monad.State
 import Data.Either
 import Kima.Typechecking.DomainCalculation
-import Kima.Typechecking.Types
+import Kima.Typechecking.TypeCtx
+import Kima.Typechecking.Constraints
+import Kima.Typechecking.Errors
 import Kima.KimaTypes
 import Kima.AST
 import Kima.Test.Gen

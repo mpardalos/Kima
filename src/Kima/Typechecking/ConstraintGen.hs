@@ -10,7 +10,7 @@ import           Data.Foldable
 
 import           Safe
 
-import           Kima.Typechecking.Types
+import           Kima.Typechecking.Constraints
 import           Kima.AST
 import           Kima.KimaTypes
 

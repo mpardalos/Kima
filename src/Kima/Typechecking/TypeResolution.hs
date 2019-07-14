@@ -8,7 +8,7 @@ import           Data.Map   (Map)
 import qualified Data.Map as Map
 import Kima.AST
 import Kima.KimaTypes
-import Kima.Typechecking.Types
+import Kima.Typechecking.Errors
 
 type MonadTypeResolution m = (MonadState (Map TypeName KType) m, MonadError TypecheckingError m)
 
