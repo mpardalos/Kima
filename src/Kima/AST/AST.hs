@@ -15,48 +15,104 @@ import Kima.AST.Names
 import Kima.AST.Types
 import Kima.KimaTypes
 
--- | The AST of the language. This is used for all phases of compilation/interpretation,
--- | from parsing to execution. The type parameters govern what nodes are enabled.
--- |
--- | [@part@] What section (statement, expression, ...) of the AST this is.
--- | [@sugar@] Whether sugar terms are enabled. Changed during desugaring
--- | [@idAnn@] The type (or lack thereof) of annotations *on identifiers* these
--- |           are the annotations that are not mandatory in the source language
--- |           but get added later.
--- | [@typeAnn@] The type of type annotations from the source language. These are
--- |             always present since they come from the source language. The type
--- |             parameter exists so that they can be converted into an internal
--- |             representation during typechecking
-data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn :: Type) where
-    Program :: [AST 'TopLevel s i t] -> AST 'Module s i t
+data AST tag where
+    Program
+        :: ( TagEqual tagTopLevel tag
+           , Part tagTopLevel ~ 'TopLevel
+           , Part tag ~ 'Module)
+        => [AST tagTopLevel]
+        -> AST tag
 
     ----------------------- Top-level definitions -----------------------
-    FuncDef :: Name -> [(Name, t)] -> t -> AST 'Stmt s i t -> AST 'TopLevel s i t
-    DataDef :: Name -> [(Name, t)]                         -> AST 'TopLevel s i t
+    FuncDef
+        :: ( TagEqual stmtTag tag
+           , Part tag ~ 'TopLevel)
+        => Name
+        -> [(Name, FreeAnnotation tag)]
+        -> FreeAnnotation tag
+        -> AST stmtTag
+        -> AST tag
+    DataDef
+        :: (Part tag ~ 'TopLevel)
+        => Name
+        -> [(Name, FreeAnnotation tag)]
+        -> AST tag
 
     ----------------------- Expressions -----------------------
     -- Interpreted core
-    LiteralE    :: Literal                              -> AST 'Expr s i t
-    IdentifierE :: Identifier i                         -> AST 'Expr s i t
-    FuncExpr    :: [(Name, t)] -> t -> AST 'Stmt s i t  -> AST 'Expr s i t
-    Call        :: AST 'Expr s i t -> [AST 'Expr s i t] -> AST 'Expr s i t
+    LiteralE
+        :: (Part tag ~ 'Expr)
+        => Literal
+        -> AST tag
+    IdentifierE
+        :: (Part tag ~ 'Expr)
+        => Identifier (NameAnnotation tag)
+        -> AST tag
+    FuncExpr
+        :: ( TagEqual bodyTag tag
+           , Part tag ~ 'Expr
+           , Part bodyTag ~ 'Stmt)
+        => [(Name, FreeAnnotation tag)]
+        -> FreeAnnotation tag
+        -> AST bodyTag
+        -> AST tag
+    Call
+        :: (Part tag ~ 'Expr)
+        => AST tag
+        -> [AST tag]
+        -> AST tag
 
     -- Sugar
-    AccessE :: AST 'Expr 'Sugar i t -> Name  -> AST 'Expr 'Sugar i t
-    BinE    :: Binary (AST 'Expr 'Sugar i t) -> AST 'Expr 'Sugar i t
-    UnaryE  :: Unary (AST 'Expr 'Sugar i t)  -> AST 'Expr 'Sugar i t
+    AccessE
+        :: (Part tag ~ 'Expr, HasSugar tag)
+        => AST tag
+        -> Name
+        -> AST tag
+    BinE
+        :: (Part tag ~ 'Expr, HasSugar tag)
+        => Binary (AST tag)
+        -> AST tag
+    UnaryE
+        :: (Part tag ~ 'Expr, HasSugar tag)
+        => Unary (AST tag)
+        -> AST tag
 
     ----------------------- Statements  -----------------------
     -- Interpreted Core
-    ExprStmt :: AST 'Expr s i t                                  -> AST 'Stmt s i t
-    Block    :: [AST 'Stmt s i t]                                -> AST 'Stmt s i t
-    While    :: WhileStmt (AST 'Expr s i t) (AST 'Stmt s i t)    -> AST 'Stmt s i t
-    If       :: IfStmt (AST 'Expr s i t) (AST 'Stmt s i t)       -> AST 'Stmt s i t
-    Assign   :: WriteAccess (AnnotatedName i) -> AST 'Expr s i t -> AST 'Stmt s i t
+    ExprStmt
+        :: TagEqual exprTag tag
+        => AST exprTag
+        -> AST tag
+    Block
+        :: [AST tag]
+        -> AST tag
+    While
+        :: TagEqual exprTag tag
+        => WhileStmt (AST exprTag) (AST tag)
+        -> AST tag
+    If
+        :: TagEqual exprTag tag
+        => IfStmt (AST exprTag) (AST tag)
+        -> AST tag
+    Assign
+        :: TagEqual exprTag tag
+        => WriteAccess (AnnotatedName (NameAnnotation tag))
+        -> AST exprTag
+        -> AST tag
 
     -- Typed versions
-    Var      :: Name -> t -> AST 'Expr s i t -> AST 'Stmt s i t
-    Let      :: Name -> t -> AST 'Expr s i t -> AST 'Stmt s i t
+    Var
+        :: TagEqual exprTag tag
+        => Name
+        -> FreeAnnotation tag
+        -> AST exprTag
+        -> AST tag
+    Let
+        :: TagEqual exprTag tag
+        => Name
+        -> FreeAnnotation tag
+        -> AST exprTag
+        -> AST tag
 
 ---------------- Factored out parts of the AST ------------------------------
 
@@ -89,24 +145,24 @@ data WhileStmt cond body = WhileStmt {
 data WriteAccess ident = WriteAccess ident [ident]
     deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
 
------- Type synonyms for different phases -----
--- > Parse ->
-type ParsedAST        (p :: ASTPart) = AST p 'Sugar   'NoAnnotation       TypeExpr
--- > Desugar ->
-type DesugaredAST     (p :: ASTPart) = AST p 'NoSugar 'NoAnnotation       TypeExpr
--- > Resolve Types ->
-type TypeAnnotatedAST (p :: ASTPart) = AST p 'NoSugar 'NoAnnotation       KType
--- > Typecheck ->
-type TypedAST         (p :: ASTPart) = AST p 'NoSugar ('Annotation KType) KType
-type RuntimeAST       (p :: ASTPart) = TypedAST p
+-- ------ Type synonyms for different phases -----
+-- -- > Parse ->
+-- type ParsedAST        (p :: ASTPart) = AST p 'Sugar   'NoAnnotation       TypeExpr
+-- -- > Desugar ->
+-- type DesugaredAST     (p :: ASTPart) = AST p 'NoSugar 'NoAnnotation       TypeExpr
+-- -- > Resolve Types ->
+-- type TypeAnnotatedAST (p :: ASTPart) = AST p 'NoSugar 'NoAnnotation       KType
+-- -- > Typecheck ->
+-- type TypedAST         (p :: ASTPart) = AST p 'NoSugar ('Annotation KType) KType
+-- type RuntimeAST       (p :: ASTPart) = TypedAST p
 
-type ParsedProgram        = ParsedAST        'Module
-type DesugaredProgram     = DesugaredAST     'Module
-type TypeAnnotatedProgram = TypeAnnotatedAST 'Module
-type TypedProgram         = TypedAST         'Module
-type RuntimeProgram       = RuntimeAST       'Module
+-- type ParsedProgram        = ParsedAST        'Module
+-- type DesugaredProgram     = DesugaredAST     'Module
+-- type TypeAnnotatedProgram = TypeAnnotatedAST 'Module
+-- type TypedProgram         = TypedAST         'Module
+-- type RuntimeProgram       = RuntimeAST       'Module
 
---------------- Show instances ---------------------
+-- --------------- Show instances ---------------------
 prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann
 prettyArgList = tupled . fmap (\(name, t) -> pretty name <> ": " <> pretty t)
 
