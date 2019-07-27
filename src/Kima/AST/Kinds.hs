@@ -13,15 +13,8 @@ type family AnnotationConstraint (f :: k -> Constraint) (x :: HasAnnotation) :: 
     AnnotationConstraint f ('Annotation a) = f a
 
 class ASTTag s where
-    type Part s :: ASTPart
-
     type TagSugar s :: Sugar
     type NameAnnotation s :: HasAnnotation
     type FreeAnnotation s :: Type
 
 type HasSugar s = TagSugar s ~ 'Sugar
-
--- | Two tags are equal in every way except their AST part
-type TagEqual t1 t2 = ( TagSugar t1 ~ TagSugar t2
-                      , NameAnnotation t1 ~ NameAnnotation t2
-                      , FreeAnnotation t1 ~ FreeAnnotation t2)
