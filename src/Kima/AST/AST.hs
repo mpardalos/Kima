@@ -199,20 +199,21 @@ instance Pretty a => Pretty (Binary a) where
     pretty (GreatEq l r) = pretty l <+> ">=" <+> pretty r
     pretty (Eq      l r) = pretty l <+> "==" <+> pretty r
     pretty (NotEq   l r) = pretty l <+> "!=" <+> pretty r
+
 instance Pretty a => Pretty (Unary a) where
     pretty (Negate e) = "-" <> pretty e
     pretty (Invert e) = "!" <> pretty e
 
-instance (AnnotationConstraint Pretty i,
-          Pretty (AnnotatedName i),
-          Pretty t) =>
-         Show (AST p s i t) where
+instance (AnnotationConstraint Pretty (NameAnnotation tag),
+          Pretty (AnnotatedName (NameAnnotation tag)),
+          Pretty (FreeAnnotation tag)) =>
+         Show (AST tag) where
     show = show . pretty
 
-instance (AnnotationConstraint Pretty i,
-          Pretty (AnnotatedName i),
-          Pretty t) =>
-         Pretty (AST p s i t) where
+instance (AnnotationConstraint Pretty (NameAnnotation tag),
+          Pretty (AnnotatedName (NameAnnotation tag)),
+          Pretty (FreeAnnotation tag)) =>
+         Pretty (AST tag) where
     pretty (Program ast) = vcat (pretty <$> ast)
     pretty (FuncDef name sig rt body) =
         "fun"
@@ -283,222 +284,229 @@ instance Bitraversable WhileStmt where
     bitraverse f g WhileStmt { cond, body } =
         uncurry WhileStmt <$> bitraverse f g (cond, body)
 
-deriving instance (AnnotationConstraint Eq i,
-                   Eq (AnnotatedName i),
-                   Eq t) => Eq (AST p s i t)
+-- deriving instance ( AnnotationConstraint Eq (NameAnnotation tag)
+--                   , Eq (AnnotatedName (NameAnnotation tag))
+--                   , Eq (FreeAnnotation tag)) => Eq (AST tag)
 
--- Traverals
-mapTypeAnnotations :: forall t1 t2 p s i. (t1 -> t2) -> AST p s i t1 -> AST p s i t2
-mapTypeAnnotations = coerce (traverseTypeAnnotations :: (t1 -> Identity t2) -> AST p s i t1 -> Identity (AST p s i t2))
+-- -- Traverals
+mapFreeAnnotations :: (FreeAnnotation t1 -> FreeAnnotation t2) -> AST t1 -> AST t2
+mapFreeAnnotations = coerce (traverseFreeAnnotations :: (FreeAnnotation t1 -> Identity (FreeAnnotation t2)) -> AST t1 -> Identity (AST t2))
 
-traverseTypeAnnotations :: Applicative m => (t1 -> m t2) -> AST p s i t1 -> m (AST p s i t2)
-traverseTypeAnnotations f (Var n t e) = Var n
+traverseFreeAnnotations
+    :: ( Part t1 ~ Part t2
+       , TagSugar t1 ~ TagSugar t2
+       , NameAnnotation t1 ~ NameAnnotation t2
+       , Applicative m)
+    => (FreeAnnotation t1 -> m (FreeAnnotation t2))
+    -> AST t1
+    -> m (AST t2)
+traverseFreeAnnotations f (Var n t e) = Var n
     <$> f t
-    <*> traverseTypeAnnotations f e
-traverseTypeAnnotations f (Let n t e) = Let n
+    <*> traverseFreeAnnotations f e
+traverseFreeAnnotations f (Let n t e) = Let n
     <$> f t
-    <*> traverseTypeAnnotations f e
-traverseTypeAnnotations f (FuncDef n args rt b) = FuncDef n
+    <*> traverseFreeAnnotations f e
+traverseFreeAnnotations f (FuncDef n args rt b) = FuncDef n
     <$> traverse (traverse f) args
     <*> f rt
-    <*> traverseTypeAnnotations f b
-traverseTypeAnnotations f (FuncExpr args rt b) = FuncExpr
+    <*> traverseFreeAnnotations f b
+traverseFreeAnnotations f (FuncExpr args rt b) = FuncExpr
     <$> traverse (traverse f) args
     <*> f rt
-    <*> traverseTypeAnnotations f b
-traverseTypeAnnotations f (Program ast      ) = Program
-    <$> traverse (traverseTypeAnnotations f) ast
-traverseTypeAnnotations f (DataDef n members) = DataDef n
+    <*> traverseFreeAnnotations f b
+traverseFreeAnnotations f (Program ast      ) = Program
+    <$> traverse (traverseFreeAnnotations f) ast
+traverseFreeAnnotations f (DataDef n members) = DataDef n
     <$> traverse (traverse f) members
-traverseTypeAnnotations f (Call callee args) = Call
-    <$> traverseTypeAnnotations f callee
-    <*> traverse (traverseTypeAnnotations f) args
-traverseTypeAnnotations f (AccessE expr name) = AccessE
-    <$> traverseTypeAnnotations f expr
+traverseFreeAnnotations f (Call callee args) = Call
+    <$> traverseFreeAnnotations f callee
+    <*> traverse (traverseFreeAnnotations f) args
+traverseFreeAnnotations f (AccessE expr name) = AccessE
+    <$> traverseFreeAnnotations f expr
     <*> pure name
-traverseTypeAnnotations f (BinE bin) = BinE
-    <$> traverse (traverseTypeAnnotations f) bin
-traverseTypeAnnotations f (UnaryE unary) = UnaryE
-    <$> traverse (traverseTypeAnnotations f) unary
-traverseTypeAnnotations f (ExprStmt e) = ExprStmt
-    <$> traverseTypeAnnotations f e
-traverseTypeAnnotations f (Block blk) = Block
-    <$> traverse (traverseTypeAnnotations f) blk
-traverseTypeAnnotations f (While stmt) = While
-    <$> bitraverse (traverseTypeAnnotations f) (traverseTypeAnnotations f) stmt
-traverseTypeAnnotations f (If stmt) = If
-    <$> bitraverse (traverseTypeAnnotations f) (traverseTypeAnnotations f) stmt
-traverseTypeAnnotations f (Assign n e) = Assign n
-    <$> traverseTypeAnnotations f e
-traverseTypeAnnotations _ (LiteralE lit) = pure $ LiteralE lit
-traverseTypeAnnotations _ (IdentifierE n) = pure $ IdentifierE n
+traverseFreeAnnotations f (BinE bin) = BinE
+    <$> traverse (traverseFreeAnnotations f) bin
+traverseFreeAnnotations f (UnaryE unary) = UnaryE
+    <$> traverse (traverseFreeAnnotations f) unary
+traverseFreeAnnotations f (ExprStmt e) = ExprStmt
+    <$> traverseFreeAnnotations f e
+traverseFreeAnnotations f (Block blk) = Block
+    <$> traverse (traverseFreeAnnotations f) blk
+traverseFreeAnnotations f (While stmt) = While
+    <$> bitraverse (traverseFreeAnnotations f) (traverseFreeAnnotations f) stmt
+traverseFreeAnnotations f (If stmt) = If
+    <$> bitraverse (traverseFreeAnnotations f) (traverseFreeAnnotations f) stmt
+traverseFreeAnnotations f (Assign n e) = Assign n
+    <$> traverseFreeAnnotations f e
+traverseFreeAnnotations _ (LiteralE lit) = pure $ LiteralE lit
+traverseFreeAnnotations _ (IdentifierE n) = pure $ IdentifierE n
 
--- | Traverse the AST, adding annotations to all identifiers drawn from an applicative action
-addIdAnnotations
-    :: Applicative m
-    => m idAnn -- ^ Applicative action producing Annotations
-    -> AST p sug 'NoAnnotation t -- ^ Original AST
-    -> m (AST p sug ( 'Annotation idAnn) t)
-addIdAnnotations f (Assign access e) = Assign
-    <$> traverse (\(Name n) -> TName n <$> f) access
-    <*> addIdAnnotations f e
-addIdAnnotations f (Program ast) = Program
-    <$> traverse (addIdAnnotations f) ast
-addIdAnnotations f (ExprStmt e) = ExprStmt
-    <$> addIdAnnotations f e
-addIdAnnotations _ (LiteralE lit) = pure $ LiteralE lit
-addIdAnnotations f (IdentifierE n) = IdentifierE
-    <$> (typeAnnotate <$> f <*> pure n)
-addIdAnnotations f (BinE bin) = BinE
-    <$> traverse (addIdAnnotations f) bin
-addIdAnnotations f (UnaryE unary) = UnaryE
-    <$> traverse (addIdAnnotations f) unary
-addIdAnnotations f (While stmt) = While
-    <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
-addIdAnnotations f (If stmt) = If
-    <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
-addIdAnnotations f (Block blk) = Block
-    <$> traverse (addIdAnnotations f) blk
-addIdAnnotations f (FuncDef n args rt b) = FuncDef n args rt
-    <$> addIdAnnotations f b
-addIdAnnotations f (FuncExpr args rt b) = FuncExpr args rt
-    <$> addIdAnnotations f b
-addIdAnnotations _ (DataDef n members) = pure $ DataDef n members
-addIdAnnotations f (Call callee args) = Call
-    <$> addIdAnnotations f callee
-    <*> traverse (addIdAnnotations f) args
-addIdAnnotations f (AccessE expr name) = AccessE
-    <$> addIdAnnotations f expr
-    <*> pure name
-addIdAnnotations f (Var n t e) = Var n t <$> addIdAnnotations f e
-addIdAnnotations f (Let n t e) = Let n t <$> addIdAnnotations f e
+-- -- | Traverse the AST, adding annotations to all identifiers drawn from an applicative action
+-- addIdAnnotations
+--     :: Applicative m
+--     => m idAnn -- ^ Applicative action producing Annotations
+--     -> AST p sug 'NoAnnotation t -- ^ Original AST
+--     -> m (AST p sug ( 'Annotation idAnn) t)
+-- addIdAnnotations f (Assign access e) = Assign
+--     <$> traverse (\(Name n) -> TName n <$> f) access
+--     <*> addIdAnnotations f e
+-- addIdAnnotations f (Program ast) = Program
+--     <$> traverse (addIdAnnotations f) ast
+-- addIdAnnotations f (ExprStmt e) = ExprStmt
+--     <$> addIdAnnotations f e
+-- addIdAnnotations _ (LiteralE lit) = pure $ LiteralE lit
+-- addIdAnnotations f (IdentifierE n) = IdentifierE
+--     <$> (typeAnnotate <$> f <*> pure n)
+-- addIdAnnotations f (BinE bin) = BinE
+--     <$> traverse (addIdAnnotations f) bin
+-- addIdAnnotations f (UnaryE unary) = UnaryE
+--     <$> traverse (addIdAnnotations f) unary
+-- addIdAnnotations f (While stmt) = While
+--     <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
+-- addIdAnnotations f (If stmt) = If
+--     <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
+-- addIdAnnotations f (Block blk) = Block
+--     <$> traverse (addIdAnnotations f) blk
+-- addIdAnnotations f (FuncDef n args rt b) = FuncDef n args rt
+--     <$> addIdAnnotations f b
+-- addIdAnnotations f (FuncExpr args rt b) = FuncExpr args rt
+--     <$> addIdAnnotations f b
+-- addIdAnnotations _ (DataDef n members) = pure $ DataDef n members
+-- addIdAnnotations f (Call callee args) = Call
+--     <$> addIdAnnotations f callee
+--     <*> traverse (addIdAnnotations f) args
+-- addIdAnnotations f (AccessE expr name) = AccessE
+--     <$> addIdAnnotations f expr
+--     <*> pure name
+-- addIdAnnotations f (Var n t e) = Var n t <$> addIdAnnotations f e
+-- addIdAnnotations f (Let n t e) = Let n t <$> addIdAnnotations f e
 
--- | Traverse annotations on identifiers
-traverseIdAnnotations
-    :: Applicative m
-    => (idAnn1 -> m idAnn2)
-    -> AST p sug ( 'Annotation idAnn1) t
-    -> m (AST p sug ( 'Annotation idAnn2) t)
-traverseIdAnnotations f (Program ast) = Program
-    <$> traverse (traverseIdAnnotations f) ast
-traverseIdAnnotations f (ExprStmt e) = ExprStmt
-    <$> traverseIdAnnotations f e
-traverseIdAnnotations _ (LiteralE lit) = pure $ LiteralE lit
-traverseIdAnnotations f (IdentifierE n) = IdentifierE
-    <$> traverseAnnotation f n
-traverseIdAnnotations f (BinE bin) = BinE
-    <$> traverse (traverseIdAnnotations f) bin
-traverseIdAnnotations f (UnaryE unary) = UnaryE
-    <$> traverse (traverseIdAnnotations f) unary
-traverseIdAnnotations f (While stmt) = While
-    <$> bitraverse (traverseIdAnnotations f) (traverseIdAnnotations f) stmt
-traverseIdAnnotations f (If stmt) = If
-    <$> bitraverse (traverseIdAnnotations f) (traverseIdAnnotations f) stmt
-traverseIdAnnotations f (Block blk) = Block
-    <$> traverse (traverseIdAnnotations f) blk
-traverseIdAnnotations f (FuncDef n args rt b) = FuncDef n args rt
-    <$> traverseIdAnnotations f b
-traverseIdAnnotations f (FuncExpr args rt b) = FuncExpr args rt
-    <$> traverseIdAnnotations f b
-traverseIdAnnotations _ (DataDef n members) = pure $ DataDef n members
-traverseIdAnnotations f (Call callee args) = Call
-    <$> traverseIdAnnotations f callee
-    <*> traverse (traverseIdAnnotations f) args
-traverseIdAnnotations f (AccessE expr name) = AccessE
-    <$> traverseIdAnnotations f expr
-    <*> pure name
-traverseIdAnnotations f (Assign access e) = Assign
-    <$> traverse (\(TName n t) -> TName n <$> f t) access
-    <*> traverseIdAnnotations f e
-traverseIdAnnotations f (Var n t e) = Var n t
-    <$> traverseIdAnnotations f e
-traverseIdAnnotations f (Let n t e) = Let n t
-    <$> traverseIdAnnotations f e
+-- -- | Traverse annotations on identifiers
+-- traverseIdAnnotations
+--     :: Applicative m
+--     => (idAnn1 -> m idAnn2)
+--     -> AST p sug ( 'Annotation idAnn1) t
+--     -> m (AST p sug ( 'Annotation idAnn2) t)
+-- traverseIdAnnotations f (Program ast) = Program
+--     <$> traverse (traverseIdAnnotations f) ast
+-- traverseIdAnnotations f (ExprStmt e) = ExprStmt
+--     <$> traverseIdAnnotations f e
+-- traverseIdAnnotations _ (LiteralE lit) = pure $ LiteralE lit
+-- traverseIdAnnotations f (IdentifierE n) = IdentifierE
+--     <$> traverseAnnotation f n
+-- traverseIdAnnotations f (BinE bin) = BinE
+--     <$> traverse (traverseIdAnnotations f) bin
+-- traverseIdAnnotations f (UnaryE unary) = UnaryE
+--     <$> traverse (traverseIdAnnotations f) unary
+-- traverseIdAnnotations f (While stmt) = While
+--     <$> bitraverse (traverseIdAnnotations f) (traverseIdAnnotations f) stmt
+-- traverseIdAnnotations f (If stmt) = If
+--     <$> bitraverse (traverseIdAnnotations f) (traverseIdAnnotations f) stmt
+-- traverseIdAnnotations f (Block blk) = Block
+--     <$> traverse (traverseIdAnnotations f) blk
+-- traverseIdAnnotations f (FuncDef n args rt b) = FuncDef n args rt
+--     <$> traverseIdAnnotations f b
+-- traverseIdAnnotations f (FuncExpr args rt b) = FuncExpr args rt
+--     <$> traverseIdAnnotations f b
+-- traverseIdAnnotations _ (DataDef n members) = pure $ DataDef n members
+-- traverseIdAnnotations f (Call callee args) = Call
+--     <$> traverseIdAnnotations f callee
+--     <*> traverse (traverseIdAnnotations f) args
+-- traverseIdAnnotations f (AccessE expr name) = AccessE
+--     <$> traverseIdAnnotations f expr
+--     <*> pure name
+-- traverseIdAnnotations f (Assign access e) = Assign
+--     <$> traverse (\(TName n t) -> TName n <$> f t) access
+--     <*> traverseIdAnnotations f e
+-- traverseIdAnnotations f (Var n t e) = Var n t
+--     <$> traverseIdAnnotations f e
+-- traverseIdAnnotations f (Let n t e) = Let n t
+--     <$> traverseIdAnnotations f e
 
--- Patterns
-{-# COMPLETE StmtAST, ExprAST, ProgramAST, TopLevelAST#-}
+-- -- Patterns
+-- {-# COMPLETE StmtAST, ExprAST, ProgramAST, TopLevelAST#-}
 
-pattern StmtAST :: AST 'Stmt s n t -> AST p s n t
-pattern StmtAST stmt <- (isStmt -> Just stmt)
+-- pattern StmtAST :: AST 'Stmt s n t -> AST p s n t
+-- pattern StmtAST stmt <- (isStmt -> Just stmt)
 
-isStmt :: AST p s n t -> Maybe (AST 'Stmt s n t)
-isStmt stmt@Assign{}   = Just stmt
-isStmt BinE{}          = Nothing
-isStmt stmt@Block{}    = Just stmt
-isStmt Call{}          = Nothing
-isStmt AccessE{}       = Nothing
-isStmt DataDef{}       = Nothing
-isStmt stmt@ExprStmt{} = Just stmt
-isStmt FuncDef{}       = Nothing
-isStmt FuncExpr{}      = Nothing
-isStmt IdentifierE{}    = Nothing
-isStmt stmt@If{}       = Just stmt
-isStmt stmt@Let{}      = Just stmt
-isStmt LiteralE{}      = Nothing
-isStmt Program{}       = Nothing
-isStmt UnaryE{}        = Nothing
-isStmt stmt@Var{}      = Just stmt
-isStmt stmt@While{}    = Just stmt
+-- isStmt :: AST p s n t -> Maybe (AST 'Stmt s n t)
+-- isStmt stmt@Assign{}   = Just stmt
+-- isStmt BinE{}          = Nothing
+-- isStmt stmt@Block{}    = Just stmt
+-- isStmt Call{}          = Nothing
+-- isStmt AccessE{}       = Nothing
+-- isStmt DataDef{}       = Nothing
+-- isStmt stmt@ExprStmt{} = Just stmt
+-- isStmt FuncDef{}       = Nothing
+-- isStmt FuncExpr{}      = Nothing
+-- isStmt IdentifierE{}    = Nothing
+-- isStmt stmt@If{}       = Just stmt
+-- isStmt stmt@Let{}      = Just stmt
+-- isStmt LiteralE{}      = Nothing
+-- isStmt Program{}       = Nothing
+-- isStmt UnaryE{}        = Nothing
+-- isStmt stmt@Var{}      = Just stmt
+-- isStmt stmt@While{}    = Just stmt
 
-pattern ExprAST :: AST 'Expr s n t -> AST p s n t
-pattern ExprAST expr <- (isExpr -> Just expr)
-isExpr :: AST p s n t -> Maybe (AST 'Expr s n t)
-isExpr Assign{}           = Nothing
-isExpr expr@BinE{}        = Just expr
-isExpr Block{}            = Nothing
-isExpr expr@Call{}        = Just expr
-isExpr expr@AccessE{}     = Just expr
-isExpr DataDef{}          = Nothing
-isExpr ExprStmt{}         = Nothing
-isExpr FuncDef{}          = Nothing
-isExpr expr@FuncExpr{}    = Just expr
-isExpr expr@IdentifierE{} = Just expr
-isExpr If{}               = Nothing
-isExpr Let{}              = Nothing
-isExpr expr@LiteralE{}    = Just expr
-isExpr Program{}          = Nothing
-isExpr expr@UnaryE{}      = Just expr
-isExpr Var{}              = Nothing
-isExpr While{}            = Nothing
+-- pattern ExprAST :: AST 'Expr s n t -> AST p s n t
+-- pattern ExprAST expr <- (isExpr -> Just expr)
+-- isExpr :: AST p s n t -> Maybe (AST 'Expr s n t)
+-- isExpr Assign{}           = Nothing
+-- isExpr expr@BinE{}        = Just expr
+-- isExpr Block{}            = Nothing
+-- isExpr expr@Call{}        = Just expr
+-- isExpr expr@AccessE{}     = Just expr
+-- isExpr DataDef{}          = Nothing
+-- isExpr ExprStmt{}         = Nothing
+-- isExpr FuncDef{}          = Nothing
+-- isExpr expr@FuncExpr{}    = Just expr
+-- isExpr expr@IdentifierE{} = Just expr
+-- isExpr If{}               = Nothing
+-- isExpr Let{}              = Nothing
+-- isExpr expr@LiteralE{}    = Just expr
+-- isExpr Program{}          = Nothing
+-- isExpr expr@UnaryE{}      = Just expr
+-- isExpr Var{}              = Nothing
+-- isExpr While{}            = Nothing
 
-pattern ProgramAST :: AST 'Module s n t -> AST p s n t
-pattern ProgramAST ast <- (isProgram -> Just ast)
-isProgram :: AST p s n t -> Maybe (AST 'Module s n t)
-isProgram Assign{}      = Nothing
-isProgram BinE{}        = Nothing
-isProgram Block{}       = Nothing
-isProgram Call{}        = Nothing
-isProgram AccessE{}     = Nothing
-isProgram DataDef{}     = Nothing
-isProgram ExprStmt{}    = Nothing
-isProgram FuncDef{}     = Nothing
-isProgram FuncExpr{}    = Nothing
-isProgram IdentifierE{} = Nothing
-isProgram If{}          = Nothing
-isProgram Let{}         = Nothing
-isProgram LiteralE{}    = Nothing
-isProgram ast@Program{} = Just ast
-isProgram UnaryE{}      = Nothing
-isProgram Var{}         = Nothing
-isProgram While{}       = Nothing
+-- pattern ProgramAST :: AST 'Module s n t -> AST p s n t
+-- pattern ProgramAST ast <- (isProgram -> Just ast)
+-- isProgram :: AST p s n t -> Maybe (AST 'Module s n t)
+-- isProgram Assign{}      = Nothing
+-- isProgram BinE{}        = Nothing
+-- isProgram Block{}       = Nothing
+-- isProgram Call{}        = Nothing
+-- isProgram AccessE{}     = Nothing
+-- isProgram DataDef{}     = Nothing
+-- isProgram ExprStmt{}    = Nothing
+-- isProgram FuncDef{}     = Nothing
+-- isProgram FuncExpr{}    = Nothing
+-- isProgram IdentifierE{} = Nothing
+-- isProgram If{}          = Nothing
+-- isProgram Let{}         = Nothing
+-- isProgram LiteralE{}    = Nothing
+-- isProgram ast@Program{} = Just ast
+-- isProgram UnaryE{}      = Nothing
+-- isProgram Var{}         = Nothing
+-- isProgram While{}       = Nothing
 
-pattern TopLevelAST :: AST 'TopLevel s n t -> AST p s n t
-pattern TopLevelAST ast <- (isTopLevelAST -> Just ast)
-isTopLevelAST :: AST p s n t -> Maybe (AST 'TopLevel s n t)
-isTopLevelAST Assign{}         = Nothing
-isTopLevelAST BinE{}           = Nothing
-isTopLevelAST Block{}          = Nothing
-isTopLevelAST Call{}           = Nothing
-isTopLevelAST AccessE{}        = Nothing
-isTopLevelAST ast@DataDef{}    = Just ast
-isTopLevelAST ExprStmt{}       = Nothing
-isTopLevelAST ast@FuncDef{}    = Just ast
-isTopLevelAST FuncExpr{}       = Nothing
-isTopLevelAST IdentifierE{}    = Nothing
-isTopLevelAST If{}             = Nothing
-isTopLevelAST Let{}            = Nothing
-isTopLevelAST LiteralE{}       = Nothing
-isTopLevelAST Program{}        = Nothing
-isTopLevelAST UnaryE{}         = Nothing
-isTopLevelAST Var{}            = Nothing
-isTopLevelAST While{}          = Nothing
+-- pattern TopLevelAST :: AST 'TopLevel s n t -> AST p s n t
+-- pattern TopLevelAST ast <- (isTopLevelAST -> Just ast)
+-- isTopLevelAST :: AST p s n t -> Maybe (AST 'TopLevel s n t)
+-- isTopLevelAST Assign{}         = Nothing
+-- isTopLevelAST BinE{}           = Nothing
+-- isTopLevelAST Block{}          = Nothing
+-- isTopLevelAST Call{}           = Nothing
+-- isTopLevelAST AccessE{}        = Nothing
+-- isTopLevelAST ast@DataDef{}    = Just ast
+-- isTopLevelAST ExprStmt{}       = Nothing
+-- isTopLevelAST ast@FuncDef{}    = Just ast
+-- isTopLevelAST FuncExpr{}       = Nothing
+-- isTopLevelAST IdentifierE{}    = Nothing
+-- isTopLevelAST If{}             = Nothing
+-- isTopLevelAST Let{}            = Nothing
+-- isTopLevelAST LiteralE{}       = Nothing
+-- isTopLevelAST Program{}        = Nothing
+-- isTopLevelAST UnaryE{}         = Nothing
+-- isTopLevelAST Var{}            = Nothing
+-- isTopLevelAST While{}          = Nothing
