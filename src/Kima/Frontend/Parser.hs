@@ -11,14 +11,14 @@ import Control.Monad.Combinators.Expr
 import GHC.Exts
 import Text.Megaparsec
 
-program :: Parser (ParsedAST 'Module)
+program :: ParsedASTTag tag => Parser (AST 'Module tag)
 program = Program <$> (whitespace *> some topLevel <* eof)
 
 -- Function defintions
-topLevel :: Parser (ParsedAST 'TopLevel)
+topLevel :: ParsedASTTag tag => Parser (AST 'TopLevel tag)
 topLevel = funcDef <|> dataDef
 
-funcDef :: Parser (ParsedAST 'TopLevel)
+funcDef :: ParsedASTTag tag => Parser (AST 'TopLevel tag)
 funcDef = reserved RFun *> (
     FuncDef
     <$> identifier
@@ -26,7 +26,7 @@ funcDef = reserved RFun *> (
     <*> (symbol Arrow *> typeExpr)
     <*> block)
 
-dataDef :: Parser (ParsedAST 'TopLevel)
+dataDef :: ParsedASTTag tag => Parser (AST 'TopLevel tag)
 dataDef = reserved RData *> (
     DataDef
     <$> identifier
@@ -42,29 +42,29 @@ typedArg = (,) <$> identifier <*> (symbol Colon *> typeExpr)
 
 -- Statements
 
-stmt :: Parser (ParsedAST 'Stmt)
+stmt :: ParsedASTTag tag => Parser (AST 'Stmt tag)
 stmt = letStmt <|> varStmt <|> whileStmt <|> ifStmt <|> assignStmt <|> exprStmt
     <?> "statement"
 
-block :: Parser (ParsedAST 'Stmt)
+block :: ParsedASTTag tag => Parser (AST 'Stmt tag)
 block = Block <$> braces (stmt `sepEndBy` stmtEnd)
     <?> "Block"
 
-letStmt :: Parser (ParsedAST 'Stmt)
+letStmt :: ParsedASTTag tag => Parser (AST 'Stmt tag)
 letStmt = Let
     <$> (reserved RLet *> identifier)
     <*> (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
     <?> "let statement"
 
-varStmt :: Parser (ParsedAST 'Stmt)
+varStmt :: ParsedASTTag tag => Parser (AST 'Stmt tag)
 varStmt = Var
     <$> (reserved RVar *> identifier)
     <*> (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
     <?> "var statement"
 
-assignStmt :: Parser (ParsedAST 'Stmt)
+assignStmt :: ParsedASTTag tag => Parser (AST 'Stmt tag)
 assignStmt = try (Assign
     <$> writeAccess
     <*> (symbol Equals *> expr))
@@ -76,17 +76,17 @@ writeAccess = label "accessor" $ do
     fields <- option [] (symbol Dot *> identifier `sepBy1` symbol Dot)
     return (WriteAccess base fields)
 
-whileStmt :: Parser (ParsedAST 'Stmt)
+whileStmt :: ParsedASTTag tag => Parser (AST 'Stmt tag)
 whileStmt = While <$> (WhileStmt
     <$> (reserved RWhile *> expr)
     <*> block)
     <?> "while statement"
 
-exprStmt :: Parser (ParsedAST 'Stmt)
+exprStmt :: ParsedASTTag tag => Parser (AST 'Stmt tag)
 exprStmt = ExprStmt <$> expr
     <?> "expression statement"
 
-ifStmt :: Parser (ParsedAST 'Stmt)
+ifStmt :: ParsedASTTag tag => Parser (AST 'Stmt tag)
 ifStmt = If <$> (IfStmt
     <$> (reserved RIf *> expr)
     <*> block
@@ -94,7 +94,7 @@ ifStmt = If <$> (IfStmt
 
 -- Expressions
 
-expr :: Parser (ParsedAST 'Expr)
+expr :: ParsedASTTag tag => Parser (AST 'Expr tag)
 expr = makeExprParser term
     [ [ prefix (symbol Minus) (UnaryE . Negate)
       , prefix (symbol Plus)  id
@@ -116,10 +116,10 @@ binary  p f = InfixL  (f <$ p)
 prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)
 
-term :: Parser (ParsedAST 'Expr)
+term :: ParsedASTTag tag => Parser (AST 'Expr tag)
 term = try accessCall <|> funcExpr <|> baseTerm
 
-funcExpr :: Parser (ParsedAST 'Expr)
+funcExpr :: ParsedASTTag tag => Parser (AST 'Expr tag)
 funcExpr = reserved RFun *> (
     FuncExpr
     <$> parens typedArgList
@@ -127,7 +127,7 @@ funcExpr = reserved RFun *> (
     <*> block)
 
 -- | A term without calls (Useful for parsing calls)
-baseTerm :: Parser (ParsedAST 'Expr)
+baseTerm :: ParsedASTTag tag => Parser (AST 'Expr tag)
 baseTerm = parens expr
        <|> LiteralE    . StringExpr <$> try string
        <|> LiteralE    . FloatExpr  <$> try floatLiteral
@@ -135,11 +135,11 @@ baseTerm = parens expr
        <|> LiteralE    . BoolExpr   <$> try boolLiteral
        <|> IdentifierE . Identifier <$> try identifier
 
-argList :: Parser [ParsedAST 'Expr]
+argList :: ParsedASTTag tag => Parser [AST 'Expr tag]
 argList = parens (expr `sepBy` symbol Comma)
 
 -- | Parse a series of nested calls and accesses (a.b)
-accessCall :: Parser (ParsedAST 'Expr)
+accessCall :: ParsedASTTag tag => Parser (AST 'Expr tag)
 accessCall = do
     callee <- baseTerm
     argLists <- some callOrAccess
