@@ -11,8 +11,6 @@ import GHC.Generics
 
 import Kima.AST.Kinds
 import Kima.AST.Names
-import Kima.AST.Types
-import Kima.KimaTypes
 
 data AST (part :: ASTPart) tag where
     Program :: [AST 'TopLevel tag] -> AST 'Module tag
@@ -123,31 +121,6 @@ data WhileStmt cond body = WhileStmt {
 -- | and @a.b.c@ is @WriteAccess "a" ["b", "c"]@
 data WriteAccess ident = WriteAccess ident [ident]
     deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
-
--- ------ AST Phases -----
-data Parsed
-instance ASTTag Parsed where
-    type TagSugar Parsed = 'Sugar
-    type NameAnnotation Parsed = 'NoAnnotation
-    type FreeAnnotation Parsed = TypeExpr
-
-data Desugared
-instance ASTTag Desugared where
-    type TagSugar Desugared = 'NoSugar
-    type NameAnnotation Desugared = 'NoAnnotation
-    type FreeAnnotation Desugared = TypeExpr
-
-data TypeAnnotated
-instance ASTTag TypeAnnotated where
-    type TagSugar TypeAnnotated = 'NoSugar
-    type NameAnnotation TypeAnnotated = 'NoAnnotation
-    type FreeAnnotation TypeAnnotated = KType
-
-data Typed
-instance ASTTag Typed where
-    type TagSugar Typed = 'NoSugar
-    type NameAnnotation Typed = 'Annotation KType
-    type FreeAnnotation Typed = KType
 
 -- --------------- Show instances ---------------------
 prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann

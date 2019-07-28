@@ -26,6 +26,7 @@ library
         Kima.AST.AST
         Kima.AST.Kinds
         Kima.AST.Names
+        Kima.AST.Stages
         Kima.AST.Types
 
         Kima.Builtins

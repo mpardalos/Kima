@@ -17,8 +17,6 @@ import           GHC.Generics
 import           GHC.Exts
 
 type RuntimeIdentifier = Identifier ('Annotation KType)
--- | AST tag
-type Runtime = Typed
 
 -- | There is circular dependencies around the following so we can't split them
 
