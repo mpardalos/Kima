@@ -34,7 +34,6 @@ import           Kima.Typechecking.Constraints  as E
 import qualified Data.Map                      as Map
 import           Control.Monad.State
 import           Kima.AST
-import           Kima.KimaTypes
 
 -- | Add type variables to the names of an AST
 addTVars
