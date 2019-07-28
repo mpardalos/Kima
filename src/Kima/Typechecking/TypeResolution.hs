@@ -16,15 +16,26 @@ type MonadTypeResolution m = (MonadState (Map TypeName KType) m, MonadError Type
 -- Note: in DataDefs, accessor types are annotated with the type of the attribute,
 --       **not** their function type.
 resolveTypes
-    :: MonadTypeResolution m
-    => DesugaredAST p
-    -> m (TypeAnnotatedAST p)
+    -- :: ( MonadTypeResolution m
+    --    , TagSugar t1 ~ TagSugar t2
+    --    , NameAnnotation t1 ~ NameAnnotation t2
+    --    , FreeAnnotation t1 ~ TypeExpr
+    --    , FreeAnnotation t2 ~ KType
+    --    )
+    :: (MonadTypeResolution m, _)
+    => AST p t1
+    -> m (AST p t2)
 resolveTypes ast@Program{} = do
     processDataDefs ast
-    traverseTypeAnnotations resolveTypeExpr ast
-resolveTypes ast = traverseTypeAnnotations resolveTypeExpr ast
+    traverseFreeAnnotations resolveTypeExpr ast
+resolveTypes ast = traverseFreeAnnotations resolveTypeExpr ast
 
-processDataDefs :: MonadTypeResolution m => DesugaredAST 'Module -> m ()
+processDataDefs
+    :: ( MonadTypeResolution m
+       , FreeAnnotation tag ~ TypeExpr
+       )
+    => AST 'Module tag
+    -> m ()
 processDataDefs (Program topLevelDecls) = forM_ topLevelDecls $ \case
     DataDef typeName members -> do
         resolvedMembers <- traverse @[] (bitraverse @(,) pure resolveTypeExpr) members

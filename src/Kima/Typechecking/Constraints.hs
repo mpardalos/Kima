@@ -24,11 +24,16 @@ data TypeVar = TypeVar Int
              | ApplicationTVar TypeVar [TypeVar]
     deriving (Eq, Ord, Generic)
 
+-- ASTs with typevars
 type TVarIdentifier = Identifier ('Annotation TypeVar)
 type TVarName       = AnnotatedName ('Annotation TypeVar)
 
-type TVarAST (p :: ASTPart) = AST p 'NoSugar ('Annotation TypeVar) KType
-type TVarProgram        = TVarAST 'Module
+-- | AST tag for the AST with typevars stage
+data TVars
+instance ASTTag TVars where
+    type TagSugar TVars = 'NoSugar
+    type NameAnnotation TVars = 'Annotation TypeVar
+    type FreeAnnotation TVars = KType
 
 instance Show EqConstraint where
     show (Equal t1 t2) = show t1 <> " =#= " <> show t2
@@ -37,9 +42,9 @@ instance Show EqConstraint where
     showList constraints = (intercalate "\n" (show <$> constraints) <>)
 
 instance Show TypeVar where
-    show ( TypeVar         th                  ) = "@" <> show th
-    show ( TheType         t                   ) = "#" <> show t
-    show ( ApplicationTVar callee args         ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
+    show ( TypeVar         th          ) = "@" <> show th
+    show ( TheType         t           ) = "#" <> show t
+    show ( ApplicationTVar callee args ) = show callee <> "(" <> intercalate ", " (show <$> args) <> ")"
 
 instance Pretty TypeVar where
     pretty = viaShow

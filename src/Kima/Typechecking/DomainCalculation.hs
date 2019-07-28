@@ -16,16 +16,16 @@ import           Kima.Typechecking.Constraints
 
 type MonadDomain m = (MonadState TypeCtx m, MonadError TypecheckingError m)
 
-makeDomains :: TypeCtx -> TVarAST p -> Either TypecheckingError Domains
+makeDomains :: TypeCtx -> AST p TVars -> Either TypecheckingError Domains
 makeDomains mutTypeCtx ast = evalStateT (calculateDomains ast) mutTypeCtx
 
-makeDomainsWithTypeCtx :: TypeCtx -> TVarAST p -> Either TypecheckingError (Domains, TypeCtx)
+makeDomainsWithTypeCtx :: TypeCtx -> AST p TVars -> Either TypecheckingError (Domains, TypeCtx)
 makeDomainsWithTypeCtx mutTypeCtx ast = runStateT (calculateDomains ast) mutTypeCtx
 
 (<&>) :: Functor f => f a -> (a -> b) -> f b
 (<&>) = flip (<$>)
 
-calculateDomains :: MonadDomain m => TVarAST p -> m Domains
+calculateDomains :: MonadDomain m => AST p TVars -> m Domains
 calculateDomains (Program topLevel) = do
     -- Deal with data defs first. Hoists them to the top
     let (dataDefs, notDataDefs) = partition isDataDef topLevel
@@ -91,7 +91,7 @@ calculateDomains (Let name declaredType expr) =
             calculateDomains expr
         Just _ -> throwError (NameShadowed name)
 
-assignDomain :: forall m. MonadDomain m => WriteAccess TVarName -> TVarAST 'Expr -> m Domains
+assignDomain :: forall m. MonadDomain m => WriteAccess TVarName -> AST 'Expr TVars -> m Domains
 assignDomain accessor@(WriteAccess (TName baseName baseTVar) targetField) expr =
     lookupIdentifier (TIdentifier baseName baseTVar) >>= \case
         Binding Constant _  -> throwError (AssignToConst accessor)
@@ -119,11 +119,7 @@ lookupIdentifier name = gets (bindings >>> Map.lookup (deTypeAnnotate name)) >>=
     Just b  -> return b
     Nothing -> throwError (UnboundName name)
 
-functionDomain
-    :: MonadDomain m
-    => [(Name, KType)]
-    -> TVarAST p
-    -> m Domains
+functionDomain :: MonadDomain m => [(Name, KType)] -> AST p TVars -> m Domains
 functionDomain args body =
     let argBindings = Map.fromList (args <&> \(argName, argType) -> (Identifier argName, Binding Constant [argType])) in
     withState (addBindings argBindings) (calculateDomains body)

@@ -14,7 +14,7 @@ import           Kima.Typechecking.Constraints
 import           Kima.AST
 import           Kima.KimaTypes
 
-makeConstraints :: TVarAST p -> EqConstraintSet
+makeConstraints :: AST p TVars -> EqConstraintSet
 makeConstraints (ProgramAST ast) = (writeProgramConstraints >>> execWriter) ast
 makeConstraints (TopLevelAST ast) = (writeTopLevelConstraints >>> execWriter) ast
 makeConstraints (StmtAST    ast) = (stmtReturnTVar >>> execWriter) ast
@@ -26,21 +26,18 @@ type MonadConstraintWriter m = MonadWriter EqConstraintSet m
 writeConstraint c = tell [c]
 
 -- | Generate constraints for a top-level AST
-writeProgramConstraints
-    :: MonadConstraintWriter m => TVarAST 'Module -> m ()
+writeProgramConstraints :: MonadConstraintWriter m => AST 'Module TVars -> m ()
 writeProgramConstraints (Program funcDefs) =
     traverse_ writeTopLevelConstraints funcDefs
 
 -- | Write the constraints for a function definition
-writeTopLevelConstraints
-    :: MonadConstraintWriter m => TVarAST 'TopLevel -> m ()
+writeTopLevelConstraints :: MonadConstraintWriter m => AST 'TopLevel TVars -> m ()
 writeTopLevelConstraints (FuncDef _ _ _ body) = void (stmtReturnTVar body)
 writeTopLevelConstraints (DataDef _ _members) = pure ()
 
 -- | Compute the return type of a statement and write the constraints required
 -- | for typing it
-stmtReturnTVar
-    :: MonadConstraintWriter m => TVarAST 'Stmt -> m TypeVar
+stmtReturnTVar :: MonadConstraintWriter m => AST 'Stmt TVars -> m TypeVar
 stmtReturnTVar (ExprStmt expr) = do
     tvar <- exprTVar expr
     writeConstraint (tvar =#= tvar)
@@ -85,7 +82,7 @@ stmtReturnTVar (Assign (WriteAccess (TName _ nameTVar) subfields) expr) = do
 
 -- | Compute the type of an expression and write the constraints required for
 -- | typing it
-exprTVar :: MonadConstraintWriter m => TVarAST 'Expr -> m TypeVar
+exprTVar :: MonadConstraintWriter m => AST 'Expr TVars -> m TypeVar
 exprTVar (LiteralE   l            ) = pure (TheType $ literalType l)
 exprTVar (IdentifierE idName      ) = pure (nameType idName)
 exprTVar (FuncExpr    args rt body) = let argTypes = snd <$> args in
@@ -95,11 +92,10 @@ exprTVar (Call callee args        ) = do
     argT    <- traverse exprTVar args
     pure (ApplicationTVar calleeT argT)
 
-functionType
-    :: MonadConstraintWriter m
-    => [KType]       -- arg types
-    -> KType         -- return type
-    -> TVarAST 'Stmt -- body
+functionType :: MonadConstraintWriter m
+    => [KType]         -- arg types
+    -> KType           -- return type
+    -> AST 'Stmt TVars -- body
     -> m KType
 functionType argTypes rt body = do
     returnTVar <- stmtReturnTVar body
