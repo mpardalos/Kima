@@ -11,14 +11,14 @@ import Control.Monad.Combinators.Expr
 import GHC.Exts
 import Text.Megaparsec
 
-program :: Parser (ParsedAST 'Module)
+program :: Parser (AST 'Module Parsed)
 program = Program <$> (whitespace *> some topLevel <* eof)
 
 -- Function defintions
-topLevel :: Parser (ParsedAST 'TopLevel)
+topLevel :: Parser (AST 'TopLevel Parsed)
 topLevel = funcDef <|> dataDef
 
-funcDef :: Parser (ParsedAST 'TopLevel)
+funcDef :: Parser (AST 'TopLevel Parsed)
 funcDef = reserved RFun *> (
     FuncDef
     <$> identifier
@@ -26,7 +26,7 @@ funcDef = reserved RFun *> (
     <*> (symbol Arrow *> typeExpr)
     <*> block)
 
-dataDef :: Parser (ParsedAST 'TopLevel)
+dataDef :: Parser (AST 'TopLevel Parsed)
 dataDef = reserved RData *> (
     DataDef
     <$> identifier
@@ -42,29 +42,29 @@ typedArg = (,) <$> identifier <*> (symbol Colon *> typeExpr)
 
 -- Statements
 
-stmt :: Parser (ParsedAST 'Stmt)
+stmt :: Parser (AST 'Stmt Parsed)
 stmt = letStmt <|> varStmt <|> whileStmt <|> ifStmt <|> assignStmt <|> exprStmt
     <?> "statement"
 
-block :: Parser (ParsedAST 'Stmt)
+block :: Parser (AST 'Stmt Parsed)
 block = Block <$> braces (stmt `sepEndBy` stmtEnd)
     <?> "Block"
 
-letStmt :: Parser (ParsedAST 'Stmt)
+letStmt :: Parser (AST 'Stmt Parsed)
 letStmt = Let
     <$> (reserved RLet *> identifier)
     <*> (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
     <?> "let statement"
 
-varStmt :: Parser (ParsedAST 'Stmt)
+varStmt :: Parser (AST 'Stmt Parsed)
 varStmt = Var
     <$> (reserved RVar *> identifier)
     <*> (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
     <?> "var statement"
 
-assignStmt :: Parser (ParsedAST 'Stmt)
+assignStmt :: Parser (AST 'Stmt Parsed)
 assignStmt = try (Assign
     <$> writeAccess
     <*> (symbol Equals *> expr))
@@ -76,17 +76,17 @@ writeAccess = label "accessor" $ do
     fields <- option [] (symbol Dot *> identifier `sepBy1` symbol Dot)
     return (WriteAccess base fields)
 
-whileStmt :: Parser (ParsedAST 'Stmt)
+whileStmt :: Parser (AST 'Stmt Parsed)
 whileStmt = While <$> (WhileStmt
     <$> (reserved RWhile *> expr)
     <*> block)
     <?> "while statement"
 
-exprStmt :: Parser (ParsedAST 'Stmt)
+exprStmt :: Parser (AST 'Stmt Parsed)
 exprStmt = ExprStmt <$> expr
     <?> "expression statement"
 
-ifStmt :: Parser (ParsedAST 'Stmt)
+ifStmt :: Parser (AST 'Stmt Parsed)
 ifStmt = If <$> (IfStmt
     <$> (reserved RIf *> expr)
     <*> block
@@ -94,7 +94,7 @@ ifStmt = If <$> (IfStmt
 
 -- Expressions
 
-expr :: Parser (ParsedAST 'Expr)
+expr :: Parser (AST 'Expr Parsed)
 expr = makeExprParser term
     [ [ prefix (symbol Minus) (UnaryE . Negate)
       , prefix (symbol Plus)  id
@@ -116,10 +116,10 @@ binary  p f = InfixL  (f <$ p)
 prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)
 
-term :: Parser (ParsedAST 'Expr)
+term :: Parser (AST 'Expr Parsed)
 term = try accessCall <|> funcExpr <|> baseTerm
 
-funcExpr :: Parser (ParsedAST 'Expr)
+funcExpr :: Parser (AST 'Expr Parsed)
 funcExpr = reserved RFun *> (
     FuncExpr
     <$> parens typedArgList
@@ -127,7 +127,7 @@ funcExpr = reserved RFun *> (
     <*> block)
 
 -- | A term without calls (Useful for parsing calls)
-baseTerm :: Parser (ParsedAST 'Expr)
+baseTerm :: Parser (AST 'Expr Parsed)
 baseTerm = parens expr
        <|> LiteralE    . StringExpr <$> try string
        <|> LiteralE    . FloatExpr  <$> try floatLiteral
@@ -135,11 +135,11 @@ baseTerm = parens expr
        <|> LiteralE    . BoolExpr   <$> try boolLiteral
        <|> IdentifierE . Identifier <$> try identifier
 
-argList :: Parser [ParsedAST 'Expr]
+argList :: Parser [AST 'Expr Parsed]
 argList = parens (expr `sepBy` symbol Comma)
 
 -- | Parse a series of nested calls and accesses (a.b)
-accessCall :: Parser (ParsedAST 'Expr)
+accessCall :: Parser (AST 'Expr Parsed)
 accessCall = do
     callee <- baseTerm
     argLists <- some callOrAccess

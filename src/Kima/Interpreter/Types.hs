@@ -26,7 +26,7 @@ data Value = Integer Integer
            | Bool Bool
            | String String
            -- | TODO functions should carry their closure
-           | Function [RuntimeIdentifier] (RuntimeAST 'Stmt)
+           | Function [RuntimeIdentifier] (AST 'Stmt Runtime)
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
            | AccessorIdx Name Int -- | Just gives the index of the accessed value

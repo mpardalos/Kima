@@ -2,8 +2,9 @@ module Kima.Typechecking.Errors where
 
 import Data.Text.Prettyprint.Doc
 import Kima.AST
-import Kima.KimaTypes
+import Kima.TypeVars
 import Kima.Typechecking.Constraints
+import Kima.KimaTypes
 
 data TypecheckingError = AmbiguousVariable TypeVar [KType]
                        | AssignToConst (WriteAccess TVarName)

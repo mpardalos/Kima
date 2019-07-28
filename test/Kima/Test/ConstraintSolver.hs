@@ -11,6 +11,7 @@ import qualified Data.Map                      as Map
 import           Data.Map                      ((!?))
 import           Kima.Typechecking.ConstraintSolving
 import           Kima.Typechecking.Constraints
+import           Kima.TypeVars
 import           Kima.Typechecking.Errors
 import           Kima.KimaTypes
 import           Control.Monad.State

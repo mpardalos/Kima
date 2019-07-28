@@ -5,58 +5,91 @@ import Data.Coerce
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
-import Data.Kind
 import Data.Text.Prettyprint.Doc
 
 import GHC.Generics
 
 import Kima.AST.Kinds
 import Kima.AST.Names
-import Kima.AST.Types
-import Kima.KimaTypes
 
--- | The AST of the language. This is used for all phases of compilation/interpretation,
--- | from parsing to execution. The type parameters govern what nodes are enabled.
--- |
--- | [@part@] What section (statement, expression, ...) of the AST this is.
--- | [@sugar@] Whether sugar terms are enabled. Changed during desugaring
--- | [@idAnn@] The type (or lack thereof) of annotations *on identifiers* these
--- |           are the annotations that are not mandatory in the source language
--- |           but get added later.
--- | [@typeAnn@] The type of type annotations from the source language. These are
--- |             always present since they come from the source language. The type
--- |             parameter exists so that they can be converted into an internal
--- |             representation during typechecking
-data AST (part :: ASTPart) (sugar :: Sugar) (idAnn :: HasAnnotation) (typeAnn :: Type) where
-    Program :: [AST 'TopLevel s i t] -> AST 'Module s i t
+data AST (part :: ASTPart) tag where
+    Program :: [AST 'TopLevel tag] -> AST 'Module tag
 
     ----------------------- Top-level definitions -----------------------
-    FuncDef :: Name -> [(Name, t)] -> t -> AST 'Stmt s i t -> AST 'TopLevel s i t
-    DataDef :: Name -> [(Name, t)]                         -> AST 'TopLevel s i t
+    FuncDef
+        :: Name
+        -> [(Name, FreeAnnotation tag)]
+        -> FreeAnnotation tag
+        -> AST 'Stmt tag
+        -> AST 'TopLevel tag
+    DataDef
+        :: Name
+        -> [(Name, FreeAnnotation tag)]
+        -> AST 'TopLevel tag
 
     ----------------------- Expressions -----------------------
     -- Interpreted core
-    LiteralE    :: Literal                              -> AST 'Expr s i t
-    IdentifierE :: Identifier i                         -> AST 'Expr s i t
-    FuncExpr    :: [(Name, t)] -> t -> AST 'Stmt s i t  -> AST 'Expr s i t
-    Call        :: AST 'Expr s i t -> [AST 'Expr s i t] -> AST 'Expr s i t
+    LiteralE
+        :: Literal
+        -> AST 'Expr tag
+    IdentifierE
+        :: Identifier (NameAnnotation tag)
+        -> AST 'Expr tag
+    FuncExpr
+        :: [(Name, FreeAnnotation tag)]
+        -> FreeAnnotation tag
+        -> AST 'Stmt tag
+        -> AST 'Expr tag
+    Call
+        :: AST 'Expr tag
+        -> [AST 'Expr tag]
+        -> AST 'Expr tag
 
     -- Sugar
-    AccessE :: AST 'Expr 'Sugar i t -> Name  -> AST 'Expr 'Sugar i t
-    BinE    :: Binary (AST 'Expr 'Sugar i t) -> AST 'Expr 'Sugar i t
-    UnaryE  :: Unary (AST 'Expr 'Sugar i t)  -> AST 'Expr 'Sugar i t
+    AccessE
+        :: HasSugar tag
+        => AST 'Expr tag
+        -> Name
+        -> AST 'Expr tag
+    BinE
+        :: HasSugar tag
+        => Binary (AST 'Expr tag)
+        -> AST 'Expr tag
+    UnaryE
+        :: HasSugar tag
+        => Unary (AST 'Expr tag)
+        -> AST 'Expr tag
 
     ----------------------- Statements  -----------------------
     -- Interpreted Core
-    ExprStmt :: AST 'Expr s i t                                  -> AST 'Stmt s i t
-    Block    :: [AST 'Stmt s i t]                                -> AST 'Stmt s i t
-    While    :: WhileStmt (AST 'Expr s i t) (AST 'Stmt s i t)    -> AST 'Stmt s i t
-    If       :: IfStmt (AST 'Expr s i t) (AST 'Stmt s i t)       -> AST 'Stmt s i t
-    Assign   :: WriteAccess (AnnotatedName i) -> AST 'Expr s i t -> AST 'Stmt s i t
+    ExprStmt
+        :: AST 'Expr tag
+        -> AST 'Stmt tag
+    Block
+        :: [AST 'Stmt tag]
+        -> AST 'Stmt tag
+    While
+        :: WhileStmt (AST 'Expr tag) (AST 'Stmt tag)
+        -> AST 'Stmt tag
+    If
+        :: IfStmt (AST 'Expr tag) (AST 'Stmt tag)
+        -> AST 'Stmt tag
+    Assign
+        :: WriteAccess (AnnotatedName (NameAnnotation tag))
+        -> AST 'Expr tag
+        -> AST 'Stmt tag
 
     -- Typed versions
-    Var      :: Name -> t -> AST 'Expr s i t -> AST 'Stmt s i t
-    Let      :: Name -> t -> AST 'Expr s i t -> AST 'Stmt s i t
+    Var
+        :: Name
+        -> FreeAnnotation tag
+        -> AST 'Expr tag
+        -> AST 'Stmt tag
+    Let
+        :: Name
+        -> FreeAnnotation tag
+        -> AST 'Expr tag
+        -> AST 'Stmt tag
 
 ---------------- Factored out parts of the AST ------------------------------
 
@@ -89,24 +122,7 @@ data WhileStmt cond body = WhileStmt {
 data WriteAccess ident = WriteAccess ident [ident]
     deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
 
------- Type synonyms for different phases -----
--- > Parse ->
-type ParsedAST        (p :: ASTPart) = AST p 'Sugar   'NoAnnotation       TypeExpr
--- > Desugar ->
-type DesugaredAST     (p :: ASTPart) = AST p 'NoSugar 'NoAnnotation       TypeExpr
--- > Resolve Types ->
-type TypeAnnotatedAST (p :: ASTPart) = AST p 'NoSugar 'NoAnnotation       KType
--- > Typecheck ->
-type TypedAST         (p :: ASTPart) = AST p 'NoSugar ('Annotation KType) KType
-type RuntimeAST       (p :: ASTPart) = TypedAST p
-
-type ParsedProgram        = ParsedAST        'Module
-type DesugaredProgram     = DesugaredAST     'Module
-type TypeAnnotatedProgram = TypeAnnotatedAST 'Module
-type TypedProgram         = TypedAST         'Module
-type RuntimeProgram       = RuntimeAST       'Module
-
---------------- Show instances ---------------------
+-- --------------- Show instances ---------------------
 prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann
 prettyArgList = tupled . fmap (\(name, t) -> pretty name <> ": " <> pretty t)
 
@@ -143,20 +159,21 @@ instance Pretty a => Pretty (Binary a) where
     pretty (GreatEq l r) = pretty l <+> ">=" <+> pretty r
     pretty (Eq      l r) = pretty l <+> "==" <+> pretty r
     pretty (NotEq   l r) = pretty l <+> "!=" <+> pretty r
+
 instance Pretty a => Pretty (Unary a) where
     pretty (Negate e) = "-" <> pretty e
     pretty (Invert e) = "!" <> pretty e
 
-instance (AnnotationConstraint Pretty i,
-          Pretty (AnnotatedName i),
-          Pretty t) =>
-         Show (AST p s i t) where
+instance (AnnotationConstraint Pretty (NameAnnotation tag),
+          Pretty (AnnotatedName (NameAnnotation tag)),
+          Pretty (FreeAnnotation tag)) =>
+         Show (AST p tag) where
     show = show . pretty
 
-instance (AnnotationConstraint Pretty i,
-          Pretty (AnnotatedName i),
-          Pretty t) =>
-         Pretty (AST p s i t) where
+instance (AnnotationConstraint Pretty (NameAnnotation tag),
+          Pretty (AnnotatedName (NameAnnotation tag)),
+          Pretty (FreeAnnotation tag)) =>
+         Pretty (AST p tag) where
     pretty (Program ast) = vcat (pretty <$> ast)
     pretty (FuncDef name sig rt body) =
         "fun"
@@ -227,62 +244,82 @@ instance Bitraversable WhileStmt where
     bitraverse f g WhileStmt { cond, body } =
         uncurry WhileStmt <$> bitraverse f g (cond, body)
 
-deriving instance (AnnotationConstraint Eq i,
-                   Eq (AnnotatedName i),
-                   Eq t) => Eq (AST p s i t)
+deriving instance ( AnnotationConstraint Eq (NameAnnotation tag)
+                  , Eq (AnnotatedName (NameAnnotation tag))
+                  , Eq (FreeAnnotation tag)) => Eq (AST p tag)
 
--- Traverals
-mapTypeAnnotations :: forall t1 t2 p s i. (t1 -> t2) -> AST p s i t1 -> AST p s i t2
-mapTypeAnnotations = coerce (traverseTypeAnnotations :: (t1 -> Identity t2) -> AST p s i t1 -> Identity (AST p s i t2))
+-- -- Traverals
+mapFreeAnnotations
+    :: forall t1 t2 p
+    . (TagSugar t1 ~ TagSugar t2
+    ,  NameAnnotation t1 ~ NameAnnotation t2)
+    => (FreeAnnotation t1 -> FreeAnnotation t2)
+    -> AST p t1
+    -> AST p t2
+mapFreeAnnotations = coerce
+    (traverseFreeAnnotations
+        :: (FreeAnnotation t1 -> Identity (FreeAnnotation t2))
+        -> AST p t1
+        -> Identity (AST p t2))
 
-traverseTypeAnnotations :: Applicative m => (t1 -> m t2) -> AST p s i t1 -> m (AST p s i t2)
-traverseTypeAnnotations f (Var n t e) = Var n
+traverseFreeAnnotations
+    :: ( TagSugar t1 ~ TagSugar t2
+       , NameAnnotation t1 ~ NameAnnotation t2
+       , Applicative m)
+    => (FreeAnnotation t1 -> m (FreeAnnotation t2))
+    -> AST p t1
+    -> m (AST p t2)
+traverseFreeAnnotations f (Var n t e) = Var n
     <$> f t
-    <*> traverseTypeAnnotations f e
-traverseTypeAnnotations f (Let n t e) = Let n
+    <*> traverseFreeAnnotations f e
+traverseFreeAnnotations f (Let n t e) = Let n
     <$> f t
-    <*> traverseTypeAnnotations f e
-traverseTypeAnnotations f (FuncDef n args rt b) = FuncDef n
+    <*> traverseFreeAnnotations f e
+traverseFreeAnnotations f (FuncDef n args rt b) = FuncDef n
     <$> traverse (traverse f) args
     <*> f rt
-    <*> traverseTypeAnnotations f b
-traverseTypeAnnotations f (FuncExpr args rt b) = FuncExpr
+    <*> traverseFreeAnnotations f b
+traverseFreeAnnotations f (FuncExpr args rt b) = FuncExpr
     <$> traverse (traverse f) args
     <*> f rt
-    <*> traverseTypeAnnotations f b
-traverseTypeAnnotations f (Program ast      ) = Program
-    <$> traverse (traverseTypeAnnotations f) ast
-traverseTypeAnnotations f (DataDef n members) = DataDef n
+    <*> traverseFreeAnnotations f b
+traverseFreeAnnotations f (Program ast      ) = Program
+    <$> traverse (traverseFreeAnnotations f) ast
+traverseFreeAnnotations f (DataDef n members) = DataDef n
     <$> traverse (traverse f) members
-traverseTypeAnnotations f (Call callee args) = Call
-    <$> traverseTypeAnnotations f callee
-    <*> traverse (traverseTypeAnnotations f) args
-traverseTypeAnnotations f (AccessE expr name) = AccessE
-    <$> traverseTypeAnnotations f expr
+traverseFreeAnnotations f (Call callee args) = Call
+    <$> traverseFreeAnnotations f callee
+    <*> traverse (traverseFreeAnnotations f) args
+traverseFreeAnnotations f (AccessE expr name) = AccessE
+    <$> traverseFreeAnnotations f expr
     <*> pure name
-traverseTypeAnnotations f (BinE bin) = BinE
-    <$> traverse (traverseTypeAnnotations f) bin
-traverseTypeAnnotations f (UnaryE unary) = UnaryE
-    <$> traverse (traverseTypeAnnotations f) unary
-traverseTypeAnnotations f (ExprStmt e) = ExprStmt
-    <$> traverseTypeAnnotations f e
-traverseTypeAnnotations f (Block blk) = Block
-    <$> traverse (traverseTypeAnnotations f) blk
-traverseTypeAnnotations f (While stmt) = While
-    <$> bitraverse (traverseTypeAnnotations f) (traverseTypeAnnotations f) stmt
-traverseTypeAnnotations f (If stmt) = If
-    <$> bitraverse (traverseTypeAnnotations f) (traverseTypeAnnotations f) stmt
-traverseTypeAnnotations f (Assign n e) = Assign n
-    <$> traverseTypeAnnotations f e
-traverseTypeAnnotations _ (LiteralE lit) = pure $ LiteralE lit
-traverseTypeAnnotations _ (IdentifierE n) = pure $ IdentifierE n
+traverseFreeAnnotations f (BinE bin) = BinE
+    <$> traverse (traverseFreeAnnotations f) bin
+traverseFreeAnnotations f (UnaryE unary) = UnaryE
+    <$> traverse (traverseFreeAnnotations f) unary
+traverseFreeAnnotations f (ExprStmt e) = ExprStmt
+    <$> traverseFreeAnnotations f e
+traverseFreeAnnotations f (Block blk) = Block
+    <$> traverse (traverseFreeAnnotations f) blk
+traverseFreeAnnotations f (While stmt) = While
+    <$> bitraverse (traverseFreeAnnotations f) (traverseFreeAnnotations f) stmt
+traverseFreeAnnotations f (If stmt) = If
+    <$> bitraverse (traverseFreeAnnotations f) (traverseFreeAnnotations f) stmt
+traverseFreeAnnotations f (Assign n e) = Assign n
+    <$> traverseFreeAnnotations f e
+traverseFreeAnnotations _ (LiteralE lit) = pure $ LiteralE lit
+traverseFreeAnnotations _ (IdentifierE n) = pure $ IdentifierE n
 
 -- | Traverse the AST, adding annotations to all identifiers drawn from an applicative action
 addIdAnnotations
-    :: Applicative m
+    :: ( Applicative m
+       , TagSugar t1 ~ TagSugar t2
+       , FreeAnnotation t1 ~ FreeAnnotation t2
+       , NameAnnotation t1 ~ 'NoAnnotation
+       , NameAnnotation t2 ~ 'Annotation idAnn)
     => m idAnn -- ^ Applicative action producing Annotations
-    -> AST p sug 'NoAnnotation t -- ^ Original AST
-    -> m (AST p sug ( 'Annotation idAnn) t)
+    -> AST p t1 -- ^ Original AST
+    -> m (AST p t2)
 addIdAnnotations f (Assign access e) = Assign
     <$> traverse (\(Name n) -> TName n <$> f) access
     <*> addIdAnnotations f e
@@ -319,10 +356,14 @@ addIdAnnotations f (Let n t e) = Let n t <$> addIdAnnotations f e
 
 -- | Traverse annotations on identifiers
 traverseIdAnnotations
-    :: Applicative m
+    :: ( Applicative m
+       , TagSugar t1 ~ TagSugar t2
+       , FreeAnnotation t1 ~ FreeAnnotation t2
+       , NameAnnotation t1 ~ 'Annotation idAnn1
+       , NameAnnotation t2 ~ 'Annotation idAnn2)
     => (idAnn1 -> m idAnn2)
-    -> AST p sug ( 'Annotation idAnn1) t
-    -> m (AST p sug ( 'Annotation idAnn2) t)
+    -> AST p t1
+    -> m (AST p t2)
 traverseIdAnnotations f (Program ast) = Program
     <$> traverse (traverseIdAnnotations f) ast
 traverseIdAnnotations f (ExprStmt e) = ExprStmt
@@ -359,13 +400,13 @@ traverseIdAnnotations f (Var n t e) = Var n t
 traverseIdAnnotations f (Let n t e) = Let n t
     <$> traverseIdAnnotations f e
 
--- Patterns
+-- -- Patterns
 {-# COMPLETE StmtAST, ExprAST, ProgramAST, TopLevelAST#-}
 
-pattern StmtAST :: AST 'Stmt s n t -> AST p s n t
+pattern StmtAST :: AST 'Stmt t -> AST p t
 pattern StmtAST stmt <- (isStmt -> Just stmt)
 
-isStmt :: AST p s n t -> Maybe (AST 'Stmt s n t)
+isStmt :: AST p t -> Maybe (AST 'Stmt t)
 isStmt stmt@Assign{}   = Just stmt
 isStmt BinE{}          = Nothing
 isStmt stmt@Block{}    = Just stmt
@@ -384,9 +425,9 @@ isStmt UnaryE{}        = Nothing
 isStmt stmt@Var{}      = Just stmt
 isStmt stmt@While{}    = Just stmt
 
-pattern ExprAST :: AST 'Expr s n t -> AST p s n t
+pattern ExprAST :: AST 'Expr t -> AST p t
 pattern ExprAST expr <- (isExpr -> Just expr)
-isExpr :: AST p s n t -> Maybe (AST 'Expr s n t)
+isExpr :: AST p t -> Maybe (AST 'Expr t)
 isExpr Assign{}           = Nothing
 isExpr expr@BinE{}        = Just expr
 isExpr Block{}            = Nothing
@@ -405,9 +446,9 @@ isExpr expr@UnaryE{}      = Just expr
 isExpr Var{}              = Nothing
 isExpr While{}            = Nothing
 
-pattern ProgramAST :: AST 'Module s n t -> AST p s n t
+pattern ProgramAST :: AST 'Module t -> AST p t
 pattern ProgramAST ast <- (isProgram -> Just ast)
-isProgram :: AST p s n t -> Maybe (AST 'Module s n t)
+isProgram :: AST p t -> Maybe (AST 'Module t)
 isProgram Assign{}      = Nothing
 isProgram BinE{}        = Nothing
 isProgram Block{}       = Nothing
@@ -426,9 +467,9 @@ isProgram UnaryE{}      = Nothing
 isProgram Var{}         = Nothing
 isProgram While{}       = Nothing
 
-pattern TopLevelAST :: AST 'TopLevel s n t -> AST p s n t
+pattern TopLevelAST :: AST 'TopLevel t -> AST p t
 pattern TopLevelAST ast <- (isTopLevelAST -> Just ast)
-isTopLevelAST :: AST p s n t -> Maybe (AST 'TopLevel s n t)
+isTopLevelAST :: AST p t -> Maybe (AST 'TopLevel t)
 isTopLevelAST Assign{}         = Nothing
 isTopLevelAST BinE{}           = Nothing
 isTopLevelAST Block{}          = Nothing

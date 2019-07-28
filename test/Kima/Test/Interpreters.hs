@@ -25,10 +25,10 @@ newtype TestInterpreter a = MockInterpreter {
         MonadState (Environment Value),
         MonadWriter String)
 
-runInTestInterpreter :: RuntimeAST p -> Either RuntimeError (Value, String)
+runInTestInterpreter :: AST p Runtime -> Either RuntimeError (Value, String)
 runInTestInterpreter = runInTestInterpreterWithInput ""
 
-runInTestInterpreterWithInput :: String -> RuntimeAST p -> Either RuntimeError (Value, String)
+runInTestInterpreterWithInput :: String -> AST p Runtime -> Either RuntimeError (Value, String)
 runInTestInterpreterWithInput input = runWriterT
     . (`runReaderT` input)
     . (`evalStateT` baseEnv)
@@ -42,7 +42,7 @@ instance MonadConsole TestInterpreter where
         consoleRead = ask
         consoleWrite = tell
 
-constraintsFor :: TVarAST p -> EqConstraintSet
+constraintsFor :: AST p TVars -> EqConstraintSet
 constraintsFor = execWriter . \case
         ProgramAST ast  -> writeProgramConstraints ast
         TopLevelAST func -> writeTopLevelConstraints func
