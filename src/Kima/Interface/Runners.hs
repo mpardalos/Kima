@@ -27,37 +27,37 @@ parseRepl = do
     parseRepl
 
 parseFile = runMonadInterface . parseFile'
-parseFile' :: MonadInterface m => FilePath -> m ParsedProgram
+parseFile' :: MonadInterface m => FilePath -> m (AST 'Module Parsed)
 parseFile' fn = do
     src <- liftIO (readFile fn)
     runEither (F.runParser F.program fn src)
 
 desugarFile = runMonadInterface . (parseFile' >=> desugarAST')
 desugarAST = runMonadInterface . desugarAST'
-desugarAST' :: MonadInterface m => ParsedAST p -> m (DesugaredAST p)
+desugarAST' :: MonadInterface m => AST p Parsed -> m (AST p Desugared)
 desugarAST' = return . desugar
 
 tVarAnnotateFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST')
 tVarAnnotateAST = runMonadInterface . tVarAnnotateAST'
-tVarAnnotateAST' :: MonadInterface m => DesugaredAST p -> m (T.TVarAST p)
+tVarAnnotateAST' :: MonadInterface m => AST p Desugared -> m (AST p T.TVars)
 tVarAnnotateAST' = runEither . (`evalStateT` (T.typeBindings baseTypeCtx)) . (fmap T.addTVars . T.resolveTypes)
 
 constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> constraintAST')
 constraintAST = runMonadInterface . constraintAST'
-constraintAST' :: MonadInterface m => T.TVarAST p -> m T.EqConstraintSet
+constraintAST' :: MonadInterface m => AST p T.TVars -> m T.EqConstraintSet
 constraintAST' =  pure . T.makeConstraints
 
 domainsOfFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> domainsOfAST')
 domainsOfAST = runMonadInterface . domainsOfAST'
-domainsOfAST' :: MonadInterface m => T.TVarAST p -> m T.Domains
+domainsOfAST' :: MonadInterface m => AST p T.TVars -> m T.Domains
 domainsOfAST' =  runEither . T.makeDomains baseTypeCtx
 
 typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
 typecheckAST = runMonadInterface . typecheckAST'
-typecheckAST' :: MonadInterface m => DesugaredAST p -> m (TypedAST p)
+typecheckAST' :: MonadInterface m => AST p Desugared -> m (AST p Typed)
 typecheckAST' = runEither . T.typecheck baseTypeCtx
 
 runFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST' >=> runAST')
 runAST = runMonadInterface . runAST'
-runAST' :: MonadInterface m => TypedAST p -> m I.Value
+runAST' :: MonadInterface m => AST p Typed -> m I.Value
 runAST' src = liftIO (I.run baseEnv src) >>= runEither
