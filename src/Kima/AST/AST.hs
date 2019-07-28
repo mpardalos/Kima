@@ -271,9 +271,9 @@ instance Bitraversable WhileStmt where
     bitraverse f g WhileStmt { cond, body } =
         uncurry WhileStmt <$> bitraverse f g (cond, body)
 
--- deriving instance ( AnnotationConstraint Eq (NameAnnotation tag)
---                   , Eq (AnnotatedName (NameAnnotation tag))
---                   , Eq (FreeAnnotation tag)) => Eq (AST tag)
+deriving instance ( AnnotationConstraint Eq (NameAnnotation tag)
+                  , Eq (AnnotatedName (NameAnnotation tag))
+                  , Eq (FreeAnnotation tag)) => Eq (AST p tag)
 
 -- -- Traverals
 mapFreeAnnotations

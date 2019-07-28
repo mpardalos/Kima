@@ -99,7 +99,7 @@ test-suite spec
         GeneralizedNewtypeDeriving, ExistentialQuantification, DataKinds,
         LambdaCase, TypeApplications, BangPatterns, NamedFieldPuns,
         FlexibleInstances, GADTs, ViewPatterns, NoMonomorphismRestriction,
-        ScopedTypeVariables, FlexibleContexts, DefaultSignatures
+        ScopedTypeVariables, FlexibleContexts, DefaultSignatures, UndecidableInstances
     build-depends:
         base >=4.7 && <5,
         containers -any,
