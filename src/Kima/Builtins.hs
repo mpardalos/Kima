@@ -6,7 +6,7 @@ import Data.Functor
 import qualified Data.Map as Map
 
 import Kima.Interpreter.Types
-import Kima.Typechecking.Types
+import Kima.Typechecking.TypeCtx
 import Kima.AST
 import Kima.KimaTypes
 

@@ -10,8 +10,9 @@ import           Data.Set                       ( Set
                                                 , (\\)
                                                 )
 import           Kima.KimaTypes
+import           Kima.TypeVars
 import           Kima.AST
-import           Kima.Typechecking.Types
+import           Kima.Typechecking.Constraints
 import           Generic.Random
 
 {-# ANN domainsWithValues ("HLint: ignore Use <$>" :: String) #-}
@@ -102,10 +103,13 @@ instance Arbitrary a => Arbitrary (Unary a) where
 instance Arbitrary ident => Arbitrary (WriteAccess ident) where
     arbitrary = WriteAccess <$> arbitrary <*> arbitrary
 
-instance (Arbitrary t,
-          Arbitrary (Identifier idAnn),
-          Arbitrary (AnnotatedName idAnn)) =>
-         Arbitrary (AST 'Expr 'NoSugar idAnn t) where
+instance
+    ( Arbitrary (FreeAnnotation tag)
+    , Arbitrary (Identifier (NameAnnotation tag))
+    , Arbitrary (AnnotatedName (NameAnnotation tag))
+    , TagSugar tag ~ 'NoSugar
+    )
+    => Arbitrary (AST 'Expr tag) where
     arbitrary = oneof
         [ LiteralE <$> arbitrary
         , IdentifierE <$> arbitrary
@@ -118,10 +122,13 @@ instance (Arbitrary t,
     shrink (FuncExpr args rt body) = FuncExpr <$> shrink args <*> shrink rt <*> shrink body
     shrink (Call callee args) = Call <$> shrink callee <*> shrink args
 
-instance (Arbitrary t,
-          Arbitrary (Identifier idAnn),
-          Arbitrary (AnnotatedName idAnn)) =>
-         Arbitrary (AST 'Stmt 'NoSugar idAnn t) where
+instance
+    ( Arbitrary (FreeAnnotation tag)
+    , Arbitrary (Identifier (NameAnnotation tag))
+    , Arbitrary (AnnotatedName (NameAnnotation tag))
+    , TagSugar tag ~ 'NoSugar
+    )
+    => Arbitrary (AST 'Stmt tag) where
     arbitrary = oneof
         [ ExprStmt <$> arbitrary
         , Block    <$> scale (`div` 2) arbitrary

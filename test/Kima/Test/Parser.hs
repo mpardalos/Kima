@@ -24,7 +24,7 @@ spec = parallel $ describe "Parser" $ do
             it ("Parses " <> str <> " correctly") $
                 str `parsedBy` stmt `shouldParseTo` ast
 
-termTests :: [(String, ParsedAST 'Expr)]
+termTests :: [(String, AST 'Expr Parsed)]
 termTests =
     [ ("name"   , IdentifierE "name")
     , ("1.23"   , LiteralE    (FloatExpr 1.23))
@@ -35,7 +35,7 @@ termTests =
     , ("True"   , LiteralE    (BoolExpr True))
     ]
 
-expressionTests :: [(String, ParsedAST 'Expr)]
+expressionTests :: [(String, AST 'Expr Parsed)]
 expressionTests =
     [ ("5 + 5", BinE (LiteralE (IntExpr 5) `Add` LiteralE (IntExpr 5)))
     , ("5 * 5", BinE (LiteralE (IntExpr 5) `Mul` LiteralE (IntExpr 5)))
@@ -62,7 +62,7 @@ expressionTests =
     , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] "Unit" (Block []))
     ]
 
-statementTests :: [(String, ParsedAST 'Stmt)]
+statementTests :: [(String, AST 'Stmt Parsed)]
 statementTests =
     [ ("while True { print(name); }", While (
         WhileStmt (LiteralE $ BoolExpr True) $ Block [

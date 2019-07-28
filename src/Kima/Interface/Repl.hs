@@ -17,7 +17,6 @@ import           Kima.Builtins
 import           Kima.Desugar
 import           Kima.Interpreter
 import           Kima.Interpreter.Types
-import           Kima.Interpreter.Monad
 import           Kima.Typechecking
 import           Kima.Frontend
 

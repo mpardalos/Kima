@@ -9,8 +9,10 @@ import qualified Data.Map                      as Map
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 
+import           Kima.TypeVars
 import           Kima.KimaTypes
-import           Kima.Typechecking.Types
+import           Kima.Typechecking.Constraints
+import           Kima.Typechecking.Errors
 
 unify :: EqConstraintSet -> Domains -> Either TypecheckingError Substitution
 unify cs = evalStateT (traverse_ unifyEquality cs >> extractSubstitution)

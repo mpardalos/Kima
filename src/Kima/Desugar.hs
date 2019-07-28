@@ -7,7 +7,14 @@ import           Data.Bifunctor
 
 import           Kima.AST
 
-desugar :: ParsedAST p -> DesugaredAST p
+desugar
+    :: ( TagSugar t1 ~ 'Sugar
+       , TagSugar t2 ~ 'NoSugar
+       , FreeAnnotation t1 ~ FreeAnnotation t2
+       , NameAnnotation t1 ~ NameAnnotation t2
+       , NameAnnotation t2 ~ 'NoAnnotation
+       )
+    => AST p t1 -> AST p t2
 -- The only cases that actually change
 desugar (BinE    bin  )  = desugarBinary (desugar <$> bin)
 desugar (UnaryE  unary)  = desugarUnary (desugar <$> unary)
@@ -34,7 +41,10 @@ desugarIdentifier (Identifier "print") = Builtin PrintFunc
 desugarIdentifier (Identifier "input") = Builtin InputFunc
 desugarIdentifier name = name
 
-desugarBinary :: Binary (DesugaredAST 'Expr) -> DesugaredAST 'Expr
+desugarBinary
+    :: ( TagSugar tag ~ 'NoSugar
+       , NameAnnotation tag ~ 'NoAnnotation)
+    => Binary (AST 'Expr tag) -> AST 'Expr tag
 desugarBinary (Add     l r) = Call (IdentifierE $ Builtin AddOp) [l, r]
 desugarBinary (Sub     l r) = Call (IdentifierE $ Builtin SubOp) [l, r]
 desugarBinary (Div     l r) = Call (IdentifierE $ Builtin DivOp) [l, r]
@@ -49,6 +59,9 @@ desugarBinary (NotEq   l r) = Call
     (IdentifierE $ Builtin NegateOp)
     [Call (IdentifierE $ Builtin EqualsOp) [l, r]]
 
-desugarUnary :: Unary (DesugaredAST 'Expr) -> DesugaredAST 'Expr
+desugarUnary
+    :: ( TagSugar tag ~ 'NoSugar
+       , NameAnnotation tag ~ 'NoAnnotation)
+    => Unary (AST 'Expr tag) -> AST 'Expr tag
 desugarUnary (Negate e) = Call (IdentifierE $ Builtin NegateOp) [e]
 desugarUnary (Invert e) = Call (IdentifierE $ Builtin InvertOp) [e]
