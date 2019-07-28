@@ -12,6 +12,7 @@ import           Safe
 
 import           Kima.Typechecking.Constraints
 import           Kima.AST
+import           Kima.TypeVars
 import           Kima.KimaTypes
 
 makeConstraints :: AST p TVars -> EqConstraintSet

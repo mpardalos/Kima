@@ -38,6 +38,8 @@ library
         Kima.Frontend.Tokenizer
         Kima.Frontend.Parser
 
+        Kima.TypeVars
+
         Kima.Typechecking
         Kima.Typechecking.ConstraintGen
         Kima.Typechecking.ConstraintSolving

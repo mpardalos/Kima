@@ -25,14 +25,13 @@ import           Kima.Typechecking.TypeCtx      as E (TypeCtx(typeBindings))
 
 import           Kima.Typechecking.Errors       as E (TypecheckingError(..))
 import           Kima.Typechecking.Constraints  as E
-                                                ( TVars
-                                                , Domains
+                                                ( Domains
                                                 , EqConstraintSet
-                                                , TypeVar(..)
                                                 )
 
 import qualified Data.Map                      as Map
 import           Control.Monad.State
+import           Kima.TypeVars
 import           Kima.AST
 
 -- | Add type variables to the names of an AST

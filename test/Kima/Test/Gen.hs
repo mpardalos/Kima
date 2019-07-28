@@ -10,6 +10,7 @@ import           Data.Set                       ( Set
                                                 , (\\)
                                                 )
 import           Kima.KimaTypes
+import           Kima.TypeVars
 import           Kima.AST
 import           Kima.Typechecking.Constraints
 import           Generic.Random

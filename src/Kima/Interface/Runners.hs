@@ -39,17 +39,17 @@ desugarAST' = return . desugar
 
 tVarAnnotateFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST')
 tVarAnnotateAST = runMonadInterface . tVarAnnotateAST'
-tVarAnnotateAST' :: MonadInterface m => AST p Desugared -> m (AST p T.TVars)
+tVarAnnotateAST' :: MonadInterface m => AST p Desugared -> m (AST p TVars)
 tVarAnnotateAST' = runEither . (`evalStateT` (T.typeBindings baseTypeCtx)) . (fmap T.addTVars . T.resolveTypes)
 
 constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> constraintAST')
 constraintAST = runMonadInterface . constraintAST'
-constraintAST' :: MonadInterface m => AST p T.TVars -> m T.EqConstraintSet
+constraintAST' :: MonadInterface m => AST p TVars -> m T.EqConstraintSet
 constraintAST' =  pure . T.makeConstraints
 
 domainsOfFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> domainsOfAST')
 domainsOfAST = runMonadInterface . domainsOfAST'
-domainsOfAST' :: MonadInterface m => AST p T.TVars -> m T.Domains
+domainsOfAST' :: MonadInterface m => AST p TVars -> m T.Domains
 domainsOfAST' =  runEither . T.makeDomains baseTypeCtx
 
 typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
