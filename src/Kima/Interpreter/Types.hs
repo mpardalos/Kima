@@ -17,11 +17,8 @@ import           GHC.Generics
 import           GHC.Exts
 
 type RuntimeIdentifier = Identifier ('Annotation KType)
-type RuntimeASTTag tag
-    = ( TagSugar tag ~ 'NoSugar
-      , NameAnnotation tag ~ 'Annotation KType
-      , FreeAnnotation tag ~ KType
-      )
+-- | AST tag
+type Runtime = Typed
 
 -- | There is circular dependencies around the following so we can't split them
 
@@ -31,7 +28,7 @@ data Value = Integer Integer
            | Bool Bool
            | String String
            -- | TODO functions should carry their closure
-           | forall t. RuntimeASTTag t => Function [RuntimeIdentifier] (AST 'Stmt t)
+           | Function [RuntimeIdentifier] (AST 'Stmt Runtime)
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
            | AccessorIdx Name Int -- | Just gives the index of the accessed value
