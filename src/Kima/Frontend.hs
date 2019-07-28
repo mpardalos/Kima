@@ -13,8 +13,7 @@ import Text.Megaparsec
 -- | Parse a string as a Kima program and return either a ParseError that was
 -- | encoutered or the resulting AST
 parseProgram
-    :: ParsedASTTag tag
-    => String
+    :: String
     -> String
-    -> Either (ParseErrorBundle String Void) (AST 'Module tag)
+    -> Either (ParseErrorBundle String Void) (AST 'Module Parsed)
 parseProgram = runParser program
