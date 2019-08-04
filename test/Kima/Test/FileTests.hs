@@ -4,7 +4,6 @@ import           Test.Hspec
 
 import           Data.Maybe
 import           Data.Foldable
-import           Data.Functor
 import           Data.List
 import           Control.Monad
 import           Control.Arrow           hiding ( first
