@@ -117,9 +117,11 @@ runFunc (AccessorIdx memberName _) args = throwError (BuiltinFunctionError (
 runFunc v _ = throwError (NotAFunction v)
 
 bind :: (MonadEnv m, IdentifierLike ident) => ident ('Annotation KType) -> Value -> m ()
-bind name val = do
-    valueRef <- newIORef val
-    modify (coerce $ Map.insert (toIdentifier name) valueRef)
+bind name val = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
+    Just ref -> writeIORef ref val
+    Nothing -> do
+        valueRef <- newIORef val
+        modify (coerce $ Map.insert (toIdentifier name) valueRef)
 
 getName :: (MonadEnv m, MonadRE m, IdentifierLike ident) => ident ('Annotation KType) -> m Value
 getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
