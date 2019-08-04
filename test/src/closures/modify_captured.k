@@ -1,5 +1,4 @@
 ##output: 2
-##pending
 
 fun main() -> Unit {
     var a: Int = 0;

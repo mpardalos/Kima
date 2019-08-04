@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Kima.Test.Interpreters where
 
 import           Kima.Interpreter.Types
@@ -11,36 +13,45 @@ import           Control.Monad.Reader
 import           Control.Monad.Except
 import           Control.Monad.Writer
 import           Data.Functor
+import           Data.Function
+import           Data.IORef.Class
 
 newtype TestInterpreter a = MockInterpreter {
         runInterpreter
-                :: StateT (Environment Value) (
+                :: StateT (Environment (IORef Value)) (
                    ReaderT String (
                    WriterT String (
-                   Either RuntimeError))) a
-} deriving (
+                   ExceptT RuntimeError
+                   IO))) a
+}
+    deriving newtype (
         Functor, Applicative, Monad,
         MonadError RuntimeError,
         MonadReader String,
-        MonadState (Environment Value),
-        MonadWriter String)
+        MonadState (Environment (IORef Value)),
+        MonadWriter String,
+        MonadIO)
+    deriving anyclass MonadIORef
 
-runInTestInterpreter :: AST p Runtime -> Either RuntimeError (Value, String)
+runInTestInterpreter :: AST p Runtime -> IO (Either RuntimeError (Value, String))
 runInTestInterpreter = runInTestInterpreterWithInput ""
 
-runInTestInterpreterWithInput :: String -> AST p Runtime -> Either RuntimeError (Value, String)
-runInTestInterpreterWithInput input = runWriterT
-    . (`runReaderT` input)
-    . (`evalStateT` baseEnv)
-    . Kima.Test.Interpreters.runInterpreter . \case
-        ProgramAST  ast  -> runProgram ast $> Unit
-        TopLevelAST ast  -> bindTopLevel ast
-        StmtAST     stmt -> runStmt stmt
-        ExprAST     expr -> evalExpr expr
+runInTestInterpreterWithInput :: String -> AST p Runtime -> IO (Either RuntimeError (Value, String))
+runInTestInterpreterWithInput input inAST = do
+    refEnv <- traverse newIORef baseEnv
+    inAST & runExceptT
+        . runWriterT
+        . (`runReaderT` input)
+        . (`evalStateT` refEnv)
+        . Kima.Test.Interpreters.runInterpreter . \case
+            ProgramAST  ast  -> runProgram ast $> Unit
+            TopLevelAST ast  -> bindTopLevel ast
+            StmtAST     stmt -> runStmt stmt
+            ExprAST     expr -> evalExpr expr
 
 instance MonadConsole TestInterpreter where
-        consoleRead = ask
-        consoleWrite = tell
+    consoleRead = ask
+    consoleWrite = tell
 
 constraintsFor :: AST p TVars -> EqConstraintSet
 constraintsFor = execWriter . \case

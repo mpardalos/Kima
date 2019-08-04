@@ -4,6 +4,7 @@ import           Prelude                 hiding ( lookup )
 
 import           Data.Foldable
 import           Data.Coerce
+import           Data.IORef.Class
 import           Control.Monad.Except
 
 import           Kima.AST
@@ -12,6 +13,7 @@ import           Kima.Interpreter.Types
 import           Kima.KimaTypes
 
 import           Safe
+import           GHC.Exts
 import qualified Data.Map                      as Map
 
 runAST :: MonadInterpreter m => AST p Runtime -> m Value
@@ -102,10 +104,10 @@ runStmt (If IfStmt { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
     v            -> throwError (WrongConditionType v)
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
-runFunc (Function argNames body closure) args = withState (<> (argEnv <> closure)) (runStmt body)
-  where
-    argEnv :: Environment Value
-    argEnv = Environment $ Map.fromList (zip argNames args)
+runFunc (Function argNames body closure) args = do
+    argRefs <- mapM newIORef args
+    let argEnv = fromList (zip argNames argRefs)
+    withState (<> (argEnv <> closure)) (runStmt body)
 runFunc (BuiltinFunction f) args                 = f args
 runFunc (AccessorIdx memberName idx) [ProductData vals] = case vals `atMay` idx of
     Just v -> return v
@@ -115,11 +117,13 @@ runFunc (AccessorIdx memberName _) args = throwError (BuiltinFunctionError (
 runFunc v _ = throwError (NotAFunction v)
 
 bind :: (MonadEnv m, IdentifierLike ident) => ident ('Annotation KType) -> Value -> m ()
-bind name val = modify (coerce $ Map.insert (toIdentifier name) val)
+bind name val = do
+    valueRef <- newIORef val
+    modify (coerce $ Map.insert (toIdentifier name) valueRef)
 
 getName :: (MonadEnv m, MonadRE m, IdentifierLike ident) => ident ('Annotation KType) -> m Value
 getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
-    Just val -> return val
+    Just ref -> readIORef ref
     Nothing  -> throwError (NotInScope (toIdentifier name))
 
 -- | Bind either a function or the constructor and accessors of a

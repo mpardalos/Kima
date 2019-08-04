@@ -7,7 +7,7 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Bifunctor
 import           Data.Functor
-import           Data.IORef
+import           Data.IORef.Class
 import           Safe
 import           Text.Megaparsec
 import           Data.Text.Prettyprint.Doc
@@ -29,7 +29,7 @@ newtype ReplInterpreter a = ReplInterpreter {
     Applicative,
     Monad,
     MonadError RuntimeError,
-    MonadState (Environment Value),
+    MonadState (Environment (IORef Value)),
     MonadIO)
 
 instance MonadConsole ReplInterpreter where
@@ -38,15 +38,18 @@ instance MonadConsole ReplInterpreter where
         Just '\n' -> s
         _         -> s ++ "\n"
 
+instance MonadIORef ReplInterpreter
+
 -- | Combines all necessary persistent data in the repl
 data ReplState = ReplState {
     typeCtx :: TypeCtx,
-    interpreterEnv :: Environment Value
+    interpreterEnv :: Environment (IORef Value)
 }
 
 repl :: IO ()
 repl = do
-    replStateRef <- newIORef (ReplState baseTypeCtx baseEnv)
+    refEnv <- refify baseEnv
+    replStateRef <- newIORef (ReplState baseTypeCtx refEnv)
     runInputT defaultSettings (mainloop replStateRef)
   where
     -- | The main loop of the repl. Quits only when EOF is received from haskeline
