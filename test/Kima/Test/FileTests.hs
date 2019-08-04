@@ -20,6 +20,7 @@ import           Kima.Builtins                 as B
 import           Kima.Desugar                  as D
 import           Kima.Frontend                 as F
 import           Kima.Typechecking             as T
+import           Kima.Interpreter              (Value)
 
 import           Kima.Test.Errors
 import           Kima.Test.Interpreters
@@ -71,24 +72,28 @@ dirTreeSpec (Failed name err     ) = xit ("Error " <> show err <> " on " <> name
 dirTreeSpec (Dir    name contents) = context name (traverse_ dirTreeSpec (sort contents))
 dirTreeSpec (File   _    contents) = runFileTest contents
 
+
 runFileTest :: FileTest -> Spec
 runFileTest test@FileTest { fileName, contents, input, resultSpec } = case resultSpec of
     Left errorTest -> it ("Doesn't run " <> fileName) $ if isPending test
         then pending
-        else runResult `shouldSatisfy` \case
+        else runResult >>= (`shouldSatisfy` \case
             Right{}  -> False
-            Left err -> errorTest err
+            Left err -> errorTest err)
     Right outputTest -> it ("Runs " <> fileName) $ if isPending test
         then pending
-        else runResult `shouldSatisfy` \case
+        else runResult >>= (`shouldSatisfy` \case
             Right (_, out) -> outputTest out
-            Left{}         -> False
+            Left{}         -> False)
   where
-    runResult =
-        testableEither (F.parseProgram fileName contents)
-            <&> D.desugar
-            >>= (testableEither . T.typecheck baseTypeCtx)
-            >>= (testableEither . runInTestInterpreterWithInput input)
+    runResult :: IO (Either SomeTestableError (Value, String))
+    runResult = case typedAST of
+        Left err -> pure (Left err)
+        Right ast -> testableEither <$> runInTestInterpreterWithInput input ast
+
+    parsedAST    = testableEither $ F.parseProgram fileName contents
+    desugaredAST = D.desugar <$> parsedAST
+    typedAST     = (testableEither . T.typecheck baseTypeCtx) =<< desugaredAST
 
 makeFileTest :: String -> String -> Either String FileTest
 makeFileTest name contents = do

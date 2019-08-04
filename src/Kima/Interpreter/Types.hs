@@ -12,6 +12,7 @@ import           Data.Text.Prettyprint.Doc
 import           Data.Map                hiding ( toList
                                                 , fromList
                                                 )
+import           Data.IORef.Class
 
 import           GHC.Generics
 import           GHC.Exts
@@ -25,15 +26,14 @@ data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           -- | TODO functions should carry their closure
-           | Function [RuntimeIdentifier] (AST 'Stmt Runtime)
+           | Function [RuntimeIdentifier] (AST 'Stmt Runtime) (Environment (IORef Value))
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
            | AccessorIdx Name Int -- | Just gives the index of the accessed value
            | Unit
 
 newtype Environment a = Environment {unEnv :: Map RuntimeIdentifier a}
-    deriving (Functor, Semigroup, Generic, Show)
+    deriving (Functor, Foldable, Traversable, Semigroup, Generic, Show, IsList)
 
 instance Pretty a => Pretty (Environment a) where
     pretty (Environment envMap) = vcat (
@@ -49,7 +49,7 @@ instance Pretty Value where
     pretty (Bool v)             = pretty v
     pretty (String v)           = pretty v
     pretty (AccessorIdx name _) = "{." <> pretty name <> "}"
-    pretty (Function args body) =
+    pretty (Function args body _closure) =
         "fun" <+> tupled (pretty <$> args) <+> "{"
         <> line
             <> indent 4 (pretty body)
@@ -83,11 +83,11 @@ instance Pretty RuntimeError where
 
 -- | ---------- Execution ----------------
 type MonadRE m = (Monad m, MonadError RuntimeError m)
-type MonadEnv m = (Monad m, MonadState (Environment Value) m)
+type MonadEnv m = (Monad m, MonadState (Environment (IORef Value)) m, MonadIORef m)
 type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m)
 
 newtype Interpreter a = Interpreter {
-    unInterpreter :: StateT (Environment Value) (
+    unInterpreter :: StateT (Environment (IORef Value)) (
                      ExceptT RuntimeError
                      IO) a
 } deriving (
@@ -95,7 +95,7 @@ newtype Interpreter a = Interpreter {
     Applicative,
     Monad,
     MonadError RuntimeError,
-    MonadState (Environment Value),
+    MonadState (Environment (IORef Value)),
     MonadIO)
 
 class Monad m => MonadConsole m where
@@ -106,8 +106,16 @@ instance MonadConsole Interpreter where
     consoleRead = liftIO getLine
     consoleWrite = liftIO . putStr
 
-execInterpreter :: Environment Value -> Interpreter a -> IO (Either RuntimeError a)
+instance MonadIORef Interpreter
+
+execInterpreter
+    :: Environment (IORef Value)
+    -> Interpreter a
+    -> IO (Either RuntimeError a)
 execInterpreter env = runExceptT . (`evalStateT` env) . unInterpreter
 
-runInterpreter :: Environment Value -> Interpreter a -> IO (Either RuntimeError (a, Environment Value))
+runInterpreter
+    :: Environment (IORef Value)
+    -> Interpreter a
+    -> IO (Either RuntimeError (a, Environment (IORef Value)))
 runInterpreter env = runExceptT . (`runStateT` env) . unInterpreter

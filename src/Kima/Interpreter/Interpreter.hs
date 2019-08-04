@@ -4,6 +4,7 @@ import           Prelude                 hiding ( lookup )
 
 import           Data.Foldable
 import           Data.Coerce
+import           Data.IORef.Class
 import           Control.Monad.Except
 
 import           Kima.AST
@@ -12,6 +13,7 @@ import           Kima.Interpreter.Types
 import           Kima.KimaTypes
 
 import           Safe
+import           GHC.Exts
 import qualified Data.Map                      as Map
 
 runAST :: MonadInterpreter m => AST p Runtime -> m Value
@@ -24,7 +26,7 @@ runAST (ExprAST    ast)  = evalExpr ast
 evalExpr :: MonadInterpreter m => AST 'Expr Runtime -> m Value
 evalExpr (LiteralE   l     )     = return $ evalLiteral l
 evalExpr (IdentifierE name )     = getName name
-evalExpr (FuncExpr args _rt body) = return $ Function (uncurry TIdentifier <$> args) body
+evalExpr (FuncExpr args _rt body) = Function (uncurry TIdentifier <$> args) body <$> get
 evalExpr (Call callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 
@@ -102,10 +104,10 @@ runStmt (If IfStmt { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
     v            -> throwError (WrongConditionType v)
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
-runFunc (Function argNames body) args = withState (<> argEnv) (runStmt body)
-  where
-    argEnv :: Environment Value
-    argEnv = Environment $ Map.fromList (zip argNames args)
+runFunc (Function argNames body closure) args = do
+    argRefs <- mapM newIORef args
+    let argEnv = fromList (zip argNames argRefs)
+    withState (<> (argEnv <> closure)) (runStmt body)
 runFunc (BuiltinFunction f) args                 = f args
 runFunc (AccessorIdx memberName idx) [ProductData vals] = case vals `atMay` idx of
     Just v -> return v
@@ -115,11 +117,15 @@ runFunc (AccessorIdx memberName _) args = throwError (BuiltinFunctionError (
 runFunc v _ = throwError (NotAFunction v)
 
 bind :: (MonadEnv m, IdentifierLike ident) => ident ('Annotation KType) -> Value -> m ()
-bind name val = modify (coerce $ Map.insert (toIdentifier name) val)
+bind name val = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
+    Just ref -> writeIORef ref val
+    Nothing -> do
+        valueRef <- newIORef val
+        modify (coerce $ Map.insert (toIdentifier name) valueRef)
 
 getName :: (MonadEnv m, MonadRE m, IdentifierLike ident) => ident ('Annotation KType) -> m Value
 getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
-    Just val -> return val
+    Just ref -> readIORef ref
     Nothing  -> throwError (NotInScope (toIdentifier name))
 
 -- | Bind either a function or the constructor and accessors of a
@@ -127,7 +133,8 @@ getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
 bindTopLevel :: MonadInterpreter m => AST 'TopLevel Runtime -> m Value
 bindTopLevel (FuncDef name args rt body) = do
     let funcType = KFunc ((snd <$> args) $-> rt)
-    let function = Function (uncurry TIdentifier <$> args) body
+    closure <- get
+    let function = Function (uncurry TIdentifier <$> args) body closure
     bind (TIdentifier name funcType) function
     return function
 bindTopLevel (DataDef name members)       = do

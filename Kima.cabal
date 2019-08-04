@@ -16,9 +16,9 @@ library
     default-language: Haskell2010
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     hs-source-dirs: src
-    other-modules:
-        Control.Monad.State.Extended
     exposed-modules:
+        Control.Monad.State.Extended
+        Data.IORef.Class
 
         Kima
 

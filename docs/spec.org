@@ -18,6 +18,8 @@ parameterized by its argument types and return type.
 These are defined using the ~data~ keyword, and are non-parametric. Types of
 this kind are solely defined by their name.
 
+* Closures
+Local functions capture referenced variables by reference.
 * Data definitions
 There are two kinds of data definitions.
 ** Records
