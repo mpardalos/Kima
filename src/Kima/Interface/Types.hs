@@ -29,6 +29,9 @@ instance UserThrowable (ParseErrorBundle String Void) where
 instance UserThrowable TypecheckingError
 instance UserThrowable RuntimeError
 
+instance UserThrowable UserThrowableError where
+    userShow (UserThrowableError err) = userShow err
+
 data UserThrowableError = forall err. UserThrowable err => UserThrowableError err
 instance Show UserThrowableError where
     show (UserThrowableError err) = userShow err
@@ -45,7 +48,7 @@ runMonadInterface :: InterfaceM a -> IO a
 runMonadInterface = runInterfaceM
     >>> runExceptT
     >=> \case
-        Left err -> throwIO $ userError (show err)
+        Left err -> throwIO $ userError (userShow err)
         Right a -> pure a
 
 userThrow :: (MonadInterface m, UserThrowable err) => err -> m a
