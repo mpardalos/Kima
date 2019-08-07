@@ -1,3 +1,8 @@
+{-|
+Running Kima up to a certain stage.
+-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+
 module Kima.Interface.Runners where
 
 import Control.Monad.Except
@@ -11,53 +16,75 @@ import qualified Kima.Frontend as F
 import qualified Kima.Interpreter as I
 import qualified Kima.Typechecking as T
 
-import System.IO
-import Text.Megaparsec
+-- | Implements transformations from one AST type to another.
+-- | We should infer/generate transitive instances.
+-- | I.e. (TransformAST a b, TransformAST b c) => TransformAST a c
+-- | TODO Generate transitive instances for TransformAST
+-- | Until then, all transitive instances should be written by hand
+class (ASTTag from, ASTTag to) => TransformAST from to where
+    transformAST :: MonadInterface m => AST p from -> m (AST p to)
 
-parseBlock = F.runParser F.block ""
-parseStmt =  F.runParser F.stmt ""
-parseExpr =  F.runParser F.expr ""
+instance ASTTag a => TransformAST a a where
+    transformAST = pure
 
-parseRepl :: IO ()
-parseRepl = do
-    hSetBuffering stdin LineBuffering
-    line <- putStr "> " >> getLine
-    let res = F.runParser (foldl1 (<|>) (try <$> [show <$> F.expr, show <$> F.stmt, show <$> F.block])) "" line
-    either (putStrLn . F.errorBundlePretty) putStrLn res
-    parseRepl
+instance TransformAST Parsed Desugared where
+    transformAST = pure . desugar
 
-parseFile = runMonadInterface . parseFile'
-parseFile' :: MonadInterface m => FilePath -> m (AST 'Module Parsed)
-parseFile' fn = do
+instance TransformAST Parsed TypeAnnotated where
+    transformAST ast = do
+        desugaredAST :: AST p Desugared <- transformAST ast
+        transformAST desugaredAST
+
+instance TransformAST Parsed TVars where
+    transformAST parsed = do
+        typeAnnotated :: AST p TypeAnnotated <- transformAST parsed
+        transformAST typeAnnotated
+
+instance TransformAST Parsed Typed where
+    transformAST = runEither
+        . T.typecheck baseTypeCtx
+        . desugar
+
+instance TransformAST Desugared TypeAnnotated where
+    transformAST = runEither
+        . (`evalStateT` T.typeBindings baseTypeCtx)
+        . T.resolveTypes
+
+instance TransformAST TypeAnnotated TVars where
+    transformAST = pure . T.addTVars
+
+instance TransformAST Desugared Typed where
+    transformAST = runEither . T.typecheck baseTypeCtx
+
+-- | Take the code in a file up to a certain stage.
+-- TypeApplications are probably necessary to use this effectively,
+-- although it should work with normal type annotations as well
+-- This:
+-- > fromFileTo @Desugared "input.k"
+-- reads the code from a file and desugars it
+--
+-- It is equivalent to
+-- desugared :: AST 'Module Desugared <- fromFileTo "input.k"
+fromFileTo :: forall to. TransformAST Parsed to => FilePath -> IO (AST 'Module to)
+fromFileTo fn = runMonadInterface $ do
     src <- liftIO (readFile fn)
-    runEither (F.runParser F.program fn src)
+    parsedAST <- runEither (F.runParser F.program fn src)
+    transformAST parsedAST
 
-desugarFile = runMonadInterface . (parseFile' >=> desugarAST')
-desugarAST = runMonadInterface . desugarAST'
-desugarAST' :: MonadInterface m => AST p Parsed -> m (AST p Desugared)
-desugarAST' = return . desugar
+runFile :: FilePath -> IO I.Value
+runFile fn = runMonadInterface $ do
+    ast :: AST 'Module Runtime <- liftIO $ fromFileTo fn
+    result <- liftIO $ I.run baseEnv ast
+    runEither result
 
-tVarAnnotateFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST')
-tVarAnnotateAST = runMonadInterface . tVarAnnotateAST'
-tVarAnnotateAST' :: MonadInterface m => AST p Desugared -> m (AST p TVars)
-tVarAnnotateAST' = runEither . (`evalStateT` (T.typeBindings baseTypeCtx)) . (fmap T.addTVars . T.resolveTypes)
+constraintFile :: FilePath -> IO T.EqConstraintSet
+constraintFile = runMonadInterface . (liftIO . fromFileTo @Parsed >=> constraintAST)
 
-constraintFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> constraintAST')
-constraintAST = runMonadInterface . constraintAST'
-constraintAST' :: MonadInterface m => AST p TVars -> m T.EqConstraintSet
-constraintAST' =  pure . T.makeConstraints
+constraintAST :: (MonadInterface m, TransformAST from TVars) => AST p from -> m T.EqConstraintSet
+constraintAST =  fmap T.makeConstraints . transformAST
 
-domainsOfFile = runMonadInterface . (parseFile' >=> desugarAST' >=> tVarAnnotateAST' >=> domainsOfAST')
-domainsOfAST = runMonadInterface . domainsOfAST'
-domainsOfAST' :: MonadInterface m => AST p TVars -> m T.Domains
-domainsOfAST' =  runEither . T.makeDomains baseTypeCtx
+domainsOfFile :: FilePath -> IO T.Domains
+domainsOfFile = runMonadInterface . (liftIO . fromFileTo @Parsed >=> domainsOfAST)
 
-typecheckFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST')
-typecheckAST = runMonadInterface . typecheckAST'
-typecheckAST' :: MonadInterface m => AST p Desugared -> m (AST p Typed)
-typecheckAST' = runEither . T.typecheck baseTypeCtx
-
-runFile = runMonadInterface . (parseFile' >=> desugarAST' >=> typecheckAST' >=> runAST')
-runAST = runMonadInterface . runAST'
-runAST' :: MonadInterface m => AST p Typed -> m I.Value
-runAST' src = liftIO (I.run baseEnv src) >>= runEither
+domainsOfAST :: (MonadInterface m, TransformAST from TVars) => AST p from -> m T.Domains
+domainsOfAST =  runEither <=< (fmap (T.makeDomains baseTypeCtx) . transformAST)
