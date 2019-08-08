@@ -14,7 +14,7 @@
 # resolver: ghcjs-0.1.0_ghc-7.10.2
 #
 # The location of a snapshot can be provided as a file or url. Stack assumes
-resolver: lts-13.25
+resolver: lts-13.19
 
 packages:
   - .
