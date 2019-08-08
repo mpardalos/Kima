@@ -56,10 +56,10 @@ baseEnv = Environment
     , ( TBuiltin LTEOp     (KFunc ([KInt, KFloat]   $-> KBool   )), BuiltinFunction $ liftComparison (<=))
     , ( TBuiltin LTEOp     (KFunc ([KFloat, KInt]   $-> KBool   )), BuiltinFunction $ liftComparison (<=))
     , ( TBuiltin LTEOp     (KFunc ([KFloat, KFloat] $-> KBool   )), BuiltinFunction $ liftComparison (<=))
-    , ( TBuiltin EqualsOp  (KFunc ([KInt, KInt]     $-> KInt    )), BuiltinFunction $ liftComparison (==))
-    , ( TBuiltin EqualsOp  (KFunc ([KInt, KFloat]   $-> KInt    )), BuiltinFunction $ liftComparison (==))
-    , ( TBuiltin EqualsOp  (KFunc ([KFloat, KInt]   $-> KFloat  )), BuiltinFunction $ liftComparison (==))
-    , ( TBuiltin EqualsOp  (KFunc ([KFloat, KFloat] $-> KInt    )), BuiltinFunction $ liftComparison (==))
+    , ( TBuiltin EqualsOp  (KFunc ([KInt, KInt]     $-> KBool   )), BuiltinFunction $ liftComparison (==))
+    , ( TBuiltin EqualsOp  (KFunc ([KInt, KFloat]   $-> KBool   )), BuiltinFunction $ liftComparison (==))
+    , ( TBuiltin EqualsOp  (KFunc ([KFloat, KInt]   $-> KBool   )), BuiltinFunction $ liftComparison (==))
+    , ( TBuiltin EqualsOp  (KFunc ([KFloat, KFloat] $-> KBool   )), BuiltinFunction $ liftComparison (==))
     , ( TBuiltin DivOp     (KFunc ([KInt, KInt]     $-> KInt    )), BuiltinFunction $ kimaDivision)
     , ( TBuiltin DivOp     (KFunc ([KInt, KFloat]   $-> KInt    )), BuiltinFunction $ kimaDivision)
     , ( TBuiltin DivOp     (KFunc ([KFloat, KInt]   $-> KFloat  )), BuiltinFunction $ kimaDivision)
@@ -79,7 +79,8 @@ baseEnv = Environment
 showValue :: Value -> Maybe String
 showValue (Integer v)       = Just (show v)
 showValue (Float   v)       = Just (show v)
-showValue (Bool    v)       = Just (show v)
+showValue (Bool    True)    = Just "True"
+showValue (Bool    False)   = Just "False"
 showValue (String  v)       = Just v
 showValue Unit              = Just "()"
 showValue Function{}        = Nothing

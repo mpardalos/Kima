@@ -109,6 +109,7 @@ expr = makeExprParser term
       , binary (symbol GreaterEqual) ((BinE .) . GreatEq)
       , binary (symbol LessThan) ((BinE .) . Less)
       , binary (symbol LessEqual) ((BinE .) . LessEq)
+      , binary (symbol EqualsEquals) ((BinE .) . Eq)
       ]
     ] <?> "expression"
 
