@@ -71,11 +71,10 @@ fromFileTo fn = runMonadInterface $ do
     parsedAST <- runEither (F.runParser F.program fn src)
     transformAST parsedAST
 
-runFile :: FilePath -> IO I.Value
+runFile :: FilePath -> IO ()
 runFile fn = runMonadInterface $ do
     ast :: AST 'Module Runtime <- liftIO $ fromFileTo fn
-    result <- liftIO $ I.run baseEnv ast
-    runEither result
+    void $ liftIO $ I.run baseEnv ast
 
 constraintFile :: FilePath -> IO T.EqConstraintSet
 constraintFile = runMonadInterface . (liftIO . fromFileTo @Parsed >=> constraintAST)
