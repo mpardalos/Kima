@@ -2,9 +2,10 @@
 #+AUTHOR: Michail Pardalos
 #+EMAIL: mpardalos@gmail.com
 
-* Types
+* Semantics
+** Types
 In Kima there are two kinds of types:
-** Builtins
+*** Builtins
 These include:
 + Ints
 + Floats
@@ -14,15 +15,32 @@ These include:
 + Functions
 Functions are so far the only parameterized type. A function type is
 parameterized by its argument types and return type.
-** User-defined types
-These are defined using the ~data~ keyword, and are non-parametric. Types of
-this kind are solely defined by their name.
 
-* Closures
-Local functions capture referenced variables by reference.
-* Data definitions
+*** User-defined types
+These are defined using the ~data~ keyword, and are non-parametric. Types of
+this kind are solely defined by their name. 
+
+** Closures
+A function captures all bindings available when it is created.
+Note, that in the case of 
+In addition, if it is a named function, then it also captures itself.
+
+** Effects
+Every function in Kima, in addition to its argument and return types, has an
+effect type. This determines what kind of side effects the function is allowed
+to perform.
+
+Each effect defines a set of ~procedures~ that may be used inside functions
+annotated with that effect.
+
+Effects can be **handled** by the ~handle~ construct. This allows an effectful
+function to
+
+
+* Syntax -- Out of date
+** Data definitions
 There are two kinds of data definitions.
-** Records
+*** Records
 A record definition has the following structure:
 #+BEGIN_SRC
 data NAME (
@@ -42,9 +60,7 @@ It defines a user type ~NAME~ along with the following:
   ~{.NAME_N} : (NAME) -> TYPE_N~
 + Setters\\
 
-
-
-** Enums
+*** Enums
 An enum declaration has the following form:
 #+BEGIN_SRC
 data NAME {
@@ -59,7 +75,7 @@ It defines a user type ~NAME~ along with constructors:\\
   ...\\
   ~{CONSTRUCTOR_M} : (ARG_1, ..., ARG_N) -> NAME~\\
 
-* Pattern matching
+** Pattern matching
 Pattern matching is done through a ~case~ expression.
 #+BEGIN_SRC
 data Event {
@@ -78,7 +94,7 @@ fun what_event(ev: Event) -> String {
 #+END_SRC
 
 Incomplete patterns are an error.
-* Accessors
+** Accessors
 Accessors allow reading and mutating record fields.
 They have the form `EXPRESSION . IDENTIFIER`.
 Any accessor of this form may be used for reading. To be used for mutating,
