@@ -107,7 +107,11 @@ runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
 runFunc (Function argNames body closure) args = do
     argRefs <- mapM newIORef args
     let argEnv = fromList (zip argNames argRefs)
-    withState (<> (argEnv <> closure)) (runStmt body)
+
+    -- Order is IMPORTANT. Data.Map's (<>) prefers the left side. So here
+    -- arguments take precedence over the closure which takes precedence over
+    -- the active environment
+    withState ((argEnv <> closure) <>) (runStmt body)
 runFunc (BuiltinFunction f) args                 = f args
 runFunc (AccessorIdx memberName idx) [ProductData vals] = case vals `atMay` idx of
     Just v -> return v
@@ -133,9 +137,16 @@ getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
 bindTopLevel :: MonadInterpreter m => AST 'TopLevel Runtime -> m Value
 bindTopLevel (FuncDef name args rt body) = do
     let funcType = KFunc ((snd <$> args) $-> rt)
+    let funcIdentifier = (TIdentifier name funcType)
+
+    -- Bind it initially to something just to create the reference.
+    -- Necessary because the closure will include the function itself
+    bind funcIdentifier Unit
     closure <- get
     let function = Function (uncurry TIdentifier <$> args) body closure
-    bind (TIdentifier name funcType) function
+    -- Then, when we have the function, give the correct binding
+    bind funcIdentifier function
+
     return function
 bindTopLevel (DataDef name members)       = do
     let declaredType = KUserType name members
