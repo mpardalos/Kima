@@ -41,6 +41,7 @@ library
         Kima.TypeVars
 
         Kima.Typechecking
+        Kima.Typechecking.Bidirectional
         Kima.Typechecking.ConstraintGen
         Kima.Typechecking.ConstraintSolving
         Kima.Typechecking.Constraints
