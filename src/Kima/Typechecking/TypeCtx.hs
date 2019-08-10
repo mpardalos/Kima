@@ -44,3 +44,7 @@ instance Semigroup Mutability where
 instance Semigroup Binding where
     (Binding mutL typesL) <> (Binding mutR typesR) =
         Binding (mutL <> mutR) (typesL <> typesR)
+
+instance Semigroup TypeCtx where
+    (TypeCtx tBindsLeft bindsLeft) <> (TypeCtx tBindsRight bindsRight) =
+        TypeCtx (tBindsLeft <> tBindsRight) (Map.unionWith (<>) bindsLeft bindsRight)
