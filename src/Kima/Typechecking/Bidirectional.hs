@@ -1,5 +1,12 @@
 {-# LANGUAGE OverloadedLists #-}
-module Kima.Typechecking.Bidirectional where
+module Kima.Typechecking.Bidirectional
+    ( runTypeChecking
+    , infer
+    , check
+    , inferReturns
+    , checkReturns
+    )
+where
 
 -- We use a variant of bidirectional type inference here. The reason for this
 -- variation is that
@@ -11,14 +18,15 @@ module Kima.Typechecking.Bidirectional where
 -- the binding, and the mutability information is only used when checking
 -- assignments
 
-import Safe
+import           Safe
 
 import           Control.Monad.State.Extended
 import           Control.Monad.Except
 
 import           Data.Maybe
+import           Data.Foldable
 import qualified Data.Map                      as Map
-import           Data.Set                      (Set)
+import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 
 import           Kima.AST
@@ -26,6 +34,8 @@ import           Kima.KimaTypes
 import           Kima.Typechecking.TypeCtx
 
 type MonadTC m = (MonadState TypeCtx m, MonadError String m)
+
+runTypeChecking ctx action = runExcept (evalStateT action ctx)
 
 ---------------------------------
 ---------- Expressions ----------
@@ -77,15 +87,15 @@ check expectedType expr = do
 --------------------------------
 
 inferReturns :: MonadTC m => AST 'Stmt TypeAnnotated -> m (Set KType)
-inferReturns (ExprStmt expr                         ) = types <$> infer expr
-inferReturns (Block    stmts                        ) = withState id $ do
+inferReturns (ExprStmt expr ) = types <$> infer expr
+inferReturns (Block    stmts) = withState id $ do
     statementTypes <- mapM inferReturns stmts
     return $ lastDef (Set.singleton KUnit) statementTypes
-inferReturns (While    (WhileStmt cond blk         )) = do
+inferReturns (While (WhileStmt cond blk)) = do
     check KBool cond
     _doesntMatter <- inferReturns blk
     return (Set.singleton KUnit)
-inferReturns (If       (IfStmt cond thenBlk elseBlk)) = do
+inferReturns (If (IfStmt cond thenBlk elseBlk)) = do
     check KBool cond
     thenBlkType <- inferReturns thenBlk
     elseBlkType <- inferReturns elseBlk
@@ -97,22 +107,52 @@ inferReturns (If       (IfStmt cond thenBlk elseBlk)) = do
         <> show elseBlkType
         )
     return (thenBlkType `Set.intersection` elseBlkType)
-inferReturns (Assign name expr                      ) = do
+inferReturns (Assign accessor expr) = do
     Binding _              inferedTypes <- infer expr
-    Binding nameMutability nameTypes    <- _lookupName name
+    Binding nameMutability nameTypes    <- inferAccessor accessor
 
-    assert (nameMutability == Variable) (show name <> " is constant ")
+    assert (nameMutability == Variable) (show accessor <> " is constant ")
     assert (not $ null (nameTypes `Set.intersection` inferedTypes))
            "Can't assign a value of "
     return (Set.singleton KUnit)
-inferReturns (Var name declaredType expr         ) = do
+inferReturns (Var name declaredType expr) = do
     checkBinding name declaredType expr
     modify (addBinding (Identifier name) (Binding Variable [declaredType]))
     return (Set.singleton KUnit)
-inferReturns (Let name declaredType expr         ) = do
+inferReturns (Let name declaredType expr) = do
     checkBinding name declaredType expr
     modify (addBinding (Identifier name) (Binding Constant [declaredType]))
     return (Set.singleton KUnit)
+
+inferAccessor
+    :: MonadTC m => WriteAccess (AnnotatedName 'NoAnnotation) -> m Binding
+inferAccessor (WriteAccess name path) = do
+    Binding mutability baseType <- lookupName (toIdentifier name)
+    finalType                   <- foldlM folder baseType path
+    return (Binding mutability finalType)
+  where
+    folder
+        :: MonadTC m
+        => Set KType
+        -> AnnotatedName 'NoAnnotation
+        -> m (Set KType)
+    folder baseTypes (Name fieldName) = do
+        let fieldTypes =
+                catSetMaybes $ Set.map (findFieldTypes fieldName) baseTypes
+        if null fieldTypes
+            then throwError ("Can't find field " <> fieldName)
+            else return fieldTypes
+
+    findFieldTypes :: Name -> KType -> Maybe KType
+    findFieldTypes fieldName (KUserType _ fieldMap) = lookup fieldName fieldMap
+    findFieldTypes _         _                      = Nothing
+
+    catSetMaybes :: Ord a => Set (Maybe a) -> Set a
+    catSetMaybes = foldl appendMaybe Set.empty
+      where
+        appendMaybe :: Ord a => Set a -> Maybe a -> Set a
+        appendMaybe s Nothing  = s
+        appendMaybe s (Just e) = Set.insert e s
 
 checkReturns :: MonadTC m => KType -> AST 'Stmt TypeAnnotated -> m ()
 checkReturns t (ExprStmt expr) = check t expr
@@ -141,7 +181,8 @@ checkReturns t stmt@Let{} = do
 checkBinding :: MonadTC m => Name -> KType -> AST 'Expr TypeAnnotated -> m ()
 checkBinding name declaredType expr = do
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
-    assert (isNothing existingBinding) ("Binding for " <> show name <> "already exists")
+    assert (isNothing existingBinding)
+           ("Binding for " <> show name <> "already exists")
     check declaredType expr
 
 -----------------------------
@@ -151,7 +192,7 @@ checkBinding name declaredType expr = do
 lookupName :: MonadTC m => Identifier 'NoAnnotation -> m Binding
 lookupName name = gets (Map.lookup name . bindings) >>= \case
     Just binding -> pure binding
-    Nothing -> throwError (show name <> " is not in context")
+    Nothing      -> throwError (show name <> " is not in context")
 
 assert :: MonadError e m => Bool -> e -> m ()
 assert True  _   = pure ()
