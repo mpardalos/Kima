@@ -35,11 +35,6 @@ instance TransformAST Parsed TypeAnnotated where
         desugaredAST :: AST p Desugared <- transformAST ast
         transformAST desugaredAST
 
-instance TransformAST Parsed TVars where
-    transformAST parsed = do
-        typeAnnotated :: AST p TypeAnnotated <- transformAST parsed
-        transformAST typeAnnotated
-
 instance TransformAST Parsed Typed where
     transformAST = runEither
         . T.typecheck baseTypeCtx
@@ -49,9 +44,6 @@ instance TransformAST Desugared TypeAnnotated where
     transformAST = runEither
         . (`evalStateT` T.typeBindings baseTypeCtx)
         . T.resolveTypes
-
-instance TransformAST TypeAnnotated TVars where
-    transformAST = pure . T.addTVars
 
 instance TransformAST Desugared Typed where
     transformAST = runEither . T.typecheck baseTypeCtx
@@ -75,15 +67,3 @@ runFile :: FilePath -> IO ()
 runFile fn = runMonadInterface $ do
     ast :: AST 'Module Runtime <- liftIO $ fromFileTo fn
     void $ liftIO $ I.run baseEnv ast
-
-constraintFile :: FilePath -> IO T.EqConstraintSet
-constraintFile = runMonadInterface . (liftIO . fromFileTo @Parsed >=> constraintAST)
-
-constraintAST :: (MonadInterface m, TransformAST from TVars) => AST p from -> m T.EqConstraintSet
-constraintAST =  fmap T.makeConstraints . transformAST
-
-domainsOfFile :: FilePath -> IO T.Domains
-domainsOfFile = runMonadInterface . (liftIO . fromFileTo @Parsed >=> domainsOfAST)
-
-domainsOfAST :: (MonadInterface m, TransformAST from TVars) => AST p from -> m T.Domains
-domainsOfAST =  runEither <=< (fmap (T.makeDomains baseTypeCtx) . transformAST)
