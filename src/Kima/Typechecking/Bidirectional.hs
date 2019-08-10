@@ -97,7 +97,6 @@ inferReturns (If       (IfStmt cond thenBlk elseBlk)) = do
         <> show elseBlkType
         )
     return (thenBlkType `Set.intersection` elseBlkType)
-
 inferReturns (Assign name expr                      ) = do
     Binding _              inferedTypes <- infer expr
     Binding nameMutability nameTypes    <- _lookupName name
@@ -106,8 +105,14 @@ inferReturns (Assign name expr                      ) = do
     assert (not $ null (nameTypes `Set.intersection` inferedTypes))
            "Can't assign a value of "
     return (Set.singleton KUnit)
-inferReturns (Var _name _declaredType _expr         ) = _inferVar
-inferReturns (Let _name _declaredType _expr         ) = _inferLet
+inferReturns (Var name declaredType expr         ) = do
+    checkBinding name declaredType expr
+    modify (addBinding (Identifier name) (Binding Variable [declaredType]))
+    return (Set.singleton KUnit)
+inferReturns (Let name declaredType expr         ) = do
+    checkBinding name declaredType expr
+    modify (addBinding (Identifier name) (Binding Constant [declaredType]))
+    return (Set.singleton KUnit)
 
 checkReturns :: MonadTC m => KType -> AST 'Stmt TypeAnnotated -> m ()
 checkReturns t (ExprStmt expr) = check t expr
@@ -133,9 +138,20 @@ checkReturns t stmt@Let{} = do
     _ <- inferReturns stmt
     assert (t == KUnit) "Let always returns Unit"
 
+checkBinding :: MonadTC m => Name -> KType -> AST 'Expr TypeAnnotated -> m ()
+checkBinding name declaredType expr = do
+    existingBinding <- gets (Map.lookup (Identifier name) . bindings)
+    assert (isNothing existingBinding) ("Binding for " <> show name <> "already exists")
+    check declaredType expr
+
 -----------------------------
 ---------- Helpers ----------
 -----------------------------
+
+lookupName :: MonadTC m => Identifier 'NoAnnotation -> m Binding
+lookupName name = gets (Map.lookup name . bindings) >>= \case
+    Just binding -> pure binding
+    Nothing -> throwError (show name <> " is not in context")
 
 assert :: MonadError e m => Bool -> e -> m ()
 assert True  _   = pure ()
