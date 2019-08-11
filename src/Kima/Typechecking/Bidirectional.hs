@@ -95,11 +95,14 @@ infer (Call callee args) = do
     kTypeSignature _           = Nothing
 
 check :: MonadTC m => KType -> AST 'Expr TypeAnnotated -> m (AST 'Expr Typed)
+check expectedType (IdentifierE ident) = lookupName ident >>= \case
+    (Binding _ availableTypes)
+        | expectedType `Set.member` availableTypes -> pure $ IdentifierE (typeAnnotate expectedType ident)
+        | otherwise -> throwError ("Identifier " <> show ident <> " is not available with type " <> show expectedType)
 check expectedType expr = do
     (typedExpr, inferedTypes) <- infer expr
     assert (expectedType `Set.member` inferedTypes)
            (show expectedType <> " is not one of " <> show inferedTypes)
-
     return typedExpr
 
 --------------------------------
