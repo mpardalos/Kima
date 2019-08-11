@@ -10,6 +10,7 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | UnexpectedBuiltin BuiltinName
                        | UnboundName (Identifier 'NoAnnotation)
                        | NoSuchField (WriteAccess Name) [KType] Name
+                       | StringError String
     deriving (Eq, Show)
 
 instance Pretty TypecheckingError where
@@ -34,6 +35,7 @@ instance Pretty TypecheckingError where
             <> "The available types are:"
             <> line
             <> indent 4 (bulletList baseType)
+    pretty (StringError s) = pretty s
 
 bulletList :: Pretty a => [a] -> Doc ann
 bulletList = vsep . fmap (("•" <+>) . pretty)
