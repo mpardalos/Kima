@@ -2,6 +2,8 @@
 module Kima.Typechecking.Bidirectional
     ( MonadTC
     , runTypeChecking
+    , checkProgram
+    , checkTopLevel
     , infer
     , check
     , inferReturns
@@ -220,6 +222,18 @@ checkReturns t stmt@Let{} = do
     (typedLet, _) <- inferReturns stmt
     assert (t == KUnit) "Let always returns Unit"
     return typedLet
+
+-----------------------------
+--------- Top-level AST -----
+-----------------------------
+
+checkProgram :: MonadTC m => AST 'Module TypeAnnotated -> m (AST 'Module Typed)
+checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
+
+checkTopLevel :: MonadTC m => AST 'TopLevel TypeAnnotated -> m (AST 'TopLevel Typed)
+checkTopLevel (FuncDef name args rt body) = FuncDef name args rt
+    <$> withState (addArgs args) (checkReturns rt body)
+checkTopLevel (DataDef name typeFields) = pure (DataDef name typeFields)
 
 -----------------------------
 ---------- Helpers ----------
