@@ -97,6 +97,7 @@ runFileTest test@FileTest { fileName, contents, input, resultSpec } = case resul
 makeFileTest :: String -> String -> Either String FileTest
 makeFileTest name contents = do
     let isPending          = not $ null (findPragmas "pending" contents)
+    let shouldFail         = not $ null (findPragmas "shouldFail" contents)
     let givenInput         = concat $ findPragmas "input" contents
     let expectedErrorNames = findPragmas "shouldFailWith" contents
     let expectedOut        = concat $ findPragmas "output" contents
@@ -107,11 +108,16 @@ makeFileTest name contents = do
         { fileName   = name
         , input      = givenInput
         , isPending
-        , resultSpec = if not (null expectedOut)
-                           then Right (== expectedOut)
-                           else if not (null expectedErrorNames)
-                               then Left (errorMatcherFor expectedErrorNames)
-                               else Right (const True)
+        , resultSpec = case
+                           ( not (null expectedOut)
+                           , not (null expectedErrorNames)
+                           , shouldFail
+                           )
+                       of
+                           (True, _   , _   ) -> Right (== expectedOut)
+                           (_   , True, _   ) -> Left (errorMatcherFor expectedErrorNames)
+                           (_   , _   , True) -> Left (const True)
+                           (_   , _   , _   ) -> Right (const True)
         , contents   = contents
         }
   where
