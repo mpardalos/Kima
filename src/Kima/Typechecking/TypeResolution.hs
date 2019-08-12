@@ -25,8 +25,24 @@ processTopLevel
     :: MonadTypeResolution m => AST 'Module Desugared -> m ()
 processTopLevel (Program topLevelDecls) = forM_ topLevelDecls $ \case
     DataDef typeName members -> do
-        resolvedMembers <- traverse @[] (bitraverse @(,) pure resolveTypeExpr) members
-        modify (addType typeName (KUserType typeName resolvedMembers))
+        resolvedMembers <- traverse @[]
+            (bitraverse @(,) pure resolveTypeExpr)
+            members
+
+        let declaredType = KUserType typeName resolvedMembers
+        let memberTypes  = snd <$> resolvedMembers
+
+        modify $ addType typeName declaredType
+
+        let constructorType = KFunc (memberTypes $-> declaredType)
+        modify $ addBinding (Identifier typeName)
+                            (Binding Constant [constructorType])
+
+        forM_ resolvedMembers $ \(fieldName, fieldType) -> do
+            let accessorType = KFunc ([declaredType] $-> fieldType)
+            modify $ addBinding (Accessor fieldName)
+                                (Binding Constant [accessorType])
+
     FuncDef name args rtExpr _body -> do
         argTypes <- mapM resolveTypeExpr (snd <$> args)
         rt <- resolveTypeExpr rtExpr
