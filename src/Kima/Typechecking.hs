@@ -25,7 +25,6 @@ import           Kima.Typechecking.Bidirectional
                                                 , inferReturns
                                                 )
 
-import           Data.Bifunctor
 import           Control.Monad.State
 import           Kima.AST
 
@@ -37,9 +36,9 @@ typecheckWithTypeCtx
     :: TypeCtx
     -> AST p Desugared
     -> Either TypecheckingError (AST p Typed, TypeCtx)
-typecheckWithTypeCtx baseTypeCtx dAST = do
-    (typeAnnotatedAST, computedCtx) <- runStateT (resolveTypes dAST) baseTypeCtx
-    first StringError $ runStateT (checkAnyAST typeAnnotatedAST) computedCtx
+typecheckWithTypeCtx baseTypeCtx dAST = flip runStateT baseTypeCtx $ do
+    typeAnnotatedAST <- resolveTypes dAST
+    checkAnyAST typeAnnotatedAST
   where
     checkAnyAST :: MonadTC m => AST p TypeAnnotated -> m (AST p Typed)
     checkAnyAST ast@Program{} = checkProgram ast

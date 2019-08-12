@@ -23,7 +23,6 @@ where
 
 import           Safe
 
-import           Control.Applicative
 import           Control.Monad.State.Extended
 import           Control.Monad.Except
 
@@ -37,57 +36,49 @@ import qualified Data.Set                      as Set
 import           Kima.AST
 import           Kima.KimaTypes
 import           Kima.Typechecking.TypeCtx
+import           Kima.Typechecking.Errors
 
-type MonadTC m = (MonadState TypeCtx m, MonadError String m, Alternative m)
+type MonadTC m = (MonadState TypeCtx m, MonadError TypecheckingError m)
 
-runTypeChecking ctx action = runExcept (evalStateT action ctx)
+runTypeChecking ctx action = evalStateT action ctx
 
 ---------------------------------
 ---------- Expressions ----------
 ---------------------------------
 
-infer
-    :: MonadTC m => AST 'Expr TypeAnnotated -> m (AST 'Expr Typed, Set KType)
-infer expr@(LiteralE lit@(IntExpr _)) =
-    (LiteralE lit, ) <$> enumerateTypes expr
-infer expr@(LiteralE lit@(FloatExpr _)) =
-    (LiteralE lit, ) <$> enumerateTypes expr
-infer expr@(LiteralE lit@(BoolExpr _)) =
-    (LiteralE lit, ) <$> enumerateTypes expr
-infer expr@(LiteralE lit@(StringExpr _)) =
-    (LiteralE lit, ) <$> enumerateTypes expr
+infer :: MonadTC m => AST 'Expr TypeAnnotated -> m (AST 'Expr Typed, KType)
+infer (     LiteralE    lit@(IntExpr    _)) = pure (LiteralE lit, KInt)
+infer (     LiteralE    lit@(FloatExpr  _)) = pure (LiteralE lit, KFloat)
+infer (     LiteralE    lit@(BoolExpr   _)) = pure (LiteralE lit, KBool)
+infer (     LiteralE    lit@(StringExpr _)) = pure (LiteralE lit, KString)
 infer expr@(IdentifierE name) = enumerateTypes expr <&> Set.toList >>= \case
     -- | There needs to be only a single possibility for the type. Otherwise we
     -- | have an ambiguity
-    [t]   -> pure (IdentifierE (typeAnnotate t name), [t])
-    types -> throwError
-        (  "Ambiguous type for "
-        <> show name
-        <> ". Possible types are: "
-        <> show types
-        )
+    [t]   -> pure (IdentifierE (typeAnnotate t name), t)
+    types -> throwError (AmbiguousName name types)
 infer (FuncExpr args rt body) = do
     let expectedType = KFunc ((snd <$> args) $-> rt)
     typedBody <- withState (addArgs args) $ checkReturns expectedType body
 
     let typedFuncExpr = FuncExpr args rt typedBody
-    return (typedFuncExpr, [expectedType])
+    return (typedFuncExpr, expectedType)
 infer (Call callee args) = do
-    calleeTypes     <- Set.toList <$> enumerateTypes callee
+    calleeTypes <- Set.toList <$> enumerateTypes callee
 
-    possibleResults <- forM calleeTypes $ \case
-        calleeType@(KFunc (Signature argTypes returnType)) ->
-            do
-                    typedArgs   <- zipWithM check argTypes args
-                    typedCallee <- check calleeType callee
-                    return $ Just (Call typedCallee typedArgs, [returnType])
-                `catchError` const (pure Nothing)
-        _ -> pure Nothing
+    possibleResults :: [Maybe (AST 'Expr Typed, KType)] <-
+        forM calleeTypes $ \case
+            calleeType@(KFunc (Signature argTypes returnType)) ->
+                do
+                        typedArgs   <- zipWithM check argTypes args
+                        typedCallee <- check calleeType callee
+                        return $ Just (Call typedCallee typedArgs, returnType)
+                    `catchError` const (pure Nothing)
+            _ -> pure Nothing
 
     case catMaybes possibleResults of
-        [ result] -> return result
-        _ :     _ -> throwError "Ambiguous call"
-        []        -> throwError "No matching call"
+        [        result] -> return result
+        results@(_ : _ ) -> throwError (AmbiguousCall (snd <$> results))
+        []               -> throwError NoMatchingFunction
 
 enumerateTypes :: MonadTC m => AST 'Expr TypeAnnotated -> m (Set KType)
 enumerateTypes (LiteralE    IntExpr{}   ) = pure [KInt]
@@ -118,32 +109,15 @@ check expectedType (IdentifierE ident) = lookupName ident >>= \case
     (Binding _ availableTypes)
         | expectedType `Set.member` availableTypes -> pure
         $  IdentifierE (typeAnnotate expectedType ident)
-        | otherwise -> throwError
-            (  "Identifier "
-            <> show ident
-            <> " is not available with type "
-            <> show expectedType
-            )
+        | otherwise -> throwError (UnavailableType (Set.toList availableTypes) expectedType)
 check expectedType (Call callee args) = do
     (typedArgs, argTypes) <- unzip <$> mapM infer args
-
-    let possibleArgSets = cartprod (Set.toList <$> argTypes)
-    possibleTypedCallees :: [AST 'Expr Typed] <- catMaybes <$> forM
-        possibleArgSets
-        (\theseArgTypes ->
-            (Just <$> check (KFunc (theseArgTypes $-> expectedType)) callee)
-                `catchError` const (pure Nothing)
-        )
-
-    case possibleTypedCallees of
-        [ typedCallee] -> return (Call typedCallee typedArgs)
-        _ :          _ -> throwError "Ambiguous call"
-        []             -> throwError "No matching call"
+    typedCallee           <- check (KFunc (argTypes $-> expectedType)) callee
+    return (Call typedCallee typedArgs)
 
 check expectedType expr = do
-    (typedExpr, inferedTypes) <- infer expr
-    assert (expectedType `Set.member` inferedTypes)
-           (show expectedType <> " is not one of " <> show inferedTypes)
+    (typedExpr, inferedType) <- infer expr
+    assert (expectedType == inferedType) (UnexpectedType expectedType inferedType)
     return typedExpr
 
 --------------------------------
@@ -151,62 +125,54 @@ check expectedType expr = do
 --------------------------------
 
 inferReturns
-    :: MonadTC m => AST 'Stmt TypeAnnotated -> m (AST 'Stmt Typed, Set KType)
+    :: MonadTC m => AST 'Stmt TypeAnnotated -> m (AST 'Stmt Typed, KType)
 inferReturns (ExprStmt expr ) = first ExprStmt <$> infer expr
 inferReturns (Block    stmts) = withState id $ do
     (typedStatements, statementReturnTypes) <- unzip <$> mapM inferReturns stmts
-    return (Block typedStatements, lastDef [KUnit] statementReturnTypes)
+    return (Block typedStatements, lastDef KUnit statementReturnTypes)
    -- return $ lastDef (Set.singleton KUnit) statementTypes
 inferReturns (While (WhileStmt cond blk)) = do
     typedCond     <- check KBool cond
     (typedBlk, _) <- inferReturns blk
 
     let typedWhile = While (WhileStmt typedCond typedBlk)
-    return (typedWhile, [KUnit])
+    return (typedWhile, KUnit)
 inferReturns (If (IfStmt cond thenBlk elseBlk)) = do
     typedCond                   <- check KBool cond
     (typedThenBlk, thenBlkType) <- inferReturns thenBlk
     (typedElseBlk, elseBlkType) <- inferReturns elseBlk
-    assert
-        (not $ null (thenBlkType `Set.intersection` elseBlkType))
-        (  "True branch returns "
-        <> show thenBlkType
-        <> " false branch returns "
-        <> show elseBlkType
-        )
+    assert (thenBlkType == elseBlkType) (MismatchedIf thenBlkType elseBlkType)
 
     let typedIf = If (IfStmt typedCond typedThenBlk typedElseBlk)
-    return (typedIf, thenBlkType `Set.intersection` elseBlkType)
+    return (typedIf, thenBlkType)
 inferReturns (Assign accessor expr) = do
-    (typedExpr    , inferedTypes                    ) <- infer expr
+    (typedExpr    , inferedType                     ) <- infer expr
     (typedAccessor, Binding nameMutability nameTypes) <- inferAccessor accessor
 
-    assert (nameMutability == Variable) (show accessor <> " is constant ")
-    assert (not $ null (nameTypes `Set.intersection` inferedTypes))
-           "Can't assign a value of "
+    assert (nameMutability == Variable) (AssignToConst accessor)
+    assert (inferedType `Set.member` nameTypes)
+           (UnavailableType (Set.toList nameTypes) inferedType)
 
     let typedAssign = Assign typedAccessor typedExpr
-    return (typedAssign, [KUnit])
+    return (typedAssign, KUnit)
 inferReturns (Var name declaredType expr) = do
     typedExpr       <- check declaredType expr
 
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
-    assert (isNothing existingBinding)
-           ("Binding for " <> show name <> "already exists")
+    assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Variable [declaredType]))
 
     let typedVar = Var name declaredType typedExpr
-    return (typedVar, [KUnit])
+    return (typedVar, KUnit)
 inferReturns (Let name declaredType expr) = do
     typedExpr       <- check declaredType expr
 
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
-    assert (isNothing existingBinding)
-           ("Binding for " <> show name <> "already exists")
+    assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Constant [declaredType]))
 
     let typedLet = Let name declaredType typedExpr
-    return (typedLet, [KUnit])
+    return (typedLet, KUnit)
 
 inferAccessor
     :: MonadTC m
@@ -220,53 +186,48 @@ inferAccessor (WriteAccess name path) =
                 ( WriteAccess (typeAnnotate baseType name) typedPath
                 , Binding mutability [finalType]
                 )
-        Binding _ _ -> throwError ("Ambiguous type for " <> show name)
+        Binding _ types -> throwError (AmbiguousName (toIdentifier name) (Set.toList types))
   where
     foldPath
         :: MonadTC m
         => KType
         -> [AnnotatedName 'NoAnnotation]
         -> m (KType, [AnnotatedName ( 'Annotation KType)])
-    foldPath (KUserType typeName typeFields) (Name thisField : restPath) =
+    foldPath t@(KUserType _ typeFields) (Name thisField : restPath) =
         case lookup thisField typeFields of
             Just fieldType -> do
                 (finalType, restTypedPath) <- foldPath fieldType restPath
                 return (finalType, TName thisField fieldType : restTypedPath)
-            Nothing -> throwError
-                ("Type " <> typeName <> " has no field " <> thisField)
-    foldPath t [] = pure (t, [])
-    foldPath t (Name thisField : _) =
-        throwError ("Type " <> show t <> " has no field " <> thisField)
+            Nothing -> throwError (NoSuchField t thisField)
+    foldPath t []                   = pure (t, [])
+    foldPath t (Name thisField : _) = throwError (NoSuchField t thisField)
 
 checkReturns
     :: MonadTC m => KType -> AST 'Stmt TypeAnnotated -> m (AST 'Stmt Typed)
 checkReturns t (ExprStmt expr) = ExprStmt <$> check t expr
 checkReturns t blk@Block{}     = do
-    (typedBlk, returnTypes) <- inferReturns blk
-    assert (Set.member t returnTypes)
-           ("The return type is not one of" <> show returnTypes)
+    (typedBlk, returnType) <- inferReturns blk
+    assert (t == returnType) (UnexpectedType t returnType)
     return typedBlk
 checkReturns t stmt@While{} = do
     (typedWhile, _) <- inferReturns stmt
-    assert (t == KUnit) "While block always returns Unit"
+    assert (t == KUnit) (UnexpectedType t KUnit)
     return typedWhile
 checkReturns t stmt@If{} = do
-    (typedIf, returnTypes) <- inferReturns stmt
-    assert
-        (Set.member t returnTypes)
-        ("If block returns one of" <> show returnTypes <> ", not " <> show t)
+    (typedIf, returnType) <- inferReturns stmt
+    assert (t == returnType) (UnexpectedType t returnType)
     return typedIf
 checkReturns t stmt@Assign{} = do
     (typedAssign, _) <- inferReturns stmt
-    assert (t == KUnit) "Assignment always returns Unit"
+    assert (t == KUnit) (UnexpectedType t KUnit)
     return typedAssign
 checkReturns t stmt@Var{} = do
     (typedVar, _) <- inferReturns stmt
-    assert (t == KUnit) "Var always returns Unit"
+    assert (t == KUnit) (UnexpectedType t KUnit)
     return typedVar
 checkReturns t stmt@Let{} = do
     (typedLet, _) <- inferReturns stmt
-    assert (t == KUnit) "Let always returns Unit"
+    assert (t == KUnit) (UnexpectedType t KUnit)
     return typedLet
 
 -----------------------------
@@ -290,7 +251,7 @@ checkTopLevel (DataDef name typeFields) = pure (DataDef name typeFields)
 lookupName :: MonadTC m => Identifier 'NoAnnotation -> m Binding
 lookupName name = gets (Map.lookup name . bindings) >>= \case
     Just binding -> pure binding
-    Nothing      -> throwError (show name <> " is not in context")
+    Nothing      -> throwError (UnboundName name)
 
 assert :: MonadError e m => Bool -> e -> m ()
 assert True  _   = pure ()
