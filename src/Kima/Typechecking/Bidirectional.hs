@@ -23,12 +23,13 @@ where
 
 import           Safe
 
+import           Control.Applicative
 import           Control.Monad.State.Extended
 import           Control.Monad.Except
 
+import           Data.Functor
 import           Data.Bifunctor
 import           Data.Maybe
-import           Data.Foldable
 import qualified Data.Map                      as Map
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
@@ -37,7 +38,7 @@ import           Kima.AST
 import           Kima.KimaTypes
 import           Kima.Typechecking.TypeCtx
 
-type MonadTC m = (MonadState TypeCtx m, MonadError String m)
+type MonadTC m = (MonadState TypeCtx m, MonadError String m, Alternative m)
 
 runTypeChecking ctx action = runExcept (evalStateT action ctx)
 
@@ -47,22 +48,24 @@ runTypeChecking ctx action = runExcept (evalStateT action ctx)
 
 infer
     :: MonadTC m => AST 'Expr TypeAnnotated -> m (AST 'Expr Typed, Set KType)
-infer (LiteralE    lit@(IntExpr    _)) = pure (LiteralE lit, [KInt])
-infer (LiteralE    lit@(FloatExpr  _)) = pure (LiteralE lit, [KFloat])
-infer (LiteralE    lit@(BoolExpr   _)) = pure (LiteralE lit, [KBool])
-infer (LiteralE    lit@(StringExpr _)) = pure (LiteralE lit, [KString])
-infer (IdentifierE name) = Map.lookup name <$> gets bindings >>= \case
+infer expr@(LiteralE lit@(IntExpr _)) =
+    (LiteralE lit, ) <$> enumerateTypes expr
+infer expr@(LiteralE lit@(FloatExpr _)) =
+    (LiteralE lit, ) <$> enumerateTypes expr
+infer expr@(LiteralE lit@(BoolExpr _)) =
+    (LiteralE lit, ) <$> enumerateTypes expr
+infer expr@(LiteralE lit@(StringExpr _)) =
+    (LiteralE lit, ) <$> enumerateTypes expr
+infer expr@(IdentifierE name) = enumerateTypes expr <&> Set.toList >>= \case
     -- | There needs to be only a single possibility for the type. Otherwise we
     -- | have an ambiguity
-    Just (Binding _ (toList -> [t])) ->
-        pure (IdentifierE (typeAnnotate t name), [t])
-    Just (Binding _ types) -> throwError
+    [t]   -> pure (IdentifierE (typeAnnotate t name), [t])
+    types -> throwError
         (  "Ambiguous type for "
         <> show name
         <> ". Possible types are: "
         <> show types
         )
-    Nothing -> throwError (show name ++ " is not present in env")
 infer (FuncExpr args rt body) = do
     let expectedType = KFunc ((snd <$> args) $-> rt)
     typedBody <- withState (addArgs args) $ checkReturns expectedType body
@@ -70,35 +73,73 @@ infer (FuncExpr args rt body) = do
     let typedFuncExpr = FuncExpr args rt typedBody
     return (typedFuncExpr, [expectedType])
 infer (Call callee args) = do
-    (typedCallee, calleeTypes) <- infer callee
-    let calleeFunctionTypes = mapMaybe kTypeSignature (Set.toList calleeTypes)
-    assert (not $ null calleeFunctionTypes) "Call to value of non-function type"
+    calleeTypes     <- Set.toList <$> enumerateTypes callee
 
-    -- Get the possible return types from all of the possible function types
-    -- TODO simplify
-    maybeReturnTypes <- forM calleeFunctionTypes $ \(Signature argTypes rt) ->
-        if length argTypes == length args
-            then
-                do
-                        typedArgs <- zipWithM check argTypes args
-                        pure (Just (typedArgs, rt))
-                    `catchError` (\_ -> pure Nothing)
-            else return Nothing
-    case catMaybes maybeReturnTypes of
-        [(typedArgs, returnType)] ->
-            let typedCall = Call typedCallee typedArgs
-            in  return (typedCall, [returnType])
-        (_ : _) -> throwError "Ambiguous call"
-        []      -> throwError "No matching call"
+    possibleResults <- forM calleeTypes $ \case
+        calleeType@(KFunc (Signature argTypes returnType)) ->
+            do
+                    typedArgs   <- zipWithM check argTypes args
+                    typedCallee <- check calleeType callee
+                    return $ Just (Call typedCallee typedArgs, [returnType])
+                `catchError` const (pure Nothing)
+        _ -> pure Nothing
+
+    case catMaybes possibleResults of
+        [ result] -> return result
+        _ :     _ -> throwError "Ambiguous call"
+        []        -> throwError "No matching call"
+
+enumerateTypes :: MonadTC m => AST 'Expr TypeAnnotated -> m (Set KType)
+enumerateTypes (LiteralE    IntExpr{}   ) = pure [KInt]
+enumerateTypes (LiteralE    FloatExpr{} ) = pure [KFloat]
+enumerateTypes (LiteralE    BoolExpr{}  ) = pure [KBool]
+enumerateTypes (LiteralE    StringExpr{}) = pure [KString]
+enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
+enumerateTypes (FuncExpr (fmap snd -> argTypes) rt _) =
+    pure [KFunc (argTypes $-> rt)]
+enumerateTypes (Call callee args) = do
+    calleeTypes <- Set.toList <$> enumerateTypes callee
+    -- Possible types for each arg
+    argTypes    <- fmap Set.toList <$> mapM enumerateTypes args
+    -- Possible sequences of arg types
+    let argSequences = cartprod argTypes
+    let returnTypes =
+            catMaybes $ zipWith returnsWithArgs argSequences calleeTypes
+
+    return (Set.fromList returnTypes)
   where
-    kTypeSignature (KFunc sig) = Just sig
-    kTypeSignature _           = Nothing
+    returnsWithArgs :: [KType] -> KType -> Maybe KType
+    returnsWithArgs argTypes (KFunc (Signature argTypes' rt))
+        | argTypes == argTypes' = Just rt
+    returnsWithArgs _ _ = Nothing
 
 check :: MonadTC m => KType -> AST 'Expr TypeAnnotated -> m (AST 'Expr Typed)
 check expectedType (IdentifierE ident) = lookupName ident >>= \case
     (Binding _ availableTypes)
-        | expectedType `Set.member` availableTypes -> pure $ IdentifierE (typeAnnotate expectedType ident)
-        | otherwise -> throwError ("Identifier " <> show ident <> " is not available with type " <> show expectedType)
+        | expectedType `Set.member` availableTypes -> pure
+        $  IdentifierE (typeAnnotate expectedType ident)
+        | otherwise -> throwError
+            (  "Identifier "
+            <> show ident
+            <> " is not available with type "
+            <> show expectedType
+            )
+check expectedType (Call callee args) = do
+    (typedArgs, argTypes) <- unzip <$> mapM infer args
+
+    let possibleArgSets = cartprod (Set.toList <$> argTypes)
+    possibleTypedCallees :: [AST 'Expr Typed] <- catMaybes <$> forM
+        possibleArgSets
+        (\theseArgTypes ->
+            (Just <$> check (KFunc (theseArgTypes $-> expectedType)) callee)
+                `catchError` const (pure Nothing)
+        )
+
+    case possibleTypedCallees of
+        [ typedCallee] -> return (Call typedCallee typedArgs)
+        _ :          _ -> throwError "Ambiguous call"
+        []             -> throwError "No matching call"
+
 check expectedType expr = do
     (typedExpr, inferedTypes) <- infer expr
     assert (expectedType `Set.member` inferedTypes)
@@ -191,9 +232,11 @@ inferAccessor (WriteAccess name path) =
             Just fieldType -> do
                 (finalType, restTypedPath) <- foldPath fieldType restPath
                 return (finalType, TName thisField fieldType : restTypedPath)
-            Nothing        -> throwError ("Type " <> typeName <> " has no field " <> thisField)
+            Nothing -> throwError
+                ("Type " <> typeName <> " has no field " <> thisField)
     foldPath t [] = pure (t, [])
-    foldPath t (Name thisField:_) = throwError ("Type " <> show t <> " has no field " <> thisField)
+    foldPath t (Name thisField : _) =
+        throwError ("Type " <> show t <> " has no field " <> thisField)
 
 checkReturns
     :: MonadTC m => KType -> AST 'Stmt TypeAnnotated -> m (AST 'Stmt Typed)
@@ -230,12 +273,14 @@ checkReturns t stmt@Let{} = do
 --------- Top-level AST -----
 -----------------------------
 
-checkProgram :: MonadTC m => AST 'Module TypeAnnotated -> m (AST 'Module Typed)
+checkProgram
+    :: MonadTC m => AST 'Module TypeAnnotated -> m (AST 'Module Typed)
 checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
 
-checkTopLevel :: MonadTC m => AST 'TopLevel TypeAnnotated -> m (AST 'TopLevel Typed)
-checkTopLevel (FuncDef name args rt body) = FuncDef name args rt
-    <$> withState (addArgs args) (checkReturns rt body)
+checkTopLevel
+    :: MonadTC m => AST 'TopLevel TypeAnnotated -> m (AST 'TopLevel Typed)
+checkTopLevel (FuncDef name args rt body) =
+    FuncDef name args rt <$> withState (addArgs args) (checkReturns rt body)
 checkTopLevel (DataDef name typeFields) = pure (DataDef name typeFields)
 
 -----------------------------
@@ -257,3 +302,7 @@ addArgs args ctx =
     let bindings = (Binding Constant . Set.singleton) . snd <$> args
     in  let names = Identifier . fst <$> args
         in  ctx <> TypeCtx Map.empty (Map.fromList (zip names bindings))
+
+cartprod :: [[a]] -> [[a]]
+cartprod []         = [[]]
+cartprod (xs : xss) = [ x : ys | x <- xs, ys <- yss ] where yss = cartprod xss

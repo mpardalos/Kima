@@ -64,7 +64,7 @@ library
                         OverloadedStrings PartialTypeSignatures PatternSynonyms
                         ViewPatterns RankNTypes ScopedTypeVariables StandaloneDeriving
                         TemplateHaskell TypeApplications TypeFamilies TypeInType
-                        TypeOperators UndecidableInstances EmptyCase
+                        TypeOperators UndecidableInstances EmptyCase TupleSections
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     build-depends:
         base >=4.7 && <5,
