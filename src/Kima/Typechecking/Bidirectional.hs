@@ -132,6 +132,7 @@ inferReturns (ExprStmt expr ) = first ExprStmt <$> infer expr
 inferReturns (Block    stmts) = withState id $ do
     (typedStatements, statementReturnTypes) <- unzip <$> mapM inferReturns stmts
     return (Block typedStatements, lastDef KUnit statementReturnTypes)
+   -- return $ lastDef (Set.singleton KUnit) statementTypes
 inferReturns (While (WhileStmt cond blk)) = do
     typedCond     <- check KBool cond
     (typedBlk, _) <- inferReturns blk
