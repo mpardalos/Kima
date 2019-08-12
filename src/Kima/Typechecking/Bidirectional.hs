@@ -59,7 +59,7 @@ infer expr@(IdentifierE name) = enumerateTypes expr <&> Set.toList >>= \case
 infer (FuncExpr args rt body) = do
     typedBody <- withState (addArgs args) $ checkReturns rt body
 
-    let functionType = KFunc ((snd <$> args) $-> rt)
+    let functionType  = KFunc ((snd <$> args) $-> rt)
     let typedFuncExpr = FuncExpr args rt typedBody
     return (typedFuncExpr, functionType)
 infer (Call callee args) = do
@@ -109,7 +109,8 @@ check expectedType (IdentifierE ident) = lookupName ident >>= \case
     (Binding _ availableTypes)
         | expectedType `Set.member` availableTypes -> pure
         $  IdentifierE (typeAnnotate expectedType ident)
-        | otherwise -> throwError (UnavailableType (Set.toList availableTypes) expectedType)
+        | otherwise -> throwError
+            (UnavailableType (Set.toList availableTypes) expectedType)
 check expectedType (Call callee args) = do
     (typedArgs, argTypes) <- unzip <$> mapM infer args
     typedCallee           <- check (KFunc (argTypes $-> expectedType)) callee
@@ -117,7 +118,8 @@ check expectedType (Call callee args) = do
 
 check expectedType expr = do
     (typedExpr, inferedType) <- infer expr
-    assert (expectedType == inferedType) (UnexpectedType expectedType inferedType)
+    assert (expectedType == inferedType)
+           (UnexpectedType expectedType inferedType)
     return typedExpr
 
 --------------------------------
@@ -130,7 +132,6 @@ inferReturns (ExprStmt expr ) = first ExprStmt <$> infer expr
 inferReturns (Block    stmts) = withState id $ do
     (typedStatements, statementReturnTypes) <- unzip <$> mapM inferReturns stmts
     return (Block typedStatements, lastDef KUnit statementReturnTypes)
-   -- return $ lastDef (Set.singleton KUnit) statementTypes
 inferReturns (While (WhileStmt cond blk)) = do
     typedCond     <- check KBool cond
     (typedBlk, _) <- inferReturns blk
@@ -186,7 +187,8 @@ inferAccessor (WriteAccess name path) =
                 ( WriteAccess (typeAnnotate baseType name) typedPath
                 , Binding mutability [finalType]
                 )
-        Binding _ types -> throwError (AmbiguousName (toIdentifier name) (Set.toList types))
+        Binding _ types ->
+            throwError (AmbiguousName (toIdentifier name) (Set.toList types))
   where
     foldPath
         :: MonadTC m
@@ -204,31 +206,14 @@ inferAccessor (WriteAccess name path) =
 
 checkReturns
     :: MonadTC m => KType -> AST 'Stmt TypeAnnotated -> m (AST 'Stmt Typed)
+checkReturns KUnit (ExprStmt expr) =
+    -- If it's not Unit then anything else will do, doesn't matter
+    ExprStmt <$> (check KUnit expr `catchError` const (fst <$> infer expr))
 checkReturns t (ExprStmt expr) = ExprStmt <$> check t expr
-checkReturns t blk@Block{}     = do
-    (typedBlk, returnType) <- inferReturns blk
-    assert (t == returnType) (UnexpectedType t returnType)
+checkReturns t stmt            = do
+    (typedBlk, returnType) <- inferReturns stmt
+    when (t /= KUnit) $ assert (t == returnType) (UnexpectedType t returnType)
     return typedBlk
-checkReturns t stmt@While{} = do
-    (typedWhile, _) <- inferReturns stmt
-    assert (t == KUnit) (UnexpectedType t KUnit)
-    return typedWhile
-checkReturns t stmt@If{} = do
-    (typedIf, returnType) <- inferReturns stmt
-    assert (t == returnType) (UnexpectedType t returnType)
-    return typedIf
-checkReturns t stmt@Assign{} = do
-    (typedAssign, _) <- inferReturns stmt
-    assert (t == KUnit) (UnexpectedType t KUnit)
-    return typedAssign
-checkReturns t stmt@Var{} = do
-    (typedVar, _) <- inferReturns stmt
-    assert (t == KUnit) (UnexpectedType t KUnit)
-    return typedVar
-checkReturns t stmt@Let{} = do
-    (typedLet, _) <- inferReturns stmt
-    assert (t == KUnit) (UnexpectedType t KUnit)
-    return typedLet
 
 -----------------------------
 --------- Top-level AST -----
