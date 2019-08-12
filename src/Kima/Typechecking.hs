@@ -38,11 +38,8 @@ typecheckWithTypeCtx
     -> AST p Desugared
     -> Either TypecheckingError (AST p Typed, TypeCtx)
 typecheckWithTypeCtx baseTypeCtx dAST = do
-    (typeAnnotatedAST, computedTypeBindings) <- runStateT
-        (resolveTypes dAST)
-        (typeBindings baseTypeCtx)
-    first StringError $ runStateT (checkAnyAST typeAnnotatedAST)
-              (baseTypeCtx { typeBindings = computedTypeBindings })
+    (typeAnnotatedAST, computedCtx) <- runStateT (resolveTypes dAST) baseTypeCtx
+    first StringError $ runStateT (checkAnyAST typeAnnotatedAST) computedCtx
   where
     checkAnyAST :: MonadTC m => AST p TypeAnnotated -> m (AST p Typed)
     checkAnyAST ast@Program{} = checkProgram ast

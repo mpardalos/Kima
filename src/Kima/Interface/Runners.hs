@@ -42,7 +42,7 @@ instance TransformAST Parsed Typed where
 
 instance TransformAST Desugared TypeAnnotated where
     transformAST = runEither
-        . (`evalStateT` T.typeBindings baseTypeCtx)
+        . (`evalStateT` baseTypeCtx)
         . T.resolveTypes
 
 instance TransformAST Desugared Typed where

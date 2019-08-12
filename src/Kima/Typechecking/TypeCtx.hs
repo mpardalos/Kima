@@ -30,7 +30,7 @@ addType name t ctx@TypeCtx { typeBindings } =
 
 addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =
-    ctx { bindings = Map.insert n b bindings }
+    ctx { bindings = Map.insertWith (<>) n b bindings }
 
 addBindings :: Map (Identifier 'NoAnnotation) Binding -> TypeCtx -> TypeCtx
 addBindings newBindings ctx@TypeCtx { bindings } =
