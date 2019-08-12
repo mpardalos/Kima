@@ -57,11 +57,11 @@ infer expr@(IdentifierE name) = enumerateTypes expr <&> Set.toList >>= \case
     [t]   -> pure (IdentifierE (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
 infer (FuncExpr args rt body) = do
-    let expectedType = KFunc ((snd <$> args) $-> rt)
-    typedBody <- withState (addArgs args) $ checkReturns expectedType body
+    typedBody <- withState (addArgs args) $ checkReturns rt body
 
+    let functionType = KFunc ((snd <$> args) $-> rt)
     let typedFuncExpr = FuncExpr args rt typedBody
-    return (typedFuncExpr, expectedType)
+    return (typedFuncExpr, functionType)
 infer (Call callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
 
