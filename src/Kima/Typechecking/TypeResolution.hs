@@ -1,28 +1,29 @@
 {-# LANGUAGE OverloadedLists #-}
 module Kima.Typechecking.TypeResolution where
 
-import Control.Monad.Except
-import Control.Monad.State
-import Data.Bitraversable
-import qualified Data.Map as Map
-import Kima.AST
-import Kima.KimaTypes
-import Kima.Typechecking.TypeCtx
-import Kima.Typechecking.Errors
+import           Control.Monad.Except
+import           Control.Monad.State
+import           Data.Bitraversable
+import qualified Data.Map                      as Map
+import           Kima.AST
+import           Kima.KimaTypes
+import           Kima.Typechecking.TypeCtx
+import           Kima.Typechecking.Errors
 
-type MonadTypeResolution m = (MonadState TypeCtx m, MonadError TypecheckingError m)
+type MonadTypeResolution m
+    = (MonadState TypeCtx m, MonadError TypecheckingError m)
 
 -- | Resolve all typeExprs in an AST.
 -- Note: in DataDefs, accessor types are annotated with the type of the attribute,
 --       **not** their function type.
-resolveTypes :: MonadTypeResolution m => AST p Desugared -> m (AST p TypeAnnotated)
+resolveTypes
+    :: MonadTypeResolution m => AST p Desugared -> m (AST p TypeAnnotated)
 resolveTypes ast@Program{} = do
     processTopLevel ast
     traverseFreeAnnotations resolveTypeExpr ast
 resolveTypes ast = traverseFreeAnnotations resolveTypeExpr ast
 
-processTopLevel
-    :: MonadTypeResolution m => AST 'Module Desugared -> m ()
+processTopLevel :: MonadTypeResolution m => AST 'Module Desugared -> m ()
 processTopLevel (Program topLevelDecls) = forM_ topLevelDecls $ \case
     DataDef typeName members -> do
         resolvedMembers <- traverse @[]
@@ -45,7 +46,7 @@ processTopLevel (Program topLevelDecls) = forM_ topLevelDecls $ \case
 
     FuncDef name args rtExpr _body -> do
         argTypes <- mapM resolveTypeExpr (snd <$> args)
-        rt <- resolveTypeExpr rtExpr
+        rt       <- resolveTypeExpr rtExpr
         let funcType = KFunc (argTypes $-> rt)
         modify (addBinding (Identifier name) (Binding Constant [funcType]))
 
