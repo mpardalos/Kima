@@ -2,7 +2,6 @@ module Kima.Typechecking
     ( module E
     , typecheck
     , typecheckWithTypeCtx
-    , addTVars
     , TypecheckingError(..)
     )
 where
@@ -10,57 +9,49 @@ where
 import           Kima.Typechecking.TypeResolution
                                                as E
                                                 ( resolveTypes )
-import           Kima.Typechecking.ConstraintGen
-                                               as E
-                                                ( makeConstraints )
-import           Kima.Typechecking.ConstraintSolving
-                                               as E
-                                                ( unify )
-import           Kima.Typechecking.DomainCalculation
-                                               as E
-                                                ( makeDomains
-                                                , makeDomainsWithTypeCtx
-                                                )
-import           Kima.Typechecking.TypeCtx      as E (TypeCtx(typeBindings))
+import           Kima.Typechecking.TypeCtx     as E
+                                                ( TypeCtx(typeBindings) )
 
-import           Kima.Typechecking.Errors       as E (TypecheckingError(..))
-import           Kima.Typechecking.Constraints  as E
-                                                ( Domains
-                                                , EqConstraintSet
+import           Kima.Typechecking.Errors      as E
+                                                ( TypecheckingError(..) )
+import           Kima.Typechecking.Bidirectional
+                                               as E
+                                                ( MonadTC
+                                                , checkProgram
+                                                , checkTopLevel
+                                                , check
+                                                , infer
+                                                , checkReturns
+                                                , inferReturns
                                                 )
 
-import qualified Data.Map                      as Map
 import           Control.Monad.State
-import           Kima.TypeVars
 import           Kima.AST
 
--- | Add type variables to the names of an AST
-addTVars
-    :: AST p TypeAnnotated
-    -> AST p TVars
-addTVars = (`evalState` 0) . addIdAnnotations @(State Int)
-    (state $ \n -> (TypeVar n, n+1))
-
 typecheck
-    :: TypeCtx
-    -> AST p Desugared
-    -> Either TypecheckingError (AST p Typed)
+    :: TypeCtx -> AST p Desugared -> Either TypecheckingError (AST p Typed)
 typecheck typeCtx dAST = fst <$> typecheckWithTypeCtx typeCtx dAST
 
 typecheckWithTypeCtx
-    :: forall p. TypeCtx
+    :: TypeCtx
     -> AST p Desugared
     -> Either TypecheckingError (AST p Typed, TypeCtx)
-typecheckWithTypeCtx baseTypeCtx dAST = do
-    (typeAnnotatedAST, computedTypeBindings) <- runStateT (resolveTypes dAST) (typeBindings baseTypeCtx)
-    let tVarAST = addTVars typeAnnotatedAST
-    let constraints = makeConstraints tVarAST
-    (domains, finalTypeCtx) <- makeDomainsWithTypeCtx (baseTypeCtx { typeBindings = computedTypeBindings }) tVarAST
-    substitution <- unify constraints domains
-    resultAST <- traverseIdAnnotations (applySubstitution substitution) tVarAST
-    return (resultAST, finalTypeCtx)
+typecheckWithTypeCtx baseTypeCtx dAST = flip runStateT baseTypeCtx $ do
+    typeAnnotatedAST <- resolveTypes dAST
+    checkAnyAST typeAnnotatedAST
   where
-    applySubstitution substitution tvar =
-        case Map.lookup tvar substitution of
-            Just t  -> Right t
-            Nothing -> Left (NoSolution tvar)
+    checkAnyAST :: MonadTC m => AST p TypeAnnotated -> m (AST p Typed)
+    checkAnyAST ast@Program{} = checkProgram ast
+    checkAnyAST ast@FuncDef{} = checkTopLevel ast
+    checkAnyAST ast@DataDef{} = checkTopLevel ast
+    checkAnyAST ast@LiteralE{} = fst <$> infer ast
+    checkAnyAST ast@IdentifierE{} = fst <$> infer ast
+    checkAnyAST ast@FuncExpr{} = fst <$> infer ast
+    checkAnyAST ast@Call{} = fst <$> infer ast
+    checkAnyAST ast@ExprStmt{} = fst <$> inferReturns ast
+    checkAnyAST ast@Block{} = fst <$> inferReturns ast
+    checkAnyAST ast@While{} = fst <$> inferReturns ast
+    checkAnyAST ast@If{} = fst <$> inferReturns ast
+    checkAnyAST ast@Assign{} = fst <$> inferReturns ast
+    checkAnyAST ast@Var{} =  fst <$> inferReturns ast
+    checkAnyAST ast@Let{} = fst <$> inferReturns ast

@@ -31,12 +31,3 @@ instance Pretty KType where
   pretty KFloat           = "Float"
   pretty (KFunc sig)      = "[" <> viaShow sig <> "]"
   pretty (KUserType n _f) = pretty n
-
-fields :: KType -> [(String, KType)]
-fields KString = []
-fields KUnit   = []
-fields KBool   = []
-fields KInt    = []
-fields KFloat  = []
-fields KFunc{} = []
-fields (KUserType _name fs) = fs

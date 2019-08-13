@@ -5,7 +5,6 @@ module Kima.AST.Stages where
 import Kima.AST.Kinds
 import Kima.AST.Types
 import Kima.KimaTypes
-import Kima.TypeVars
 
 -- | Initial stage at parsing
 data Parsed
@@ -27,13 +26,6 @@ instance ASTTag TypeAnnotated where
     type TagSugar TypeAnnotated = 'NoSugar
     type NameAnnotation TypeAnnotated = 'NoAnnotation
     type FreeAnnotation TypeAnnotated = KType
-
--- | Add type variales where final types will be
-data TVars
-instance ASTTag TVars where
-    type TagSugar TVars = 'NoSugar
-    type NameAnnotation TVars = 'Annotation TypeVar
-    type FreeAnnotation TVars = KType
 
 -- | Every identifier is annotated with its type.
 data Typed

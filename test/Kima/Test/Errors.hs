@@ -36,12 +36,7 @@ instance TestableError RuntimeError where
 
 
 instance TestableError TypecheckingError where
-    matchesString "AmbiguousVariable"   AmbiguousVariable{}   = True
-    matchesString "CantUnify"           CantUnify{}           = True
-    matchesString "CantUnifyCall"       CantUnifyCall{}       = True
-    matchesString "MultipleSolutions"   MultipleSolutions{}   = True
     matchesString "NameShadowed"        NameShadowed{}        = True
-    matchesString "NoSolution"          NoSolution{}          = True
     matchesString "TypeResolutionError" TypeResolutionError{} = True
     matchesString "UnboundName"         UnboundName{}         = True
     matchesString "AssignToConst"       AssignToConst{}       = True

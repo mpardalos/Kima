@@ -4,8 +4,6 @@ module Kima.Test.Interpreters where
 
 import           Kima.Interpreter.Types
 import           Kima.Interpreter.Interpreter
-import           Kima.Typechecking
-import           Kima.Typechecking.ConstraintGen
 import           Kima.Builtins
 import           Kima.AST
 import           Control.Monad.State
@@ -52,10 +50,3 @@ runInTestInterpreterWithInput input inAST = do
 instance MonadConsole TestInterpreter where
     consoleRead = ask
     consoleWrite = tell
-
-constraintsFor :: AST p TVars -> EqConstraintSet
-constraintsFor = execWriter . \case
-        ProgramAST ast  -> writeProgramConstraints ast
-        TopLevelAST func -> writeTopLevelConstraints func
-        StmtAST    stmt -> stmtReturnTVar stmt $> ()
-        ExprAST    expr -> exprTVar expr $> ()
