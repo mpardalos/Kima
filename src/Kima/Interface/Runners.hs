@@ -57,13 +57,18 @@ instance TransformAST Desugared Typed where
 --
 -- It is equivalent to
 -- desugared :: AST 'Module Desugared <- fromFileTo "input.k"
-fromFileTo :: forall to. TransformAST Parsed to => FilePath -> IO (AST 'Module to)
-fromFileTo fn = runMonadInterface $ do
+fromFileTo :: forall to m. (MonadInterface m, TransformAST Parsed to) => FilePath -> m (AST 'Module to)
+fromFileTo fn = do
     src <- liftIO (readFile fn)
     parsedAST <- runEither (F.runParser F.program fn src)
     transformAST parsedAST
 
+fromStringTo :: forall to m. (MonadInterface m, TransformAST Parsed to) => String -> m (AST 'Module to)
+fromStringTo src = do
+    parsedAST <- runEither (F.runParser F.program "" src)
+    transformAST parsedAST
+
 runFile :: FilePath -> IO ()
-runFile fn = runMonadInterface $ do
-    ast :: AST 'Module Runtime <- liftIO $ fromFileTo fn
-    void $ liftIO $ I.run baseEnv ast
+runFile fn = do
+    ast :: AST 'Module Runtime <- fromFileTo fn
+    void $ I.run baseEnv ast

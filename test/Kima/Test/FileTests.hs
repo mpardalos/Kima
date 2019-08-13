@@ -1,11 +1,12 @@
 module Kima.Test.FileTests (spec) where
 
 import           Test.Hspec
+import           Test.Hspec.Core.Spec
 
 import           Data.Maybe
 import           Data.Foldable
 import           Data.List
-import           Control.Monad
+import           Control.Monad.Except
 import           Control.Arrow           hiding ( first
                                                 , second
                                                 )
@@ -15,24 +16,33 @@ import           Data.Char
 import           Data.Either
 import           Data.Bifunctor
 
+import           Kima.AST
+import           Kima.Interface
 import           Kima.Builtins                 as B
 import           Kima.Desugar                  as D
 import           Kima.Frontend                 as F
 import           Kima.Typechecking             as T
 import           Kima.Interpreter              (Value)
 
-import           Kima.Test.Errors
 import           Kima.Test.Interpreters
+
+-- | Up to which stage a test is expected to run
+data TargetStage
+    = None
+    | Parse
+    | Desugar
+    | Execution
 
 data FileTest = FileTest {
     fileName :: String,
     input :: String,
     isPending :: Bool,
-    -- | Left -> expect an error fullfiling that spec
-    -- | Right -> expect output fullfiling that spec
-    resultSpec :: Either (SomeTestableError -> Bool) (String -> Bool),
+    expectedStage :: TargetStage,
+    expectedOut :: Maybe String,
     contents :: String
 }
+
+
 
 instance Show FileTest where
     show FileTest { fileName, isPending } =
@@ -41,12 +51,12 @@ instance Show FileTest where
     showList xs = (intercalate "\n" (show <$> xs) <>)
 
 instance Eq FileTest where
-    (==) FileTest { resultSpec = spec1, fileName = name1 } FileTest { resultSpec = spec2, fileName = name2 }
-        = (isRight spec1 == isRight spec2) && (name1 == name2)
+    (==) FileTest { fileName = name1 } FileTest { fileName = name2 }
+        = (name1 == name2)
 
 instance Ord FileTest where
-    compare FileTest { resultSpec = spec1, fileName = name1 } FileTest { resultSpec = spec2, fileName = name2 }
-        = compare (isLeft spec1) (isLeft spec2) <> compare name1 name2
+    compare FileTest { fileName = name1 } FileTest { fileName = name2 }
+        = compare name1 name2
 
 spec :: Spec
 spec = do
@@ -73,57 +83,68 @@ dirTreeSpec (File   _    contents) = runFileTest contents
 
 
 runFileTest :: FileTest -> Spec
-runFileTest test@FileTest { fileName, contents, input, resultSpec } = case resultSpec of
-    Left errorTest -> it ("Doesn't run " <> fileName) $ if isPending test
-        then pending
-        else runResult >>= (`shouldSatisfy` \case
-            Right{}  -> False
-            Left err -> errorTest err)
-    Right outputTest -> it ("Runs " <> fileName) $ if isPending test
-        then pending
-        else runResult >>= (`shouldSatisfy` \case
-            Right (_, out) -> outputTest out
-            Left{}         -> False)
-  where
-    runResult :: IO (Either SomeTestableError (Value, String))
-    runResult = case typedAST of
-        Left err -> pure (Left err)
-        Right ast -> testableEither <$> runInTestInterpreterWithInput input ast
+runFileTest FileTest { fileName, isPending=True} =
+    context fileName $ it "Is pending" pending
+runFileTest FileTest { fileName, contents, input, expectedStage, expectedOut, isPending=False} =
+    sequential $ context fileName $
+        case expectedStage of
+            None -> doesNotParse
+            Parse -> do
+                doesParse
+                doesNotDesugar
+            Desugar -> do
+                doesParse
+                doesDesugar
+                doesNotTypecheck
+            Execution -> do
+                doesParse
+                doesDesugar
+                doesTypecheck
+                runsCorrectly
+    where
+        doesParse = it "Parses" $
+            shouldRun (fromStringTo @Parsed contents)
+        doesDesugar = it "Desugars" $
+            shouldRun (fromStringTo @Desugared contents)
+        doesTypecheck = it "Typechecks" $
+            shouldRun (fromStringTo @Typed contents)
+        runsCorrectly = it "Runs" $ do
+            ast <- fromStringTo @Runtime contents
+            shouldRunWithInputOutput ast input expectedOut
 
-    parsedAST    = testableEither $ F.parseProgram fileName contents
-    desugaredAST = D.desugar <$> parsedAST
-    typedAST     = (testableEither . T.typecheck baseTypeCtx) =<< desugaredAST
+        doesNotParse = it "Does not parse" $
+            shouldFail (fromStringTo @Parsed contents)
+        doesNotDesugar = it "Does not desugar" $
+            shouldFail (fromStringTo @Desugared contents)
+        doesNotTypecheck = it "Does not typecheck" $
+            shouldFail (fromStringTo @Typed contents)
 
 makeFileTest :: String -> String -> Either String FileTest
 makeFileTest name contents = do
     let isPending          = not $ null (findPragmas "pending" contents)
-    let shouldFail         = not $ null (findPragmas "shouldFail" contents)
-    let givenInput         = concat $ findPragmas "input" contents
-    let expectedErrorNames = findPragmas "shouldFailWith" contents
-    let expectedOut        = concat $ findPragmas "output" contents
-    when (not (null expectedErrorNames) && not (null expectedOut))
-        $ error ("Test " <> name <> " contains both an expectation for an error and for output")
+    let input              = concat $ findPragmas "input" contents
+    let expectedOut        = case concat $ findPragmas "output" contents of
+            "" -> Nothing
+            s -> Just s
+    let shouldParse     = null (findPragmas "shouldNotParse" contents)
+    let shouldDesugar   = null (findPragmas "shouldNotDesugar" contents)
+    let shouldTypecheck = null (findPragmas "shouldNotTypecheck" contents)
+    let expectedStage = case (shouldParse, shouldDesugar, shouldTypecheck) of
+            (False, False, False) -> None
+            (True,  False, False) -> Parse
+            (True,  True,  False) -> Desugar
+            (True,  True,  True ) -> Execution
+            (_,     _,     _    ) -> error "Invalid test spec"
 
     return $ FileTest
         { fileName   = name
-        , input      = givenInput
+        , input
+        , contents
+        , expectedOut
         , isPending
-        , resultSpec = case
-                           ( not (null expectedOut)
-                           , not (null expectedErrorNames)
-                           , shouldFail
-                           )
-                       of
-                           (True, _   , _   ) -> Right (== expectedOut)
-                           (_   , True, _   ) -> Left (errorMatcherFor expectedErrorNames)
-                           (_   , _   , True) -> Left (const True)
-                           (_   , _   , _   ) -> Right (const True)
-        , contents   = contents
+        , expectedStage
         }
   where
-    errorMatcherFor = foldl (\f s e -> f e || matchesString s e) (const False)
-    -- | Find the values of all occurences of the pragma in a string
-    -- | findPragma "hi" "##hi: world" == ["world"]
     findPragmas p =
         lines
             >>> mapMaybe (stripPrefix ("##" <> p))
@@ -134,7 +155,3 @@ makeFileTest name contents = do
                         xs       -> xs
                     )
             >>> fmap (dropWhile isSpace)
-
--- Pack a testable error in an either into an existential
-testableEither :: (TestableError err, Show err) => Either err a -> Either SomeTestableError a
-testableEither = first SomeTestableError

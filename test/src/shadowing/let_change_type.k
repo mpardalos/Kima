@@ -1,4 +1,4 @@
-##shouldFailWith: NameShadowed
+##shouldNotTypecheck
 
 fun main() -> Unit {
     let a: Int = 5;
