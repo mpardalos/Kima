@@ -6,23 +6,15 @@ import           Test.Hspec.Core.Spec
 import           Data.Maybe
 import           Data.Foldable
 import           Data.List
-import           Control.Monad.Except
 import           Control.Arrow           hiding ( first
                                                 , second
                                                 )
 import           System.FilePath
 import           System.Directory.Tree   hiding ( contents )
 import           Data.Char
-import           Data.Either
-import           Data.Bifunctor
 
 import           Kima.AST
 import           Kima.Interface
-import           Kima.Builtins                 as B
-import           Kima.Desugar                  as D
-import           Kima.Frontend                 as F
-import           Kima.Typechecking             as T
-import           Kima.Interpreter              (Value)
 
 import           Kima.Test.Interpreters
 

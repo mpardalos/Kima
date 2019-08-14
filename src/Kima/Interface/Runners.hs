@@ -1,7 +1,6 @@
 {-|
 Running Kima up to a certain stage.
 -}
-{-# LANGUAGE TypeFamilyDependencies #-}
 
 module Kima.Interface.Runners where
 
