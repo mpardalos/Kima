@@ -1,4 +1,4 @@
-##shouldFailWith: NameShadowed
+##shouldNotTypecheck
 
 fun shadows() -> () -> Unit {
     let s: String = "outer";

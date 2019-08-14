@@ -1,11 +1,9 @@
 module Kima.Interface.Types where
 
-import Control.Arrow hiding (first)
 import Control.Monad.Except
 import Control.Exception
 
 import Data.Void
-import Data.Bifunctor
 
 import Kima.Frontend
 import Kima.Interpreter
@@ -36,26 +34,14 @@ data UserThrowableError = forall err. UserThrowable err => UserThrowableError er
 instance Show UserThrowableError where
     show (UserThrowableError err) = userShow err
 
-newtype InterfaceM a = InterfaceM {
-    runInterfaceM :: ExceptT UserThrowableError IO a
-} deriving (
-    Functor, Applicative, Monad,
-    MonadError UserThrowableError, MonadIO)
-
-type MonadInterface m = (MonadError UserThrowableError m, MonadIO m)
-
-runMonadInterface :: InterfaceM a -> IO a
-runMonadInterface = runInterfaceM
-    >>> runExceptT
-    >=> \case
-        Left err -> throwIO $ userError (userShow err)
-        Right a -> pure a
-
-userThrow :: (MonadInterface m, UserThrowable err) => err -> m a
-userThrow = throwError . UserThrowableError
+class MonadIO m => MonadInterface m where
+    userThrow :: UserThrowable e => e -> m a
+instance MonadInterface IO where
+    userThrow = throwIO . userError . userShow
 
 runEither :: (MonadInterface m, UserThrowable err) => Either err a -> m a
-runEither = liftEither . bimap UserThrowableError id
+runEither (Right val) = return val
+runEither (Left err) = userThrow err
 
 runMaybe :: (UserThrowable err, MonadInterface m) => err -> Maybe a -> m a
 runMaybe _   (Just a) = pure a

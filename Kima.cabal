@@ -82,7 +82,6 @@ test-suite spec
     main-is: Main.hs
     other-modules:
         Kima.Test.XmlFormatter
-        Kima.Test.Errors
         Kima.Test.Interpreters
 
         Kima.Test.FileTests
@@ -101,6 +100,7 @@ test-suite spec
         containers -any,
         directory -any,
         hspec == 2.*,
+        hspec-core == 2.*,
         generic-random == 1.* && >= 1.2,
         QuickCheck >= 2,
         mtl -any,

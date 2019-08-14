@@ -1,4 +1,4 @@
 fun main() -> Unit {
     let a: Int = 7;
-#     let b: Int = a + 5;
+    let b: Int = a + 5;
 }

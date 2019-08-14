@@ -1,4 +1,4 @@
-##shouldFail
+##shouldNotTypecheck
 
 fun takes_int(n:Int) -> Unit {}
 

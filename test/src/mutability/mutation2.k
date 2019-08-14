@@ -1,4 +1,4 @@
-##shouldFailWith: AssignToConst
+##shouldNotTypecheck
 
 fun main() -> Unit {
     let b: String = "hello";
