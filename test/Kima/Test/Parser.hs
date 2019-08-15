@@ -3,7 +3,7 @@ module Kima.Test.Parser  where
 
 import Control.Monad
 import Kima.AST
-import Kima.Frontend.Parser
+import Kima.Syntax.Parser
 import Test.Hspec
 import Text.Megaparsec
 

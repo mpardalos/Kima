@@ -11,7 +11,7 @@ import Kima.AST
 import Kima.Builtins
 import Kima.Desugar
 import Kima.Interface.Types
-import qualified Kima.Frontend as F
+import qualified Kima.Syntax as F
 import qualified Kima.Interpreter as I
 import qualified Kima.Typechecking as T
 

@@ -1,11 +1,11 @@
-module Kima.Frontend.Tokenizer where
+module Kima.Syntax.Tokenizer where
 
 import           Control.Monad
 import           Data.Functor
 import           Data.Char
 import           GHC.Exts
 
-import           Kima.Frontend.Types
+import           Kima.Syntax.Types
 
 import           Text.Megaparsec
 import           Text.Megaparsec.Char          as C

@@ -1,13 +1,13 @@
-module Kima.Frontend(
-    module Kima.Frontend.Types,
+module Kima.Syntax(
+    module Kima.Syntax.Types,
     program, funcDef, block, stmt, expr,
     parseProgram, parseErrorPretty, errorBundlePretty, runParser
 ) where
 
 import Data.Void
 import Kima.AST
-import Kima.Frontend.Parser
-import Kima.Frontend.Types
+import Kima.Syntax.Parser
+import Kima.Syntax.Types
 import Text.Megaparsec
 
 -- | Parse a string as a Kima program and return either a ParseError that was

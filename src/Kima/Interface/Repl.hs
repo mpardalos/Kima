@@ -18,7 +18,7 @@ import           Kima.Desugar
 import           Kima.Interpreter
 import           Kima.Interpreter.Types
 import           Kima.Typechecking
-import           Kima.Frontend
+import           Kima.Syntax
 
 -- | newtype wrapper around Interpreter whose MonadConsole makes sure
 -- | that any printed text ends with a newline

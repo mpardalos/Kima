@@ -33,10 +33,10 @@ library
 
         Kima.Desugar
 
-        Kima.Frontend
-        Kima.Frontend.Types
-        Kima.Frontend.Tokenizer
-        Kima.Frontend.Parser
+        Kima.Syntax
+        Kima.Syntax.Types
+        Kima.Syntax.Tokenizer
+        Kima.Syntax.Parser
 
         Kima.Typechecking
         Kima.Typechecking.Bidirectional

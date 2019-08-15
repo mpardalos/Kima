@@ -1,11 +1,11 @@
-module Kima.Frontend.Parser where
+module Kima.Syntax.Parser where
 
 import Prelude hiding (mod)
 
 import Kima.AST
-import Kima.Frontend.Tokenizer hiding (Mod)
-import qualified Kima.Frontend.Tokenizer as T (Symbol(Mod))
-import Kima.Frontend.Types
+import Kima.Syntax.Tokenizer hiding (Mod)
+import qualified Kima.Syntax.Tokenizer as T (Symbol(Mod))
+import Kima.Syntax.Types
 
 import Control.Monad.Combinators.Expr
 import GHC.Exts

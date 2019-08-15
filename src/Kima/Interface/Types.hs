@@ -5,7 +5,7 @@ import Control.Exception
 
 import Data.Void
 
-import Kima.Frontend
+import Kima.Syntax
 import Kima.Interpreter
 import Kima.Typechecking
 import Text.Megaparsec
