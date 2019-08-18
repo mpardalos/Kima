@@ -20,15 +20,13 @@ resolveTypes
     :: MonadTypeResolution m => AST p Desugared -> m (AST p TypeAnnotated)
 resolveTypes ast@Program{} = do
     processTopLevel ast
-    traverseFreeAnnotations resolveTypeExpr ast
-resolveTypes ast = traverseFreeAnnotations resolveTypeExpr ast
+    traverseFreeAnnotations (traverse resolveTypeExpr) ast
+resolveTypes ast = traverseFreeAnnotations (traverse resolveTypeExpr) ast
 
 processTopLevel :: MonadTypeResolution m => AST 'Module Desugared -> m ()
 processTopLevel (Program topLevelDecls) = forM_ topLevelDecls $ \case
-    DataDef typeName members -> do
-        resolvedMembers <- traverse @[]
-            (bitraverse @(,) pure resolveTypeExpr)
-            members
+    DataDef typeName (ensureTypedArgs -> Just members) -> do
+        resolvedMembers <- traverse (bitraverse pure resolveTypeExpr) members
 
         let declaredType = KUserType typeName resolvedMembers
         let memberTypes  = snd <$> resolvedMembers
@@ -43,12 +41,15 @@ processTopLevel (Program topLevelDecls) = forM_ topLevelDecls $ \case
             let accessorType = KFunc ([declaredType] $-> fieldType)
             modify $ addBinding (Accessor fieldName)
                                 (Binding Constant [accessorType])
+    DataDef{} -> throwError MissingFieldTypes
 
-    FuncDef name args rtExpr _body -> do
+    FuncDef name (ensureTypedArgs -> Just args) (Just rtExpr) _body -> do
         argTypes <- mapM resolveTypeExpr (snd <$> args)
         rt       <- resolveTypeExpr rtExpr
         let funcType = KFunc (argTypes $-> rt)
         modify (addBinding (Identifier name) (Binding Constant [funcType]))
+    FuncDef _ (ensureTypedArgs -> Just _) Nothing _body -> throwError MissingReturnType
+    FuncDef{} -> throwError MissingArgumentTypes
 
 resolveTypeExpr :: MonadTypeResolution m => TypeExpr -> m KType
 resolveTypeExpr tExpr@(TypeName name) =
@@ -59,3 +60,6 @@ resolveTypeExpr (SignatureType argExprs rtExpr) = do
     args <- traverse resolveTypeExpr argExprs
     rt   <- resolveTypeExpr rtExpr
     return (KFunc (args $-> rt))
+
+ensureTypedArgs :: [(a, Maybe TypeExpr)] -> Maybe [(a, TypeExpr)]
+ensureTypedArgs = traverse sequence

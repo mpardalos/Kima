@@ -61,12 +61,19 @@ infer (IdentifierE name) = (lookupName name <&> types) <&> Set.toList >>= \case
     -- error in lookupName
     [t]   -> pure (IdentifierE (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
-infer (FuncExpr args rt body) = do
+infer (FuncExpr (ensureTypedArgs -> Just args) (Just rt) body) = do
     typedBody <- withState (addArgs args) $ checkReturns rt body
 
     let functionType  = KFunc ((snd <$> args) $-> rt)
     let typedFuncExpr = FuncExpr args rt typedBody
     return (typedFuncExpr, functionType)
+infer (FuncExpr (ensureTypedArgs -> Just args) Nothing body) = do
+    (typedBody, rt) <- withState (addArgs args) $ inferReturns body
+
+    let functionType  = KFunc ((snd <$> args) $-> rt)
+    let typedFuncExpr = FuncExpr args rt typedBody
+    return (typedFuncExpr, functionType)
+infer FuncExpr{} = throwError MissingArgumentTypes
 infer (Call callee args) = do
     calleeTypes     <- Set.toList <$> enumerateTypes callee
 
@@ -91,8 +98,9 @@ enumerateTypes (LiteralE    FloatExpr{} ) = pure [KFloat]
 enumerateTypes (LiteralE    BoolExpr{}  ) = pure [KBool]
 enumerateTypes (LiteralE    StringExpr{}) = pure [KString]
 enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
-enumerateTypes (FuncExpr (fmap snd -> argTypes) rt _) =
+enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) (Just rt) _) =
     pure [KFunc (argTypes $-> rt)]
+enumerateTypes FuncExpr{} = throwError MissingArgumentTypes
 enumerateTypes (Call callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args
@@ -167,7 +175,7 @@ inferReturns (Assign accessor expr) = do
 
     let typedAssign = Assign typedAccessor typedExpr
     return (typedAssign, KUnit)
-inferReturns (Var name declaredType expr) = do
+inferReturns (Var name (Just declaredType) expr) = do
     typedExpr       <- check declaredType expr
 
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
@@ -176,7 +184,16 @@ inferReturns (Var name declaredType expr) = do
 
     let typedVar = Var name declaredType typedExpr
     return (typedVar, KUnit)
-inferReturns (Let name declaredType expr) = do
+inferReturns (Var name Nothing expr) = do
+    (typedExpr, exprType) <- infer expr
+
+    existingBinding <- gets (Map.lookup (Identifier name) . bindings)
+    assert (isNothing existingBinding) (NameShadowed name)
+    modify (addBinding (Identifier name) (Binding Variable [exprType]))
+
+    let typedVar = Var name exprType typedExpr
+    return (typedVar, KUnit)
+inferReturns (Let name (Just declaredType) expr) = do
     typedExpr       <- check declaredType expr
 
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
@@ -184,6 +201,15 @@ inferReturns (Let name declaredType expr) = do
     modify (addBinding (Identifier name) (Binding Constant [declaredType]))
 
     let typedLet = Let name declaredType typedExpr
+    return (typedLet, KUnit)
+inferReturns (Let name Nothing expr) = do
+    (typedExpr, exprType) <- infer expr
+
+    existingBinding <- gets (Map.lookup (Identifier name) . bindings)
+    assert (isNothing existingBinding) (NameShadowed name)
+    modify (addBinding (Identifier name) (Binding Constant [exprType]))
+
+    let typedLet = Let name exprType typedExpr
     return (typedLet, KUnit)
 
 -- | Try to infer the binding an accessor refers to.
@@ -243,9 +269,14 @@ checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
 -- | Try to typecheck a top-level declaration
 checkTopLevel
     :: MonadTC m => AST 'TopLevel TypeAnnotated -> m (AST 'TopLevel Typed)
-checkTopLevel (FuncDef name args rt body) =
+checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) (Just rt) body) =
     FuncDef name args rt <$> withState (addArgs args) (checkReturns rt body)
-checkTopLevel (DataDef name typeFields) = pure (DataDef name typeFields)
+checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) Nothing body) = do
+    (typedBody, rt) <- withState (addArgs args) (inferReturns body)
+    return (FuncDef name args rt typedBody)
+checkTopLevel FuncDef{} = throwError MissingArgumentTypes
+checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) = pure (DataDef name typeFields)
+checkTopLevel DataDef{} = throwError MissingFieldTypes
 
 -----------------------------
 ---------- Helpers ----------
@@ -261,6 +292,9 @@ lookupName name = gets (Map.lookup name . bindings) >>= \case
 assert :: MonadError e m => Bool -> e -> m ()
 assert True  _   = pure ()
 assert False err = throwError err
+
+ensureTypedArgs :: [(a, Maybe b)] -> Maybe [(a, b)]
+ensureTypedArgs = traverse sequence
 
 -- | Add a set of function arguments to a TypeCtx.
 addArgs :: [(Name, KType)] -> TypeCtx -> TypeCtx
