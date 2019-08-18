@@ -33,8 +33,17 @@ to perform.
 Each effect defines a set of ~procedures~ that may be used inside functions
 annotated with that effect.
 
-Effects can be **handled** by the ~handle~ construct. This allows an effectful
-function to
+Effects can then be **handled** by the ~handle~ construct. This allows an
+effectful function to be called inside a context that doesn't support its
+effect, by giving a handler for that effect within the calling context.
+
+The handlers receive an implicit ~resume~ argument. This is the delimited
+continuation at the call site of the procedure. This can be called with the
+return type of the procedure to
+
+# For example, the ~console~ can be handled inside a pure context by making the
+# input procedure always return the same string and storing the results of the
+# output procedure.
 
 
 * Syntax -- Out of date
