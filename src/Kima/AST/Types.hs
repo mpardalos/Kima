@@ -25,3 +25,7 @@ instance Pretty TypeExpr where
 
 instance IsString TypeExpr where
     fromString = TypeName
+
+-- | Useful because typeexprs are optional.
+instance IsString (Maybe TypeExpr) where
+    fromString = Just . TypeName

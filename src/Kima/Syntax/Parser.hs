@@ -23,7 +23,7 @@ funcDef = reserved RFun *> (
     FuncDef
     <$> identifier
     <*> parens typedArgList
-    <*> (symbol Arrow *> typeExpr)
+    <*> optional (symbol Arrow *> typeExpr)
     <*> block)
 
 dataDef :: Parser (AST 'TopLevel Parsed)
@@ -33,12 +33,12 @@ dataDef = reserved RData *> (
     <*> parens (typedArg `sepBy` symbol Comma))
     <?> "Datatype declaration"
 
-typedArgList :: Parser [(Name, TypeExpr)]
+typedArgList :: Parser [(Name, Maybe TypeExpr)]
 typedArgList = typedArg `sepBy` symbol Comma
     <?> "Argument list"
 
-typedArg :: IsString s => Parser (s, TypeExpr)
-typedArg = (,) <$> identifier <*> (symbol Colon *> typeExpr)
+typedArg :: IsString s => Parser (s, Maybe TypeExpr)
+typedArg = (,) <$> identifier <*> optional (symbol Colon *> typeExpr)
 
 -- Statements
 
@@ -53,14 +53,14 @@ block = Block <$> braces (stmt `sepEndBy` stmtEnd)
 letStmt :: Parser (AST 'Stmt Parsed)
 letStmt = Let
     <$> (reserved RLet *> identifier)
-    <*> (symbol Colon *> typeExpr)
+    <*> optional (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
     <?> "let statement"
 
 varStmt :: Parser (AST 'Stmt Parsed)
 varStmt = Var
     <$> (reserved RVar *> identifier)
-    <*> (symbol Colon *> typeExpr)
+    <*> optional (symbol Colon *> typeExpr)
     <*> (symbol Equals *> expr)
     <?> "var statement"
 
@@ -124,7 +124,7 @@ funcExpr :: Parser (AST 'Expr Parsed)
 funcExpr = reserved RFun *> (
     FuncExpr
     <$> parens typedArgList
-    <*> (symbol Arrow *> typeExpr)
+    <*> optional (symbol Arrow *> typeExpr)
     <*> block)
 
 -- | A term without calls (Useful for parsing calls)
