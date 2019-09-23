@@ -19,12 +19,20 @@ topLevel :: Parser (AST 'TopLevel Parsed)
 topLevel = funcDef <|> dataDef
 
 funcDef :: Parser (AST 'TopLevel Parsed)
-funcDef = reserved RFun *> (
-    FuncDef
-    <$> identifier
-    <*> parens typedArgList
-    <*> optional (symbol Arrow *> typeExpr)
-    <*> block)
+funcDef = do
+    reserved RFun
+    pIdentifier <- identifier
+    pArgs       <- parens typedArgList
+    (pEffect, pReturnType) <- option (Nothing, Nothing) $ do
+        symbol Arrow
+        pEffect     <- optional effect
+        pReturnType <- optional typeExpr
+        pure (pEffect, pReturnType)
+    pBody <- block
+    return (FuncDef pIdentifier pArgs pEffect pReturnType pBody)
+
+effect :: Parser EffectExpr
+effect = EffectList <$> brackets (identifier `sepBy` symbol Comma)
 
 dataDef :: Parser (AST 'TopLevel Parsed)
 dataDef = reserved RData *> (

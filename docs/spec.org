@@ -109,3 +109,15 @@ They have the form `EXPRESSION . IDENTIFIER`.
 Any accessor of this form may be used for reading. To be used for mutating,
 the object refered to be the expression must have mutable type, and its
 IDENTIFIER field must also be mutable.
+** Function definitions
+
+Function declarations can only be used at the top level. They have the following
+form:
+
+#+BEGIN_SRC kima
+fun f(a: t1, b: t2, c: t3) -> [eff1, eff2, ...] rt {
+    ...statements...
+}
+#+END_SRC
+
+None of the types here can be omitted as they can in anonymous local functions.

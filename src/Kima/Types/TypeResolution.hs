@@ -42,12 +42,12 @@ processTopLevel (Program topLevelDecls) = forM_ topLevelDecls $ \case
                                 (Binding Constant [accessorType])
     DataDef{} -> throwError MissingFieldTypes
 
-    FuncDef name (ensureTypedArgs -> Just args) (Just rtExpr) _body -> do
+    FuncDef name (ensureTypedArgs -> Just args) _eff (Just rtExpr) _body -> do
         argTypes <- mapM resolveTypeExpr (snd <$> args)
         rt       <- resolveTypeExpr rtExpr
         let funcType = KFunc (argTypes $-> rt)
         modify (addBinding (Identifier name) (Binding Constant [funcType]))
-    FuncDef _ (ensureTypedArgs -> Just _) Nothing _body -> throwError MissingReturnType
+    FuncDef _ (ensureTypedArgs -> Just _) _ Nothing _body -> throwError MissingReturnType
     FuncDef{} -> throwError MissingArgumentTypes
 
 resolveTypeExpr :: MonadTypeResolution m => TypeExpr -> m KType

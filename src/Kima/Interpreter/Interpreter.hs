@@ -134,9 +134,9 @@ getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
 -- | Bind either a function or the constructor and accessors of a
 -- | DataDef
 bindTopLevel :: MonadInterpreter m => AST 'TopLevel Runtime -> m Value
-bindTopLevel (FuncDef name args rt body) = do
+bindTopLevel (FuncDef name args _eff rt body) = do
     let funcType = KFunc ((snd <$> args) $-> rt)
-    let funcIdentifier = (TIdentifier name funcType)
+    let funcIdentifier = TIdentifier name funcType
 
     -- Bind it initially to something just to create the reference.
     -- Necessary because the closure will include the function itself

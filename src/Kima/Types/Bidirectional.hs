@@ -268,11 +268,11 @@ checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
 -- | Try to typecheck a top-level declaration
 checkTopLevel
     :: MonadTC m => AST 'TopLevel TypeAnnotated -> m (AST 'TopLevel Typed)
-checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) (Just rt) body) =
-    FuncDef name args rt <$> withState (addArgs args) (checkReturns rt body)
-checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) Nothing body) = do
+checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff (Just rt) body) =
+    FuncDef name args eff rt <$> withState (addArgs args) (checkReturns rt body)
+checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff Nothing body) = do
     (typedBody, rt) <- withState (addArgs args) (inferReturns body)
-    return (FuncDef name args rt typedBody)
+    return (FuncDef name args eff rt typedBody)
 checkTopLevel FuncDef{} = throwError MissingArgumentTypes
 checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) = pure (DataDef name typeFields)
 checkTopLevel DataDef{} = throwError MissingFieldTypes
