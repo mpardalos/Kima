@@ -25,7 +25,7 @@ instance UserThrowable (ParseErrorBundle String Void) where
     userShow = errorBundlePretty
 
 instance UserThrowable TypecheckingError where
-    userShow err = "Type Error: " <> show (pretty err) -- 
+    userShow err = "Type Error: " <> show (pretty err) --
 
 instance UserThrowable RuntimeError where
     userShow err = "Runtime Error: " <> show (pretty err)
