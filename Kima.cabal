@@ -36,6 +36,9 @@ library
 
         Kima.Desugar
 
+        Kima.Effects
+        Kima.Effects.Check
+
         Kima.Syntax
         Kima.Syntax.Types
         Kima.Syntax.Tokenizer
