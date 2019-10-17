@@ -38,11 +38,11 @@ library
         Kima.Syntax.Tokenizer
         Kima.Syntax.Parser
 
-        Kima.Typechecking
-        Kima.Typechecking.Bidirectional
-        Kima.Typechecking.Errors
-        Kima.Typechecking.TypeCtx
-        Kima.Typechecking.TypeResolution
+        Kima.Types
+        Kima.Types.Bidirectional
+        Kima.Types.Errors
+        Kima.Types.TypeCtx
+        Kima.Types.TypeResolution
 
         Kima.KimaTypes
 

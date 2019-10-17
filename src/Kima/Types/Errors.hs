@@ -1,4 +1,4 @@
-module Kima.Typechecking.Errors (TypecheckingError(..)) where
+module Kima.Types.Errors (TypecheckingError(..)) where
 
 import           Data.Text.Prettyprint.Doc
 import           Kima.AST

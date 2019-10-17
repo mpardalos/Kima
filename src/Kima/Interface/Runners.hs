@@ -13,7 +13,7 @@ import Kima.Desugar
 import Kima.Interface.Types
 import qualified Kima.Syntax as F
 import qualified Kima.Interpreter as I
-import qualified Kima.Typechecking as T
+import qualified Kima.Types as T
 
 -- | Implements transformations from one AST type to another.
 -- | We should infer/generate transitive instances.

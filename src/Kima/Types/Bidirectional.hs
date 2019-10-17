@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
-module Kima.Typechecking.Bidirectional
+module Kima.Types.Bidirectional
     ( MonadTC
     , infer
     , check
@@ -35,8 +35,8 @@ import qualified Data.Set                      as Set
 
 import           Kima.AST
 import           Kima.KimaTypes
-import           Kima.Typechecking.Errors
-import           Kima.Typechecking.TypeCtx
+import           Kima.Types.Errors
+import           Kima.Types.TypeCtx
 
 type MonadTC m = (MonadState TypeCtx m, MonadError TypecheckingError m)
 

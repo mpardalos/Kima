@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
-module Kima.Typechecking.TypeResolution where
+module Kima.Types.TypeResolution where
 
 import           Control.Monad.Except
 import           Control.Monad.State
@@ -7,8 +7,8 @@ import           Data.Bitraversable
 import qualified Data.Map                      as Map
 import           Kima.AST
 import           Kima.KimaTypes
-import           Kima.Typechecking.TypeCtx
-import           Kima.Typechecking.Errors
+import           Kima.Types.TypeCtx
+import           Kima.Types.Errors
 
 type MonadTypeResolution m
     = (MonadState TypeCtx m, MonadError TypecheckingError m)

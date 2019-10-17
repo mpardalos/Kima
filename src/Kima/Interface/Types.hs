@@ -7,7 +7,7 @@ import Data.Void
 
 import Kima.Syntax
 import Kima.Interpreter
-import Kima.Typechecking
+import Kima.Types
 import Text.Megaparsec
 import Data.Text.Prettyprint.Doc
 

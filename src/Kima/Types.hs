@@ -1,4 +1,4 @@
-module Kima.Typechecking
+module Kima.Types
     ( module E
     , typecheck
     , typecheckWithTypeCtx
@@ -6,15 +6,15 @@ module Kima.Typechecking
     )
 where
 
-import           Kima.Typechecking.TypeResolution
+import           Kima.Types.TypeResolution
                                                as E
                                                 ( resolveTypes )
-import           Kima.Typechecking.TypeCtx     as E
+import           Kima.Types.TypeCtx     as E
                                                 ( TypeCtx(typeBindings) )
 
-import           Kima.Typechecking.Errors      as E
+import           Kima.Types.Errors      as E
                                                 ( TypecheckingError(..) )
-import           Kima.Typechecking.Bidirectional
+import           Kima.Types.Bidirectional
                                                as E
                                                 ( MonadTC
                                                 , checkProgram

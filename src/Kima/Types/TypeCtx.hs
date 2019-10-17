@@ -1,4 +1,4 @@
-module Kima.Typechecking.TypeCtx
+module Kima.Types.TypeCtx
     ( Binding(..)
     , TypeCtx(..)
     , Mutability(..)
