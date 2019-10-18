@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 module Kima.Test.Interpreters where
 
+import           Kima.Interpreter
 import           Kima.Interpreter.Types
 import           Kima.Interpreter.Interpreter
 import           Kima.Interface
@@ -74,7 +75,7 @@ runInTestInterpreter = runInTestInterpreterWithInput ""
 runInTestInterpreterWithInput
     :: MonadInterface m => String -> AST p Runtime -> m (Value, String)
 runInTestInterpreterWithInput input inAST = do
-    refEnv <- liftIO $ traverse newIORef (Environment baseEnv)
+    refEnv <- liftIO $ refify (Environment baseEnv)
     result <-
         liftIO
         $ inAST
