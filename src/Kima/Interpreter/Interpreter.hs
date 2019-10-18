@@ -10,7 +10,6 @@ import           Control.Monad.Except
 import           Kima.AST
 import           Control.Monad.State.Extended
 import           Kima.Interpreter.Types
-import           Kima.KimaTypes
 
 import           Safe
 import           GHC.Exts

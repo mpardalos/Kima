@@ -48,7 +48,7 @@ data ReplState = ReplState {
 
 repl :: IO ()
 repl = do
-    refEnv <- refify baseEnv
+    refEnv <- refify (Environment baseEnv)
     replStateRef <- newIORef (ReplState baseTypeCtx refEnv)
     runInputT defaultSettings (mainloop replStateRef)
   where

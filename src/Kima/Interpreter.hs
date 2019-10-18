@@ -8,7 +8,7 @@ module Kima.Interpreter (
     refify,
     unrefify,
     E.MonadInterpreter,
-    E.Environment,
+    E.Environment(..),
     E.Value,
     E.RuntimeError(..)
 ) where

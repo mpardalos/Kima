@@ -74,7 +74,7 @@ runInTestInterpreter = runInTestInterpreterWithInput ""
 runInTestInterpreterWithInput
     :: MonadInterface m => String -> AST p Runtime -> m (Value, String)
 runInTestInterpreterWithInput input inAST = do
-    refEnv <- liftIO $ traverse newIORef baseEnv
+    refEnv <- liftIO $ traverse newIORef (Environment baseEnv)
     result <-
         liftIO
         $ inAST

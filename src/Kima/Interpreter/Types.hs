@@ -3,7 +3,6 @@ module Kima.Interpreter.Types where
 import           Prelude                 hiding ( lookup )
 
 import           Kima.AST
-import           Kima.KimaTypes
 
 import           Control.Monad.Except
 import           Control.Monad.State

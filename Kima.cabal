@@ -30,6 +30,8 @@ library
         Kima.AST.Types
 
         Kima.Builtins
+        Kima.Builtins.Types
+        Kima.Builtins.Values
 
         Kima.Desugar
 
@@ -43,8 +45,6 @@ library
         Kima.Types.Errors
         Kima.Types.TypeCtx
         Kima.Types.TypeResolution
-
-        Kima.KimaTypes
 
         Kima.Interpreter
         Kima.Interpreter.Types

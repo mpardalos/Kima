@@ -34,7 +34,6 @@ import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 
 import           Kima.AST
-import           Kima.KimaTypes
 import           Kima.Types.Errors
 import           Kima.Types.TypeCtx
 

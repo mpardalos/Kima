@@ -13,7 +13,6 @@ import           Data.Set                       ( Set )
 import           GHC.Generics
 
 import           Kima.AST
-import           Kima.KimaTypes
 
 data TypeCtx = TypeCtx {
     typeBindings :: Map TypeName KType,

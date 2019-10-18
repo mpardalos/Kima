@@ -6,7 +6,6 @@ import           Control.Monad.State
 import           Data.Bitraversable
 import qualified Data.Map                      as Map
 import           Kima.AST
-import           Kima.KimaTypes
 import           Kima.Types.TypeCtx
 import           Kima.Types.Errors
 

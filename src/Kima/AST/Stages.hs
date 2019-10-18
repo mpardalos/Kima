@@ -4,7 +4,6 @@ module Kima.AST.Stages where
 
 import Kima.AST.Kinds
 import Kima.AST.Types
-import Kima.KimaTypes
 
 -- | Initial stage at parsing
 data Parsed

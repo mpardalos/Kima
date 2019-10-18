@@ -8,7 +8,6 @@ import qualified Data.Set                      as Set
 import           Data.Set                       ( Set
                                                 , (\\)
                                                 )
-import           Kima.KimaTypes
 import           Kima.AST
 import           Generic.Random
 

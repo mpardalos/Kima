@@ -70,4 +70,4 @@ fromStringTo src = do
 runFile :: FilePath -> IO ()
 runFile fn = do
     ast :: AST 'Module Runtime <- fromFileTo fn
-    void $ I.run baseEnv ast
+    void $ I.run (I.Environment baseEnv) ast

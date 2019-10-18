@@ -2,7 +2,6 @@ module Kima.Types.Errors (TypecheckingError(..)) where
 
 import           Data.Text.Prettyprint.Doc
 import           Kima.AST
-import           Kima.KimaTypes
 
 data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation))
                        | AmbiguousName (Identifier 'NoAnnotation) [KType]
