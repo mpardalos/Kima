@@ -1,4 +1,4 @@
-module Kima.Interface.ArgumentParser (Command(..), RunOpts, CompileOpts, getCommand, getCommand') where
+module ArgumentParser (Command(..), RunOpts, CompileOpts, getCommand, getCommand') where
 
 import           Options.Applicative
 

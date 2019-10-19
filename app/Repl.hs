@@ -1,4 +1,4 @@
-module Kima.Interface.Repl (ReplInterpreter, ReplState, repl) where
+module Repl (ReplInterpreter, ReplState, repl) where
 
 import           Control.Arrow           hiding ( first
                                                 , second

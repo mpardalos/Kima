@@ -2,9 +2,8 @@
 Running Kima up to a certain stage.
 -}
 
-module Kima.Interface.Runners where
+module Kima.Interface.Transform where
 
-import Control.Monad.Except
 import Control.Monad.State
 
 import Kima.AST
@@ -12,7 +11,6 @@ import Kima.Builtins
 import Kima.Desugar
 import Kima.Interface.Types
 import qualified Kima.Syntax as F
-import qualified Kima.Interpreter as I
 import qualified Kima.Types as T
 
 -- | Implements transformations from one AST type to another.
@@ -47,27 +45,17 @@ instance TransformAST Desugared TypeAnnotated where
 instance TransformAST Desugared Typed where
     transformAST = runEither . T.typecheck baseTypeCtx
 
--- | Take the code in a file up to a certain stage.
+-- | Take the code in a string up to a certain stage.
 -- TypeApplications are probably necessary to use this effectively,
 -- although it should work with normal type annotations as well
 -- This:
--- > fromFileTo @Desugared "input.k"
--- reads the code from a file and desugars it
+-- > fromStringTo @Desugared codeStr
+-- reads the code from the string and desugars it
 --
 -- It is equivalent to
--- desugared :: AST 'Module Desugared <- fromFileTo "input.k"
-fromFileTo :: forall to m. (MonadInterface m, TransformAST Parsed to) => FilePath -> m (AST 'Module to)
-fromFileTo fn = do
-    src <- liftIO (readFile fn)
-    parsedAST <- runEither (F.runParser F.program fn src)
-    transformAST parsedAST
-
+-- desugared :: AST 'Module Desugared <- fromStringTo codeStr
+--
 fromStringTo :: forall to m. (MonadInterface m, TransformAST Parsed to) => String -> m (AST 'Module to)
 fromStringTo src = do
     parsedAST <- runEither (F.runParser F.program "" src)
     transformAST parsedAST
-
-runFile :: FilePath -> IO ()
-runFile fn = do
-    ast :: AST 'Module Runtime <- fromFileTo fn
-    void $ I.run (I.Environment baseEnv) ast

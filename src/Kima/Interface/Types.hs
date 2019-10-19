@@ -24,8 +24,11 @@ instance UserThrowable CustomError where
 instance UserThrowable (ParseErrorBundle String Void) where
     userShow = errorBundlePretty
 
-instance UserThrowable TypecheckingError
-instance UserThrowable RuntimeError
+instance UserThrowable TypecheckingError where
+    userShow err = "Type Error: " <> show (pretty err) --
+
+instance UserThrowable RuntimeError where
+    userShow err = "Runtime Error: " <> show (pretty err)
 
 instance UserThrowable UserThrowableError where
     userShow (UserThrowableError err) = userShow err

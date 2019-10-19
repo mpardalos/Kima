@@ -1,7 +1,10 @@
 module Main where
 
-import Kima
 import Data.Functor
+
+import Repl
+import ArgumentParser
+import Runners
 
 notImplemented str = putStrLn (str ++ " is not implemented")
 
