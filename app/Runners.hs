@@ -2,7 +2,7 @@
 Running Kima up to a certain stage.
 -}
 
-module Runners where
+module Runners(runFile) where
 
 import Control.Monad.Except
 
@@ -25,11 +25,6 @@ fromFileTo :: forall to m. (MonadInterface m, TransformAST Parsed to) => FilePat
 fromFileTo fn = do
     src <- liftIO (readFile fn)
     parsedAST <- runEither (runParser program fn src)
-    transformAST parsedAST
-
-fromStringTo :: forall to m. (MonadInterface m, TransformAST Parsed to) => String -> m (AST 'Module to)
-fromStringTo src = do
-    parsedAST <- runEither (runParser program "" src)
     transformAST parsedAST
 
 runFile :: FilePath -> IO ()
