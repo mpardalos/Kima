@@ -9,7 +9,7 @@ import Control.Monad.State
 import Kima.AST
 import Kima.Builtins
 import Kima.Desugar
-import Kima.Interface.Types
+import Kima.Interface.Monad
 import qualified Kima.Syntax as F
 import qualified Kima.Types as T
 

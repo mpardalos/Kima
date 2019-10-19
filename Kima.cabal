@@ -52,7 +52,7 @@ library
 
         Kima.Interface
         Kima.Interface.Transform
-        Kima.Interface.Types
+        Kima.Interface.Monad
     default-extensions: BangPatterns ConstraintKinds DataKinds
                         DefaultSignatures DeriveFunctor DeriveGeneric DeriveTraversable
                         DuplicateRecordFields ExistentialQuantification FlexibleContexts
