@@ -82,7 +82,6 @@ test-suite spec
 
         Kima.Test.FileTests
         Kima.Test.Parser
-        Kima.Test.Gen
     hs-source-dirs: test
     ghc-options: -Wall -fdefer-typed-holes
     default-extensions:
