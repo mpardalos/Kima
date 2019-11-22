@@ -52,6 +52,21 @@ else print("Neither is true")
 #+END_SRC
 
 ** While
+While statements, again are no surprise. The boolean expression is evaluated
+when the while loop is first encountered, if it is true the body executes, then
+we re-evaluate the expression, and if it is true, repeat.
+#+BEGIN_SRC kima
+while (true) {
+    print("Printing forever");
+}
+#+END_SRC
+
+Similarly to an if, we can skip the braces if the loop contains only a single
+statement
+#+BEGIN_SRC kima
+while (true) print("Printing forever");
+#+END_SRC
+
 * Functions
 ** Closures
 * Defining Types
