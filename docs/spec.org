@@ -4,7 +4,53 @@
 
 * Constants and Variables
 * Control Flow
+Kima features minimal built-in control flow. Other, more complex control flow
+constructs can be created using the [[Effects]] feature
 ** If
+#+BEGIN_SRC kima
+let x: Int = 5;
+
+if (x < 10) {
+    print("x is less than 10");
+}
+
+if (x == 5) {
+    print("x=5");
+} else if (x == 6) {
+    print("x=6");
+} else {
+    print("x is not 5 or 6");
+}
+#+END_SRC
+
+If in Kima functions as you would expect. Give an boolean expression and if it
+evaluates to true then the body executes. If an else branch is given, then it is
+executed if the condition is false.
+
+The braces around the statements are not required. They are only there for
+grouping. If the body only consists of a single statement then you can skip
+them. For example, the two statements below are equivalent:
+#+BEGIN_SRC kima
+if (1 < 2) {
+    print("1 < 2");
+} else {
+    print("1 > 2");
+}
+
+if (1 < 2)
+    print("1 < 2");
+else
+    print("1 > 2");
+#+END_SRC
+
+Now, since an if is also a statement, we can use this to chain them into
+else-ifs.
+#+BEGIN_SRC kima
+if (4 > 5) print("4 > 5");
+else if (6 > 5) print("4 <=5 and 6 > 5");
+else print("Neither is true")
+#+END_SRC
+
 ** While
 * Functions
 ** Closures
