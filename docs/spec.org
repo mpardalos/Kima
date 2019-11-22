@@ -2,6 +2,8 @@
 #+AUTHOR: Michail Pardalos
 #+EMAIL: mpardalos@gmail.com
 
+#+SETUPFILE: https://fniessen.github.io/org-html-themes/setup/theme-readtheorg.setup
+
 * Constants and Variables
 * Control Flow
 Kima features minimal built-in control flow. Other, more complex control flow
