@@ -5,6 +5,18 @@
 #+SETUPFILE: https://fniessen.github.io/org-html-themes/setup/theme-readtheorg.setup
 
 * Constants and Variables
+You can define variables using the ~var~ and constants using ~let~.
+#+BEGIN_SRC
+let x = 5;
+var y = 3;
+#+END_SRC
+
+You can reassign variables using ~=~
+#+BEGIN_SRC
+y = 5;
+#+END_SRC
+
+Trying to reassign a constant declared with ~let~ will give a typechecking error
 * Control Flow
 Kima features minimal built-in control flow. Other, more complex control flow
 constructs can be created using the [[Effects]] feature
