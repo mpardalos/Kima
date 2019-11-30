@@ -32,7 +32,7 @@ executed if the condition is false.
 The braces around the statements are not required. They are only there for
 grouping. If the body only consists of a single statement then you can skip
 them. For example, the two statements below are equivalent:
-#+BEGIN_SRC kima
+#+BEGIN_SRC
 if (1 < 2) {
     print("1 < 2");
 } else {
@@ -47,7 +47,7 @@ else
 
 Now, since an if is also a statement, we can use this to chain them into
 else-ifs.
-#+BEGIN_SRC kima
+#+BEGIN_SRC
 if (4 > 5) print("4 > 5");
 else if (6 > 5) print("4 <=5 and 6 > 5");
 else print("Neither is true")
@@ -57,7 +57,7 @@ else print("Neither is true")
 While statements, again are no surprise. The boolean expression is evaluated
 when the while loop is first encountered, if it is true the body executes, then
 we re-evaluate the expression, and if it is true, repeat.
-#+BEGIN_SRC kima
+#+BEGIN_SRC
 while (true) {
     print("Printing forever");
 }
@@ -65,7 +65,7 @@ while (true) {
 
 Similarly to an if, we can skip the braces if the loop contains only a single
 statement
-#+BEGIN_SRC kima
+#+BEGIN_SRC
 while (true) print("Printing forever");
 #+END_SRC
 
