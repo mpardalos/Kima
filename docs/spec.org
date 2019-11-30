@@ -144,7 +144,34 @@ The first declaration introduces
   =Person -> String= and =Person -> Int= respectively
 
 ** Enumerations
-* Pattern matching
+You can declare records like so:
+#+BEGIN_SRC
+data Result {
+    Failure(),
+    Success(value: Int)
+}
+#+END_SRC
+
+you can then create a value of that type
+#+BEGIN_SRC
+let s: Result = Success(5);
+let f: Result = Failure();
+#+END_SRC
+
+Unlike records, enumerations do not create accessors. It wouldn't be possible,
+since fields could be missing! In this example, =s= has a =value=, but =f= does not,
+so what would a hypothetical =.value= accessor return?
+
+Since you can't access the contents of an enumeration directly, the only way is
+to use [[Pattern Matching][Pattern Matching]]
+
+The first declaration introduces
++ A type named "Person"
++ Constructors named =Failure= and =Success=, with types =() -> Result= and =Int ->
+  Result=, respectively
++ *No* Accessors
+
+* Pattern Matching
 * Builtins
 ** Types
 ** Functions
