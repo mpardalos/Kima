@@ -110,10 +110,43 @@ let f = fun(x: Int) { x + 1; }
 and Kima will still infer ~f: (Int) -> Int~
 
 * Defining Types
+New types are declared with the =data= keyword and they come in two flavours
 ** Records
+You can declare records like so:
+#+BEGIN_SRC
+data Person(firstName: String, lastName: String, age: Int)
+#+END_SRC
+
+you can then create a value of that type
+#+BEGIN_SRC
+let p = Person("John", "Doe", 26)
+#+END_SRC
+
+and access its fields
+#+BEGIN_SRC
+p.firstName # "John"
+#+END_SRC
+
+if a variable is declared as (im)mutable then all its fields are also (im)mutable
+#+BEGIN_SRC
+let p1 = Person("John", "Doe", 26)
+p.firstName = "Jane" # error
+
+let p2 = Person("John", "Doe", 26)
+p2.firstName = "Jane" # ok
+p2.firstName # "Jane"
+#+END_SRC
+
+The first declaration introduces
++ A type named "Person"
++ A constructor called "Person" of type =(String, String, Int) -> Person=
++ [[Accessors][Accessors]] named =.firstname=, =.lastname=, and =.age=, of types =Person -> String=,
+  =Person -> String= and =Person -> Int= respectively
+
 ** Enumerations
 * Pattern matching
 * Builtins
 ** Types
 ** Functions
 * Effects
+* Accessors
