@@ -1,5 +1,5 @@
 * Kima
-[[https://gitlab.com/michalis_pardalos/Kima/commits/master][[[https://gitlab.com/michalis_pardalos/Kima/badges/master/pipeline.svg]]]]
+[[https://gitlab.com/michalis_pardalos/Kima/commits/master][https://gitlab.com/michalis_pardalos/Kima/badges/master/pipeline.svg]]
 A Programming Language with static types and (currently WIP) algebraic
 effects.
 
