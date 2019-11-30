@@ -21,7 +21,7 @@ Trying to reassign a constant declared with ~let~ will give a typechecking error
 Kima features minimal built-in control flow. Other, more complex control flow
 constructs can be created using the [[Effects]] feature
 ** If
-#+BEGIN_SRC kima
+#+BEGIN_SRC
 let x: Int = 5;
 
 if (x < 10) {
@@ -82,7 +82,33 @@ while (true) print("Printing forever");
 #+END_SRC
 
 * Functions
-** Closures
+You can define variables at the top level like so:
+#+BEGIN_SRC
+fun f(x: Int, y: String) -> Int {
+    # code
+    5;
+}
+#+END_SRC
+
+The value returned by the last statement in the function body is returned by the
+function.
+
+Functions in Kima are *first-class objects*. This means they can be treated just
+like any other value; assigned to variables, passed into other functions or
+returned from functions.
+
+You can define functions just like any other value as well.
+#+BEGIN_SRC
+let f = fun(x: Int) -> Int { x + 1; }
+#+END_SRC
+
+For a function defined locally like this, Kima can infer the return type so you
+can skip declaring that.
+#+BEGIN_SRC
+let f = fun(x: Int) { x + 1; }
+#+END_SRC
+and Kima will still infer ~f: (Int) -> Int~
+
 * Defining Types
 ** Records
 ** Enumerations
