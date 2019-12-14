@@ -172,6 +172,87 @@ The first declaration introduces
 + *No* Accessors
 
 * Pattern Matching
+Pattern matching can be used for a variety of purposes, like analysing (case
+splitting) enumeration types, taking components from record types and even as a
+simple switch statement.
+
+Let's start with the last case, the simple switch statement. It would look like
+this:
+#+BEGIN_SRC
+fun match_int(n: Int) -> Unit {
+    match n {
+        1: print("One");
+        2: print("Two");
+        _: print("Too much");
+    }
+}
+#+END_SRC
+
+Then, you can use it to do something depending on the value of an
+enumeration-typed variable. Forgetting to include a case here would result in a
+compilation error
+#+BEGIN_SRC
+data Result {
+    Failure, Success(value: Int)
+}
+
+fun default_to_zero(res: Result) -> Int {
+    match res {
+        Failure: 0;
+        Success(val): val;
+    }
+}
+#+END_SRC
+
+We can also nest patterns. Here we only execute the right-hand side whose
+corresponding pattern (left-hand side) *exactly* matches the value we are
+pattern matching on.
+#+BEGIN_SRC
+data Reason {
+    Timeout,
+    InvalidResponse,
+    Other(msg: String)
+}
+
+data ExplainedResult {
+    Success(val: Int),
+    Failure(Reason)
+}
+
+fun prettyPrintResult(res: Result) -> {
+    match res {
+        Failure(Timeout): println("Error: The connection timed out");
+        Failure(InvalidResponse): println("Error: Received an invalid response");
+        Failure(Other(msg)): println("Error: " + msg);
+        Success(val): println("Result: val");
+    }
+}
+#+END_SRC
+
+Finally, we can use pattern matching in a slightly different way to quickly
+extract components of a record type.
+#+BEGIN_SRC
+data Person(firstName: String, lastName: String, age: Int)
+
+fun printPerson(p: Person) {
+    let Person(firstName, lastName, age) = p;
+    print(firstName + lastName + ". Age " + toString(age));
+}
+
+# or
+
+fun printPersonExplicit(p: Person) {
+    match p {
+        Person(firstName, lastName, age):
+            print(firstName + lastName + ". Age " + toString(age));
+    }
+}
+#+END_SRC
+Trying to use the first form with an enumeration type with more than one constructor
+will result in a compile-time error. If the value on the right-hand side is not
+from the constructor you've given on the left then there is no way to fill out
+the values that you've given on the right.
+
 * Builtins
 ** Types
 ** Functions
