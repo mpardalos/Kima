@@ -114,7 +114,7 @@ New types are declared with the =data= keyword and they come in two flavours
 ** Records
 You can declare records like so:
 #+BEGIN_SRC
-data Person(firstName: String, lastName: String, age: Int)
+type Person(firstName: String, lastName: String, age: Int)
 #+END_SRC
 
 you can then create a value of that type
@@ -146,7 +146,7 @@ The first declaration introduces
 ** Enumerations
 You can declare records like so:
 #+BEGIN_SRC
-data Result {
+type Result {
     Failure(),
     Success(value: Int)
 }
@@ -192,7 +192,7 @@ Then, you can use it to do something depending on the value of an
 enumeration-typed variable. Forgetting to include a case here would result in a
 compilation error
 #+BEGIN_SRC
-data Result {
+type Result {
     Failure, Success(value: Int)
 }
 
@@ -208,13 +208,13 @@ We can also nest patterns. Here we only execute the right-hand side whose
 corresponding pattern (left-hand side) *exactly* matches the value we are
 pattern matching on.
 #+BEGIN_SRC
-data Reason {
+type Reason {
     Timeout,
     InvalidResponse,
     Other(msg: String)
 }
 
-data ExplainedResult {
+type ExplainedResult {
     Success(val: Int),
     Failure(Reason)
 }
@@ -232,7 +232,7 @@ fun prettyPrintResult(res: Result) -> {
 Finally, we can use pattern matching in a slightly different way to quickly
 extract components of a record type.
 #+BEGIN_SRC
-data Person(firstName: String, lastName: String, age: Int)
+type Person(firstName: String, lastName: String, age: Int)
 
 fun printPerson(p: Person) {
     let Person(firstName, lastName, age) = p;
