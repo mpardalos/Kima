@@ -171,6 +171,36 @@ The first declaration introduces
   Result=, respectively
 + *No* Accessors
 
+** Polymorphic types (generics)
+Types in Kima can be defined in terms of a number of type parameters. For
+example, the =Result= type from before can be modified to be able to carry any
+result value, not just integers:
+#+BEGIN_SRC
+type Numbered<t>(num: Int, val: t)
+#+END_SRC
+
+You can then instantiate that type when declaring a variable:
+#+BEGIN_SRC
+let x: Numbered<String> = Numbered(1, "hi");
+#+END_SRC
+
+Or it can be used in a function:
+#+BEGIN_SRC
+fun printIndex(val: Numbered<t>) -> Unit {
+    print(val.num);
+}
+#+END_SRC
+
+In the above declaration, the function *itself* actually takes =t= as a type
+parameter. Kima can infer the type parameters however and so there is no need to
+specify them. If you still want to however, you can do that:
+#+BEGIN_SRC
+fun printIndex<t>(val: Numbered<t>) -> Unit {
+    print(val.num);
+}
+#+END_SRC
+
+
 * Pattern Matching
 Pattern matching can be used for a variety of purposes, like analysing (case
 splitting) enumeration types, taking components from record types and even as a
