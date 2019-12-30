@@ -109,6 +109,51 @@ let f = fun(x: Int) { x + 1; }
 #+END_SRC
 and Kima will still infer ~f: (Int) -> Int~
 
+* Effects
+When a function runs it can, very generally, do two things:
+1) Return a value
+2) Have some "effect" on environment
+In most programming languages, you can make some checks on the first option,
+using the function's return type. If, e.g. in C you specify a function like
+#+BEGIN_SRC c
+int f() { return 5; }
+#+END_SRC
+You know for sure that it can only return an integer (or another value that is
+casted into an integer), because of its return type. However, a function with
+the same signature (return and argument types) can also be
+#+BEGIN_SRC c
+int f() {
+    launch_missiles();
+    return 5;
+}
+#+END_SRC
+or
+#+BEGIN_SRC c
+int f() {
+    write_to_disk();
+    return 5;
+}
+#+END_SRC
+or
+#+BEGIN_SRC c
+int f() {
+    access_network();
+    return 5;
+}
+#+END_SRC
+And there is no way to check which of these "side-effects" the function can or
+does perform.
+
+Kima allows you to specify this. Using *effect types*. Every function is annotated
+with an effect type that specifies what kind of side effects it is allowed to
+perform. There are many effect types, and you can also define new ones within
+Kima, but the most basic ones are =pure= and =IO=:
++ =pure= is the default effect type for functions which do not declare one and it
+  simply does not allow any kind of side effect.
+  # Specify IO more accurately
++ =IO= is the "all-powerful" effect. It is meant to allow for any kind of input or
+  output, as well as unchecked exceptions.
+
 * Defining Types
 New types are declared with the =data= keyword and they come in two flavours
 ** Records
@@ -286,5 +331,4 @@ the values that you've given on the right.
 * Builtins
 ** Types
 ** Functions
-* Effects
 * Accessors
