@@ -2,6 +2,8 @@
 
 A Programming Language with static types and (currently WIP) algebraic effects.
 
+[Language website](https://kima.xyz)
+
 ## Getting started
 
 ### Installing
