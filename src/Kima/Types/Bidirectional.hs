@@ -42,6 +42,27 @@ type MonadTC m = (MonadState TypeCtx m, MonadError TypecheckingError m)
 runTypeChecking ctx action = evalStateT action ctx
 
 ---------------------------------
+---------- Type subsumption -----
+---------------------------------
+
+-- | Check whether a type 'fits into' another. Currently checks for
+-- * Subeffects
+-- * Subsumption in function arguments/return types (contravariantly)
+--
+-- If/when parametricity is added it will be added here.
+-- We could also possibly move overloading checking to here
+subsumedBy :: KType -> KType -> Bool
+subsumedBy t1 t2 | t1 == t2 = True
+subsumedBy (KFunc argList1 eff1 rt1) (KFunc argList2 eff2 rt2)
+    = and @[]
+        [ length argList1 == length argList2
+        , and (zipWith subsumedBy argList2 argList1)
+        , rt1 `subsumedBy` rt2
+        , eff1 `isSubEffect` eff2
+        ]
+subsumedBy _ _ = False
+
+---------------------------------
 ---------- Expressions ----------
 ---------------------------------
 
@@ -60,24 +81,24 @@ infer (IdentifierE name) = (lookupName name <&> types) <&> Set.toList >>= \case
     -- error in lookupName
     [t]   -> pure (IdentifierE (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
-infer (FuncExpr (ensureTypedArgs -> Just args) (Just rt) body) = do
+infer (FuncExpr (ensureTypedArgs -> Just args) eff (Just rt) body) = do
     typedBody <- withState (addArgs args) $ checkReturns rt body
 
-    let functionType  = KFunc ((snd <$> args) $-> rt)
-    let typedFuncExpr = FuncExpr args rt typedBody
+    let functionType  = KFunc (snd <$> args) eff rt
+    let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
-infer (FuncExpr (ensureTypedArgs -> Just args) Nothing body) = do
+infer (FuncExpr (ensureTypedArgs -> Just args) eff Nothing body) = do
     (typedBody, rt) <- withState (addArgs args) $ inferReturns body
 
-    let functionType  = KFunc ((snd <$> args) $-> rt)
-    let typedFuncExpr = FuncExpr args rt typedBody
+    let functionType  = KFunc (snd <$> args) eff rt
+    let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
-infer FuncExpr{} = throwError MissingArgumentTypes
+infer FuncExpr{}         = throwError MissingArgumentTypes
 infer (Call callee args) = do
     calleeTypes     <- Set.toList <$> enumerateTypes callee
 
     possibleResults <- forM calleeTypes $ \case
-        calleeType@(KFunc (Signature argTypes returnType)) ->
+        calleeType@(KFunc argTypes _eff returnType) ->
             do
                     typedArgs   <- zipWithM check argTypes args
                     typedCallee <- check calleeType callee
@@ -97,9 +118,9 @@ enumerateTypes (LiteralE    FloatExpr{} ) = pure [KFloat]
 enumerateTypes (LiteralE    BoolExpr{}  ) = pure [KBool]
 enumerateTypes (LiteralE    StringExpr{}) = pure [KString]
 enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
-enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) (Just rt) _) =
-    pure [KFunc (argTypes $-> rt)]
-enumerateTypes FuncExpr{} = throwError MissingArgumentTypes
+enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
+    = pure [KFunc argTypes eff rt]
+enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
 enumerateTypes (Call callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args
@@ -114,7 +135,7 @@ enumerateTypes (Call callee args) = do
     return (Set.fromList returnTypes)
   where
     returnsWithArgs :: KType -> [KType] -> Maybe KType
-    returnsWithArgs (KFunc (Signature argTypes' rt)) argTypes
+    returnsWithArgs (KFunc argTypes' eff rt) argTypes
         | argTypes == argTypes' = Just rt
     returnsWithArgs _ _ = Nothing
 
@@ -129,11 +150,12 @@ check expectedType (IdentifierE ident) = lookupName ident >>= \case
             (UnavailableType (Set.toList availableTypes) expectedType)
 check expectedType (Call callee args) = do
     (typedArgs, argTypes) <- unzip <$> mapM infer args
-    typedCallee           <- check (KFunc (argTypes $-> expectedType)) callee
+    callEffect            <- gets activeEffect
+    typedCallee <- check (KFunc argTypes callEffect expectedType) callee
     return (Call typedCallee typedArgs)
 check expectedType expr = do
     (typedExpr, inferedType) <- infer expr
-    assert (expectedType == inferedType)
+    assert (inferedType `subsumedBy` expectedType)
            (UnexpectedType expectedType inferedType)
     return typedExpr
 
@@ -186,7 +208,7 @@ inferReturns (Var name (Just declaredType) expr) = do
 inferReturns (Var name Nothing expr) = do
     (typedExpr, exprType) <- infer expr
 
-    existingBinding <- gets (Map.lookup (Identifier name) . bindings)
+    existingBinding       <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Variable [exprType]))
 
@@ -204,7 +226,7 @@ inferReturns (Let name (Just declaredType) expr) = do
 inferReturns (Let name Nothing expr) = do
     (typedExpr, exprType) <- infer expr
 
-    existingBinding <- gets (Map.lookup (Identifier name) . bindings)
+    existingBinding       <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Constant [exprType]))
 
@@ -268,13 +290,16 @@ checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
 -- | Try to typecheck a top-level declaration
 checkTopLevel
     :: MonadTC m => AST 'TopLevel TypeAnnotated -> m (AST 'TopLevel Typed)
-checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) (Just rt) body) =
-    FuncDef name args rt <$> withState (addArgs args) (checkReturns rt body)
-checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) Nothing body) = do
-    (typedBody, rt) <- withState (addArgs args) (inferReturns body)
-    return (FuncDef name args rt typedBody)
+checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff (Just rt) body)
+    =   FuncDef name args eff rt
+    <$> withState (addArgs args) (checkReturns rt body)
+checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff Nothing body) =
+    do
+        (typedBody, rt) <- withState (addArgs args) (inferReturns body)
+        return (FuncDef name args eff rt typedBody)
 checkTopLevel FuncDef{} = throwError MissingArgumentTypes
-checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) = pure (DataDef name typeFields)
+checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) =
+    pure (DataDef name typeFields)
 checkTopLevel DataDef{} = throwError MissingFieldTypes
 
 -----------------------------
@@ -297,7 +322,8 @@ ensureTypedArgs = traverse sequence
 
 -- | Add a set of function arguments to a TypeCtx.
 addArgs :: [(Name, KType)] -> TypeCtx -> TypeCtx
-addArgs args ctx = ctx <> TypeCtx Map.empty (Map.fromList (zip names bindings))
+addArgs args ctx =
+    ctx <> TypeCtx Map.empty (Map.fromList (zip names bindings)) []
   where
     bindings = (Binding Constant . Set.singleton) . snd <$> args
     names    = Identifier . fst <$> args

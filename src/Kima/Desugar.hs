@@ -13,6 +13,7 @@ desugar
        , FreeAnnotation t1 ~ FreeAnnotation t2
        , NameAnnotation t1 ~ NameAnnotation t2
        , NameAnnotation t2 ~ 'NoAnnotation
+       , EffectType t1  ~ EffectType t2
        )
     => AST p t1 -> AST p t2
 -- The only cases that actually change
@@ -23,10 +24,10 @@ desugar (AccessE expr field) = Call (IdentifierE (Accessor field)) [desugar expr
 -- Basically just traverse
 desugar (Program ast              ) = Program (desugar <$> ast)
 desugar (DataDef name members     ) = DataDef name members
-desugar (FuncDef name args rt body) = FuncDef name args rt (desugar body)
+desugar (FuncDef name args eff rt body) = FuncDef name args eff rt (desugar body)
 desugar (LiteralE    lit          ) = LiteralE lit
 desugar (IdentifierE name         ) = IdentifierE (desugarIdentifier name)
-desugar (FuncExpr args rt body    ) = FuncExpr args rt (desugar body)
+desugar (FuncExpr args eff rt body) = FuncExpr args eff rt (desugar body)
 desugar (Call callee args         ) = Call (desugar callee) (desugar <$> args)
 desugar (ExprStmt expr            ) = ExprStmt (desugar expr)
 desugar (Block    stmts           ) = Block (desugar <$> stmts)

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 module Kima.Syntax.Parser where
 
 import Prelude hiding (mod)
@@ -10,6 +11,7 @@ import Kima.Syntax.Types
 import Control.Monad.Combinators.Expr
 import GHC.Exts
 import Text.Megaparsec
+import Data.List.NonEmpty
 
 program :: Parser (AST 'Module Parsed)
 program = Program <$> (whitespace *> some topLevel <* eof)
@@ -19,12 +21,24 @@ topLevel :: Parser (AST 'TopLevel Parsed)
 topLevel = funcDef <|> dataDef
 
 funcDef :: Parser (AST 'TopLevel Parsed)
-funcDef = reserved RFun *> (
-    FuncDef
-    <$> identifier
-    <*> parens typedArgList
-    <*> optional (symbol Arrow *> typeExpr)
-    <*> block)
+funcDef = do
+    reserved RFun
+    pIdentifier <- identifier
+    pArgs       <- parens typedArgList
+    (pEffect, pReturnType) <- option (Nothing, Nothing) $ do
+        symbol Arrow
+        pEffect     <- Just <$> effect
+        pReturnType <- Just <$> typeExpr
+        pure (pEffect, pReturnType)
+    pBody <- block
+    case pEffect of
+        Just eff -> return (FuncDef pIdentifier pArgs eff pReturnType pBody)
+        Nothing -> failure Nothing [Label ('e':|"ffect")]
+
+effect :: Parser Effect
+effect =
+    fromEffectNames
+        <$> (braces (identifier `sepBy` symbol Comma) <|> pure <$> identifier)
 
 dataDef :: Parser (AST 'TopLevel Parsed)
 dataDef = reserved RData *> (
@@ -124,7 +138,8 @@ funcExpr :: Parser (AST 'Expr Parsed)
 funcExpr = reserved RFun *> (
     FuncExpr
     <$> parens typedArgList
-    <*> optional (symbol Arrow *> typeExpr)
+    <*> (symbol Arrow *> effect)
+    <*> optional typeExpr
     <*> block)
 
 -- | A term without calls (Useful for parsing calls)
@@ -154,14 +169,15 @@ accessCall = do
         combiner acc (Right args) = Call acc args
 
 typeExpr :: Parser TypeExpr
-typeExpr = uncurry SignatureType <$> try anonymousSignature
+typeExpr = (\(args, eff, rt) -> SignatureType args eff rt) <$> try anonymousSignature
        <|> (TypeName <$> try identifier)
        <?> "type expression"
 
-anonymousSignature :: Parser ([TypeExpr], TypeExpr)
-anonymousSignature = (,)
+anonymousSignature :: Parser ([TypeExpr], Effect, TypeExpr)
+anonymousSignature = (,,)
     <$> parens (typeExpr `sepBy` symbol Comma)
-    <*> (symbol Arrow *> typeExpr)
+    <*> (symbol Arrow *> effect)
+    <*> typeExpr
     <?> "function signature"
 
 typeName :: Parser TypeExpr
