@@ -30,4 +30,6 @@ fromFileTo fn = do
 runFile :: FilePath -> IO ()
 runFile fn = do
     ast :: AST 'Module Runtime <- fromFileTo fn
-    void $ Interpreter.run (Interpreter.Environment baseEnv) ast
+    Interpreter.run (Interpreter.Environment baseEnv) ast >>= \case
+        Right _ -> pure ()
+        Left runtimeError -> putStrLn (userShow runtimeError)
