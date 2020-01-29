@@ -7,6 +7,8 @@ import Kima.Syntax.Parser
 import Test.Hspec
 import Text.Megaparsec
 
+import GHC.Exts
+
 spec :: Spec
 spec = parallel $ describe "Parser" $ do
     describe "Term parser" $
@@ -57,9 +59,12 @@ expressionTests =
     , ( "a().b",   Call (IdentifierE "a") [] `AccessE` "b")
     , ( "(1+4).b", BinE (LiteralE (IntExpr 1) `Add` LiteralE (IntExpr 4)) `AccessE` "b")
     , ( "a.b.c",   (IdentifierE "a" `AccessE` "b") `AccessE` "c")
-    , ( "fun () -> Unit {}", FuncExpr [] "Unit" (Block []))
-    , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] "Unit" (Block []))
-    , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] "Unit" (Block []))
+    , ( "fun () -> Unit {}", FuncExpr [] Nothing "Unit" (Block []))
+    , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] Nothing "Unit" (Block []))
+    , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] Nothing "Unit" (Block []))
+    , ( "fun () -> {eff} Unit {}", FuncExpr [] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun (a: Int) -> {eff} Unit {}", FuncExpr [("a", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun (a: Int, b: Int) -> {eff} Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
     ]
 
 statementTests :: [(String, AST 'Stmt Parsed)]

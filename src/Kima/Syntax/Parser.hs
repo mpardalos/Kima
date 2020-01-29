@@ -11,7 +11,6 @@ import Kima.Syntax.Types
 import Control.Monad.Combinators.Expr
 import GHC.Exts
 import Text.Megaparsec
-import Data.List.NonEmpty
 
 program :: Parser (AST 'Module Parsed)
 program = Program <$> (whitespace *> some topLevel <* eof)
@@ -25,20 +24,18 @@ funcDef = do
     reserved RFun
     pIdentifier <- identifier
     pArgs       <- parens typedArgList
-    (pEffect, pReturnType) <- option (Nothing, Nothing) $ do
-        symbol Arrow
-        pEffect     <- Just <$> effect
-        pReturnType <- Just <$> typeExpr
-        pure (pEffect, pReturnType)
-    pBody <- block
-    case pEffect of
-        Just eff -> return (FuncDef pIdentifier pArgs eff pReturnType pBody)
-        Nothing -> failure Nothing [Label ('e':|"ffect")]
+    symbol Arrow
+    pEffect     <- optional effect
+    pReturnType <- optional typeExpr
+    pBody       <- block
+    return (FuncDef pIdentifier pArgs pEffect pReturnType pBody)
+
+    -- case pEffect of
+    --     Just eff ->
+    --     Nothing  -> failure Nothing [Label ('e' :| "ffect")]
 
 effect :: Parser Effect
-effect =
-    fromEffectNames
-        <$> (braces (identifier `sepBy` symbol Comma) <|> pure <$> identifier)
+effect = fromEffectNames <$> braces (identifier `sepBy` symbol Comma)
 
 dataDef :: Parser (AST 'TopLevel Parsed)
 dataDef = reserved RData *> (
@@ -138,7 +135,7 @@ funcExpr :: Parser (AST 'Expr Parsed)
 funcExpr = reserved RFun *> (
     FuncExpr
     <$> parens typedArgList
-    <*> (symbol Arrow *> effect)
+    <*> (symbol Arrow *> optional effect)
     <*> optional typeExpr
     <*> block)
 
