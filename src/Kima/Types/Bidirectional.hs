@@ -143,11 +143,15 @@ enumerateTypes (Call callee args) = do
 -- expression with the type applied. If not, throw an appropriate error.
 check :: MonadTC m => KType -> AST 'Expr TypeAnnotated -> m (AST 'Expr Typed)
 check expectedType (IdentifierE ident) = lookupName ident >>= \case
-    (Binding _ availableTypes)
-        | expectedType `Set.member` availableTypes -> pure
-            (IdentifierE (typeAnnotate expectedType ident))
-        | otherwise -> throwError
-            (UnavailableType (Set.toList availableTypes) expectedType)
+    (Binding _ availableTypes) -> do
+        let possibleTypes =
+                Set.filter (expectedType `subsumedBy`) availableTypes
+
+        case Set.toList possibleTypes of
+            [        result] -> return (IdentifierE (typeAnnotate result ident))
+            results@(_ : _ ) -> throwError (AmbiguousCall results)
+            []               -> throwError
+                (UnavailableType (Set.toList availableTypes) expectedType)
 check expectedType (Call callee args) = do
     (typedArgs, argTypes) <- unzip <$> mapM infer args
     callEffect            <- gets activeEffect
