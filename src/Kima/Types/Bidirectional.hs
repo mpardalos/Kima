@@ -93,9 +93,11 @@ infer (FuncExpr (ensureTypedArgs -> Just args) (Just eff) Nothing body) = do
     let functionType  = KFunc (snd <$> args) eff rt
     let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
-infer FuncExpr{}         = throwError MissingArgumentTypes
+infer (FuncExpr _args Nothing _rt _body) =
+    throwError MissingEffectType
+infer FuncExpr{} = throwError MissingArgumentTypes
 infer (Call callee args) = do
-    calleeTypes     <- Set.toList <$> enumerateTypes callee
+    calleeTypes <- Set.toList <$> enumerateTypes callee
 
     possibleResults <- forM calleeTypes $ \case
         calleeType@(KFunc argTypes _eff returnType) ->
@@ -120,7 +122,7 @@ enumerateTypes (LiteralE    StringExpr{}) = pure [KString]
 enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
 enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) (Just eff) (Just rt) _)
     = pure [KFunc argTypes eff rt]
-enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
+enumerateTypes FuncExpr{} = throwError MissingArgumentTypes
 enumerateTypes (Call callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args
@@ -301,6 +303,7 @@ checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) (Just eff) Nothing bo
     do
         (typedBody, rt) <- withState (addArgs args) (inferReturns body)
         return (FuncDef name args eff rt typedBody)
+checkTopLevel (FuncDef _name _args Nothing _rt _body) = throwError MissingEffectType
 checkTopLevel FuncDef{} = throwError MissingArgumentTypes
 checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) =
     pure (DataDef name typeFields)
