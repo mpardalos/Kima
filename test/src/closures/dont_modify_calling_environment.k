@@ -5,7 +5,7 @@ fun f1() -> Unit {
     a = 6
 }
 
-fun main() -> Unit {
+fun main() -> IO Unit {
     var a: Int = 1;
     print(a);
 }

@@ -5,6 +5,6 @@ fun fac(n: Int) -> Int {
     else { n * fac(n-1)}
 }
 
-fun main() -> Unit {
+fun main() -> IO Unit {
     print(fac(5))
 }

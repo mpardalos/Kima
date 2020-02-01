@@ -5,6 +5,6 @@ fun fib(n: Int) -> Int {
     else { fib(n-1) + fib(n-2) }
 }
 
-fun main() -> Unit {
+fun main() -> IO Unit {
     print(fib(10))
 }

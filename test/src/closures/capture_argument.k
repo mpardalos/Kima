@@ -6,6 +6,6 @@ fun printer(s: String) -> () -> Unit {
     }
 }
 
-fun main() -> Unit {
+fun main() -> IO Unit {
     printer("abc")();
 }

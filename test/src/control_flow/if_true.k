@@ -1,6 +1,6 @@
 ##output: if_block
 
-fun main() -> Unit {
+fun main() -> IO Unit {
     if (True) {
         print("if_block");
     } else {

@@ -1,4 +1,4 @@
-fun main() -> Unit {
+fun main() -> IO Unit {
     print(typeof(5));
     print(typeof("abc"));
 }

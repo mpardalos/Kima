@@ -1,5 +1,5 @@
 ##output: True
 
-fun main() -> Unit {
+fun main() -> IO Unit {
     print(True);
 }

@@ -1,4 +1,4 @@
-fun main() -> Unit {
+fun main() -> IO Unit {
     Position(1, 5);
 }
 

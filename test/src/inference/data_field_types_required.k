@@ -2,4 +2,4 @@
 
 data F(x, y)
 
-fun main() -> Unit {}
+fun main() -> IO Unit {}
