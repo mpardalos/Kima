@@ -168,33 +168,42 @@ instance Pretty a => Pretty (Unary a) where
 
 instance (AnnotationConstraint Pretty (NameAnnotation tag),
           Pretty (AnnotatedName (NameAnnotation tag)),
+          Pretty (EffectType tag),
           Pretty (FreeAnnotation tag)) =>
          Show (AST p tag) where
     show = show . pretty
 
 instance (AnnotationConstraint Pretty (NameAnnotation tag),
           Pretty (AnnotatedName (NameAnnotation tag)),
+          Pretty (EffectType tag),
           Pretty (FreeAnnotation tag)) =>
          Pretty (AST p tag) where
     pretty (Program ast) = vcat (pretty <$> ast)
-    -- TODO: Show effect
     pretty (FuncDef name sig eff rt body) =
         "fun"
             <+> pretty name
             <>  prettyArgList sig
+            <+> "=>"
+            <+> pretty eff
             <+> "->"
             <+> pretty rt
             <+> pretty body
-    -- TODO: Show effect
     pretty (FuncExpr sig eff rt body) =
-        "fun" <+> prettyArgList sig <+> "->" <+> pretty rt <+> pretty body
+        "fun"
+            <+> prettyArgList sig
+            <+> "=>"
+            <+> pretty eff
+            <+> "->"
+            <+> pretty rt
+            <+> pretty body
     pretty (DataDef name members) =
         "data"
             <+> pretty name
             <+> "{"
             <>  line
             <>  vcat
-                    (punctuate ","
+                    (punctuate
+                        ","
                         ((\(n, t) -> pretty n <> ": " <> pretty t) <$> members)
                     )
             <>  line
@@ -203,13 +212,13 @@ instance (AnnotationConstraint Pretty (NameAnnotation tag),
         "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (Let name t expr) =
         "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
-    pretty (LiteralE    lit ) = pretty lit
-    pretty (IdentifierE name) = pretty name
-    pretty (Call callee args) = pretty callee <> tupled (pretty <$> args)
-    pretty (BinE     bin    ) = pretty bin
-    pretty (UnaryE   unary  ) = pretty unary
-    pretty (AccessE  expr name) = parens (pretty expr) <> "." <> pretty name
-    pretty (ExprStmt expr   ) = pretty expr
+    pretty (LiteralE    lit  ) = pretty lit
+    pretty (IdentifierE name ) = pretty name
+    pretty (Call callee args ) = pretty callee <> tupled (pretty <$> args)
+    pretty (BinE   bin       ) = pretty bin
+    pretty (UnaryE unary     ) = pretty unary
+    pretty (AccessE expr name) = parens (pretty expr) <> "." <> pretty name
+    pretty (ExprStmt expr    ) = pretty expr
     pretty (Block stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"
     pretty (Assign name expr) = pretty name <+> "=" <+> pretty expr

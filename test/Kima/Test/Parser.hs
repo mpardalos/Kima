@@ -26,6 +26,11 @@ spec = parallel $ describe "Parser" $ do
             it ("Parses " <> str <> " correctly") $
                 str `parsedBy` stmt `shouldParseTo` ast
 
+    describe "Type Parser" $
+        forM_ typeTests $ \(str, t) ->
+            it ("Parses " <> str <> " correctly") $
+                str `parsedBy` typeExpr `shouldParseTo` t
+
 termTests :: [(String, AST 'Expr Parsed)]
 termTests =
     [ ("name"   , IdentifierE "name")
@@ -82,6 +87,65 @@ statementTests =
         ))
     ]
 
+typeTests :: [(String, ParsedTypeExpr)]
+typeTests =
+    [ ( "a"
+      , ParsedTypeName "a"
+      )
+    -- Simple functions
+    , ( "(a) -> b"
+      , ParsedSignatureType [ParsedTypeName "a"] Nothing (ParsedTypeName "b")
+      )
+    , ( "(a, b) -> c"
+      , ParsedSignatureType [ParsedTypeName "a", ParsedTypeName "b"]
+                            Nothing
+                            (ParsedTypeName "c")
+      )
+    -- Effects
+    , ( "(a) => eff -> c"
+      , ParsedSignatureType [ParsedTypeName "a"]
+                            (Just $ fromList ["eff"])
+                            (ParsedTypeName "c")
+      )
+    , ( "(a) => {eff1, eff2} -> c"
+      , ParsedSignatureType [ParsedTypeName "a"]
+                            (Just $ fromList ["eff1", "eff2"])
+                            (ParsedTypeName "c")
+      )
+    -- Nested functions
+    , ( "(a) -> (b) -> c"
+      , ParsedSignatureType
+          [ParsedTypeName "a"]
+          Nothing
+          (ParsedSignatureType [ParsedTypeName "b"] Nothing (ParsedTypeName "c")
+          )
+      )
+    , ( "(a) => eff -> (b) -> c"
+      , ParsedSignatureType
+          [ParsedTypeName "a"]
+          (Just $ fromList ["eff"])
+          (ParsedSignatureType [ParsedTypeName "b"] Nothing (ParsedTypeName "c")
+          )
+      )
+    , ( "(a) -> (b) => eff -> c"
+      , ParsedSignatureType
+          [ParsedTypeName "a"]
+          Nothing
+          (ParsedSignatureType [ParsedTypeName "b"]
+                               (Just $ fromList ["eff"])
+                               (ParsedTypeName "c")
+          )
+      )
+    , ( "(a) => eff1 -> (b) => eff2 -> c"
+      , ParsedSignatureType
+          [ParsedTypeName "a"]
+          (Just $ fromList ["eff1"])
+          (ParsedSignatureType [ParsedTypeName "b"]
+                               (Just $ fromList ["eff2"])
+                               (ParsedTypeName "c")
+          )
+      )
+    ]
 
 type ParseTestResult e s a = Either (ParseErrorBundle s e) (s, a)
 
