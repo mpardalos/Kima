@@ -9,6 +9,7 @@ import qualified Kima.Syntax.Tokenizer as T (Symbol(Mod))
 import Kima.Syntax.Types
 
 import Control.Monad.Combinators.Expr
+import Data.Functor
 import GHC.Exts
 import Text.Megaparsec
 
@@ -33,21 +34,19 @@ functionReturn =
         <|> neither
   where
     effectAndReturnType = label "both effect and return type" $ do
-        symbol FatArrow
-        effects <- effectSpec
-        symbol Arrow
-        returnType <- typeExpr
+        effects    <- symbol FatArrow *> effectSpec
+        returnType <- symbol Arrow *> typeExpr
         return (Just effects, Just returnType)
 
-    justReturnType = label "just return type" $ do
-        symbol Arrow
-        returnType <- typeExpr
-        return (Nothing, Just returnType)
+    justReturnType =
+        (symbol Arrow *> typeExpr)
+            <&> (\rt -> (Nothing, Just rt))
+            <?> "just return type"
 
-    justEffectType = label "just effect type" $ do
-        symbol FatArrow
-        effect <- effectSpec
-        return (Just effect, Nothing)
+    justEffectType =
+        (symbol FatArrow *> effectSpec)
+            <&> (\eff -> (Just eff, Nothing))
+            <?> "just effect type"
 
     neither = label "No return spec" $ pure (Nothing, Nothing)
 
