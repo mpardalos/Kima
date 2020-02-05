@@ -30,4 +30,6 @@ isSubEffect (EffectNames subEff) (EffectNames superEff) =
     and ((`elem` superEff) <$> subEff)
 
 instance Pretty Effect where
-    pretty = _prettyEffect
+    pretty (EffectNames [eff]) = pretty eff
+    pretty (EffectNames effects) =
+        encloseSep lbrace rbrace comma (pretty <$> effects)
