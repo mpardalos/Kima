@@ -11,7 +11,7 @@ data Parsed
 instance ASTTag Parsed where
     type TagSugar Parsed = 'Sugar
     type NameAnnotation Parsed = 'NoAnnotation
-    type FreeAnnotation Parsed = Maybe TypeExpr
+    type FreeAnnotation Parsed = Maybe ParsedTypeExpr
     type EffectType Parsed = Maybe Effect
 
 -- | Removing syntactic sugar
@@ -20,7 +20,7 @@ instance ASTTag Desugared where
     type TagSugar Desugared = 'NoSugar
     type NameAnnotation Desugared = 'NoAnnotation
     type FreeAnnotation Desugared = Maybe TypeExpr
-    type EffectType Desugared = Maybe Effect
+    type EffectType Desugared = Effect
 
 -- | Resolve type expressions to their representations
 data TypeAnnotated
@@ -28,7 +28,7 @@ instance ASTTag TypeAnnotated where
     type TagSugar TypeAnnotated = 'NoSugar
     type NameAnnotation TypeAnnotated = 'NoAnnotation
     type FreeAnnotation TypeAnnotated = Maybe KType
-    type EffectType TypeAnnotated = Maybe Effect
+    type EffectType TypeAnnotated = Effect
 
 -- | Every identifier is annotated with its type.
 data Typed

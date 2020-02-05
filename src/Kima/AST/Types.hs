@@ -16,6 +16,13 @@ data KType = KString | KUnit | KBool | KInt | KFloat
 
 type TypeName = String
 
+data ParsedTypeExpr
+    -- | Just a single type
+    = ParsedTypeName TypeName
+    -- | Function signature
+    | ParsedSignatureType [ParsedTypeExpr] (Maybe Effect) ParsedTypeExpr
+    deriving Eq
+
 data TypeExpr
     -- | Just a single type
     = TypeName TypeName
@@ -23,6 +30,16 @@ data TypeExpr
     | SignatureType [TypeExpr] Effect TypeExpr
     deriving Eq
 
+instance Show ParsedTypeExpr where
+    show (ParsedTypeName s           ) = "#\"" ++ s ++ "\""
+    show (ParsedSignatureType args eff rt) = "#( (" ++ show args ++ ") -> " ++ show eff ++ show rt ++ ")"
+
+instance Pretty ParsedTypeExpr where
+    pretty (ParsedTypeName name) = pretty name
+    pretty (ParsedSignatureType args (Just eff) returnType) =
+        tupled (pretty <$> args) <+> "=>" <+> pretty eff <+> "->" <+> pretty returnType
+    pretty (ParsedSignatureType args Nothing returnType) =
+        tupled (pretty <$> args) <+> "->" <+> pretty returnType
 
 instance Show TypeExpr where
     show (TypeName s           ) = "#\"" ++ s ++ "\""
@@ -33,10 +50,16 @@ instance Pretty TypeExpr where
     pretty (SignatureType args eff returnType) =
         tupled (pretty <$> args) <+> "->" <+> pretty eff <+> pretty returnType
 
+instance IsString ParsedTypeExpr where
+    fromString = ParsedTypeName
+
 instance IsString TypeExpr where
     fromString = TypeName
 
 -- | Useful because typeexprs are optional.
+instance IsString (Maybe ParsedTypeExpr) where
+    fromString = Just . ParsedTypeName
+
 instance IsString (Maybe TypeExpr) where
     fromString = Just . TypeName
 

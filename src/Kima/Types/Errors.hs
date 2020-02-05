@@ -15,7 +15,6 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | UnavailableType [KType] KType
                        | MismatchedIf KType KType
                        | MissingArgumentTypes
-                       | MissingEffectType
                        | MissingReturnType
                        | MissingFieldTypes
     deriving (Eq, Show)
@@ -50,7 +49,6 @@ instance Pretty TypecheckingError where
         <+> "but \"else\" block returns" <> pretty elseBlkType
     pretty MissingArgumentTypes = "Missing argument types"
     pretty MissingReturnType = "Missing return type"
-    pretty MissingEffectType = "Missing effect type"
     pretty MissingFieldTypes = "Missing field types"
 
 bulletList :: Pretty a => [a] -> Doc ann

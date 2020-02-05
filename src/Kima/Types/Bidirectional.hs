@@ -81,20 +81,18 @@ infer (IdentifierE name) = (lookupName name <&> types) <&> Set.toList >>= \case
     -- error in lookupName
     [t]   -> pure (IdentifierE (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
-infer (FuncExpr (ensureTypedArgs -> Just args) (Just eff) (Just rt) body) = do
+infer (FuncExpr (ensureTypedArgs -> Just args) eff (Just rt) body) = do
     typedBody <- withState (addArgs args) $ checkReturns rt body
 
     let functionType  = KFunc (snd <$> args) eff rt
     let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
-infer (FuncExpr (ensureTypedArgs -> Just args) (Just eff) Nothing body) = do
+infer (FuncExpr (ensureTypedArgs -> Just args) eff Nothing body) = do
     (typedBody, rt) <- withState (addArgs args) $ inferReturns body
 
     let functionType  = KFunc (snd <$> args) eff rt
     let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
-infer (FuncExpr _args Nothing _rt _body) =
-    throwError MissingEffectType
 infer FuncExpr{} = throwError MissingArgumentTypes
 infer (Call callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
@@ -120,7 +118,7 @@ enumerateTypes (LiteralE    FloatExpr{} ) = pure [KFloat]
 enumerateTypes (LiteralE    BoolExpr{}  ) = pure [KBool]
 enumerateTypes (LiteralE    StringExpr{}) = pure [KString]
 enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
-enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) (Just eff) (Just rt) _)
+enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]
 enumerateTypes FuncExpr{} = throwError MissingArgumentTypes
 enumerateTypes (Call callee args) = do
@@ -296,14 +294,13 @@ checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
 -- | Try to typecheck a top-level declaration
 checkTopLevel
     :: MonadTC m => AST 'TopLevel TypeAnnotated -> m (AST 'TopLevel Typed)
-checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) (Just eff) (Just rt) body)
+checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff (Just rt) body)
     =   FuncDef name args eff rt
     <$> withState (addArgs args) (checkReturns rt body)
-checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) (Just eff) Nothing body) =
+checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff Nothing body) =
     do
         (typedBody, rt) <- withState (addArgs args) (inferReturns body)
         return (FuncDef name args eff rt typedBody)
-checkTopLevel (FuncDef _name _args Nothing _rt _body) = throwError MissingEffectType
 checkTopLevel FuncDef{} = throwError MissingArgumentTypes
 checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) =
     pure (DataDef name typeFields)

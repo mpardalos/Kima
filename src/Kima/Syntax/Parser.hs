@@ -26,7 +26,7 @@ effectSpec = try singleEffect <|> bracedEffects
         singleEffect = fromEffectNames . pure <$> identifier
         bracedEffects = fromEffectNames <$> braces (identifier `sepBy` symbol Comma)
 
-functionReturn :: Parser (Maybe Effect, Maybe TypeExpr)
+functionReturn :: Parser (Maybe Effect, Maybe ParsedTypeExpr)
 functionReturn =
     try effectAndReturnType
         <|> try justReturnType
@@ -68,11 +68,11 @@ dataDef = reserved RData *> (
     <*> typedArgList)
     <?> "Datatype declaration"
 
-typedArgList :: Parser [(Name, Maybe TypeExpr)]
+typedArgList :: Parser [(Name, Maybe ParsedTypeExpr)]
 typedArgList = parens (typedArg `sepBy` symbol Comma)
     <?> "Argument list"
 
-typedArg :: IsString s => Parser (s, Maybe TypeExpr)
+typedArg :: IsString s => Parser (s, Maybe ParsedTypeExpr)
 typedArg = (,) <$> identifier <*> optional (symbol Colon *> typeExpr)
 
 -- Statements
@@ -189,13 +189,13 @@ accessCall = do
         combiner acc (Left  attr) = AccessE acc attr
         combiner acc (Right args) = Call acc args
 
-typeExpr :: Parser TypeExpr
+typeExpr :: Parser ParsedTypeExpr
 typeExpr =
-    try anonymousSignature <|> (TypeName <$> identifier) <?> "type expression"
+    try anonymousSignature <|> (ParsedTypeName <$> identifier) <?> "type expression"
   where
     anonymousSignature = label "function signature" $ do
         arguments  <- parens (typeExpr `sepBy` symbol Comma)
-        effect     <- symbol FatArrow *> effectSpec
+        effect     <- optional (symbol FatArrow *> effectSpec)
         returnType <- symbol Arrow *> typeExpr
 
-        return (SignatureType arguments effect returnType)
+        return (ParsedSignatureType arguments effect returnType)
