@@ -1,6 +1,6 @@
 ##output: 2
 
-fun main() -> IO Unit {
+fun main() => IO -> Unit {
     var a: Int = 0;
 
     let function:() -> Unit = fun() -> Unit {

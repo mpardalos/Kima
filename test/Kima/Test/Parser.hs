@@ -62,9 +62,9 @@ expressionTests =
     , ( "fun () -> Unit {}", FuncExpr [] Nothing "Unit" (Block []))
     , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] Nothing "Unit" (Block []))
     , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] Nothing "Unit" (Block []))
-    , ( "fun () -> {eff} Unit {}", FuncExpr [] (Just $ fromList ["eff"]) "Unit" (Block []))
-    , ( "fun (a: Int) -> {eff} Unit {}", FuncExpr [("a", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
-    , ( "fun (a: Int, b: Int) -> {eff} Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun () => eff -> Unit {}", FuncExpr [] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun (a: Int) => eff -> Unit {}", FuncExpr [("a", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun (a: Int, b: Int) => eff -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
     ]
 
 statementTests :: [(String, AST 'Stmt Parsed)]

@@ -6,6 +6,6 @@ fun to_string(email: Email) -> String {
     email.name + "@" + email.server + "." + email.tld;
 }
 
-fun main() -> IO Unit {
+fun main() => IO -> Unit {
     print(to_string(Email("john.smith", "example", "com")));
 }

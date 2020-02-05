@@ -10,7 +10,7 @@ fun make_accumulator() -> (Int) -> Int {
     }
 }
 
-fun main() -> IO Unit {
+fun main() => IO -> Unit {
     let acc1: (Int) -> Int = make_accumulator();
     let acc2: (Int) -> Int = make_accumulator();
 

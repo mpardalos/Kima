@@ -11,6 +11,6 @@ fun shadows() -> () -> Unit {
     function();
 }
 
-fun main() -> IO Unit {
+fun main() => IO -> Unit {
     print(shadows())
 }

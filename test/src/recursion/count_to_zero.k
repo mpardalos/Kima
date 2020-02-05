@@ -5,7 +5,7 @@ fun f(n: Int) -> Unit {
     else {}
 }
 
-fun main() -> IO Unit {
+fun main() => IO -> Unit {
     f(10);
     print("done");
 }

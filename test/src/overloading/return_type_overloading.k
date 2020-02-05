@@ -3,7 +3,7 @@
 fun f() -> Int { 1 }
 fun f() -> String { "one" }
 
-fun main() -> IO Unit {
+fun main() => IO -> Unit {
     let x: Int = f();
     let y: String = f();
 
