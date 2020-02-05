@@ -135,7 +135,7 @@ enumerateTypes (Call callee args) = do
     return (Set.fromList returnTypes)
   where
     returnsWithArgs :: KType -> [KType] -> Maybe KType
-    returnsWithArgs (KFunc argTypes' eff rt) argTypes
+    returnsWithArgs (KFunc argTypes' _eff rt) argTypes
         | argTypes == argTypes' = Just rt
     returnsWithArgs _ _ = Nothing
 
