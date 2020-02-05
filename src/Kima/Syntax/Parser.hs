@@ -191,16 +191,12 @@ accessCall = do
         combiner acc (Right args) = Call acc args
 
 typeExpr :: Parser TypeExpr
-typeExpr = (\(args, eff, rt) -> SignatureType args eff rt) <$> anonymousSignature
-       <|> (TypeName <$> identifier)
-       <?> "type expression"
+typeExpr =
+    try anonymousSignature <|> (TypeName <$> identifier) <?> "type expression"
+  where
+    anonymousSignature = label "function signature" $ do
+        arguments  <- parens (typeExpr `sepBy` symbol Comma)
+        effect     <- symbol FatArrow *> effectSpec
+        returnType <- symbol Arrow *> typeExpr
 
-anonymousSignature :: Parser ([TypeExpr], Effect, TypeExpr)
-anonymousSignature = label "function signature" $ do
-    arguments <- parens (typeExpr `sepBy` symbol Comma)
-    symbol FatArrow
-    effect     <- effectSpec
-    symbol Arrow
-    returnType <- typeExpr
-
-    return (arguments, effect, returnType)
+        return (SignatureType arguments effect returnType)
