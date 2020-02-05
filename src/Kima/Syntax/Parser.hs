@@ -56,8 +56,8 @@ funcDef = do
     pIdentifier            <- identifier
     pArgs                  <- typedArgList
     (pEffect, pReturnType) <- functionReturn
+    pBody                  <- block
 
-    pBody <- block
     return (FuncDef pIdentifier pArgs pEffect pReturnType pBody)
 
 
