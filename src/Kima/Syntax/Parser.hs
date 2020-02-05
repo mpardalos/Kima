@@ -19,33 +19,58 @@ program = Program <$> (whitespace *> some topLevel <* eof)
 topLevel :: Parser (AST 'TopLevel Parsed)
 topLevel = funcDef <|> dataDef
 
+effectSpec :: Parser Effect
+effectSpec = try singleEffect <|> bracedEffects
+    where
+        singleEffect = fromEffectNames . pure <$> identifier
+        bracedEffects = fromEffectNames <$> braces (identifier `sepBy` symbol Comma)
+
+functionReturn :: Parser (Maybe Effect, Maybe TypeExpr)
+functionReturn =
+    try effectAndReturnType
+        <|> try justReturnType
+        <|> try justEffectType
+        <|> neither
+  where
+    effectAndReturnType = label "both effect and return type" $ do
+        symbol FatArrow
+        effects <- effectSpec
+        symbol Arrow
+        returnType <- typeExpr
+        return (Just effects, Just returnType)
+
+    justReturnType = label "just return type" $ do
+        symbol Arrow
+        returnType <- typeExpr
+        return (Nothing, Just returnType)
+
+    justEffectType = label "just effect type" $ do
+        symbol FatArrow
+        effect <- effectSpec
+        return (Just effect, Nothing)
+
+    neither = label "No return spec" $ pure (Nothing, Nothing)
+
 funcDef :: Parser (AST 'TopLevel Parsed)
 funcDef = do
     reserved RFun
-    pIdentifier <- identifier
-    pArgs       <- parens typedArgList
-    symbol Arrow
-    pEffect     <- optional effect
-    pReturnType <- optional typeExpr
-    pBody       <- block
+    pIdentifier            <- identifier
+    pArgs                  <- typedArgList
+    (pEffect, pReturnType) <- functionReturn
+
+    pBody <- block
     return (FuncDef pIdentifier pArgs pEffect pReturnType pBody)
 
-    -- case pEffect of
-    --     Just eff ->
-    --     Nothing  -> failure Nothing [Label ('e' :| "ffect")]
-
-effect :: Parser Effect
-effect = fromEffectNames <$> braces (identifier `sepBy` symbol Comma)
 
 dataDef :: Parser (AST 'TopLevel Parsed)
 dataDef = reserved RData *> (
     DataDef
     <$> identifier
-    <*> parens (typedArg `sepBy` symbol Comma))
+    <*> typedArgList)
     <?> "Datatype declaration"
 
 typedArgList :: Parser [(Name, Maybe TypeExpr)]
-typedArgList = typedArg `sepBy` symbol Comma
+typedArgList = parens (typedArg `sepBy` symbol Comma)
     <?> "Argument list"
 
 typedArg :: IsString s => Parser (s, Maybe TypeExpr)
@@ -129,15 +154,15 @@ prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)
 
 term :: Parser (AST 'Expr Parsed)
-term = try accessCall <|> funcExpr <|> baseTerm
+term = try accessCall <|> try funcExpr <|> try baseTerm
 
 funcExpr :: Parser (AST 'Expr Parsed)
-funcExpr = reserved RFun *> (
-    FuncExpr
-    <$> parens typedArgList
-    <*> (symbol Arrow *> optional effect)
-    <*> optional typeExpr
-    <*> block)
+funcExpr = do
+    reserved RFun
+    pArgs                  <- typedArgList
+    (pEffect, pReturnType) <- functionReturn
+    body                   <- block
+    return (FuncExpr pArgs pEffect pReturnType body)
 
 -- | A term without calls (Useful for parsing calls)
 baseTerm :: Parser (AST 'Expr Parsed)
@@ -160,22 +185,22 @@ accessCall = do
     where
         callOrAccess =
             Left  <$> (symbol Dot *> identifier) <|>
-            Right <$> parens (expr `sepBy` symbol Comma)
+            Right <$> argList
 
         combiner acc (Left  attr) = AccessE acc attr
         combiner acc (Right args) = Call acc args
 
 typeExpr :: Parser TypeExpr
-typeExpr = (\(args, eff, rt) -> SignatureType args eff rt) <$> try anonymousSignature
-       <|> (TypeName <$> try identifier)
+typeExpr = (\(args, eff, rt) -> SignatureType args eff rt) <$> anonymousSignature
+       <|> (TypeName <$> identifier)
        <?> "type expression"
 
 anonymousSignature :: Parser ([TypeExpr], Effect, TypeExpr)
-anonymousSignature = (,,)
-    <$> parens (typeExpr `sepBy` symbol Comma)
-    <*> (symbol Arrow *> effect)
-    <*> typeExpr
-    <?> "function signature"
+anonymousSignature = label "function signature" $ do
+    arguments <- parens (typeExpr `sepBy` symbol Comma)
+    symbol FatArrow
+    effect     <- effectSpec
+    symbol Arrow
+    returnType <- typeExpr
 
-typeName :: Parser TypeExpr
-typeName = TypeName <$> identifier
+    return (arguments, effect, returnType)
