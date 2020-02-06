@@ -23,9 +23,9 @@ import Kima.AST
 
 run
     :: Environment Value
-    -> AST p Runtime
+    -> AST Runtime
     -> IO (Either RuntimeError Value)
-run env (ProgramAST  ast) = do
+run env (ModuleAST  ast) = do
     refEnv <- refify env
     result <- execInterpreter refEnv (E.runProgram ast)
     return $ Unit <$ result
@@ -39,7 +39,7 @@ run env (ExprAST     ast) = do
 
 runWithEnv
     :: Environment Value
-    -> AST p Runtime
+    -> AST Runtime
     -> IO (Either RuntimeError (Value, Environment Value))
 runWithEnv env ast  = do
     refEnv <- refify env

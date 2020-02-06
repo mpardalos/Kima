@@ -25,7 +25,7 @@ data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           | Function [RuntimeIdentifier] (AST 'Stmt Runtime) (Environment (IORef Value))
+           | Function [RuntimeIdentifier] (Stmt Runtime) (Environment (IORef Value))
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
            | AccessorIdx Name Int -- | Just gives the index of the accessed value

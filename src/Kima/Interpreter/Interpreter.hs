@@ -15,14 +15,14 @@ import           Safe
 import           GHC.Exts
 import qualified Data.Map                      as Map
 
-runAST :: MonadInterpreter m => AST p Runtime -> m Value
-runAST (ProgramAST ast)  = Unit <$ runProgram ast
+runAST :: MonadInterpreter m => AST Runtime -> m Value
+runAST (ModuleAST ast)  = Unit <$ runProgram ast
 runAST (TopLevelAST ast) = bindTopLevel ast
 runAST (StmtAST    ast)  = runStmt ast
 runAST (ExprAST    ast)  = evalExpr ast
 
 ---------- Expressions ----------
-evalExpr :: MonadInterpreter m => AST 'Expr Runtime -> m Value
+evalExpr :: MonadInterpreter m => Expr Runtime -> m Value
 evalExpr (LiteralE   l     )     = return $ evalLiteral l
 evalExpr (IdentifierE name )     = getName name
 evalExpr (FuncExpr args _eff _rt body) = Function (uncurry TIdentifier <$> args) body <$> get
@@ -36,7 +36,7 @@ evalLiteral (BoolExpr   b) = Bool b
 evalLiteral (StringExpr s) = String s
 
 ---------- Statements ----------
-runStmt :: forall m. MonadInterpreter m => AST 'Stmt Runtime -> m Value
+runStmt :: forall m. MonadInterpreter m => Stmt Runtime -> m Value
 runStmt (Block stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
@@ -133,7 +133,7 @@ getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
 
 -- | Bind either a function or the constructor and accessors of a
 -- | DataDef
-bindTopLevel :: MonadInterpreter m => AST 'TopLevel Runtime -> m Value
+bindTopLevel :: MonadInterpreter m => TopLevel Runtime -> m Value
 bindTopLevel (FuncDef name args eff rt body) = do
     let funcType = KFunc (snd <$> args) eff rt
     let funcIdentifier = TIdentifier name funcType
@@ -159,7 +159,7 @@ bindTopLevel (DataDef name members)       = do
     bind (TIdentifier name constructorType) constructor
     return constructor
 
-runProgram :: MonadInterpreter m => AST 'Module Runtime -> m ()
+runProgram :: MonadInterpreter m => Module Runtime -> m ()
 runProgram (Program defs) = do
     forM_ defs bindTopLevel
     mainFunc <- getName (TIdentifier "main" (KFunc [] ioEffect KUnit))
