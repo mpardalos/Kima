@@ -31,17 +31,6 @@ transitively1 ast = do
     intermediate :: part inter <- transformAST ast
     transformAST intermediate
 
-transitively2 :: forall inter1 inter2 from to part m.
-    ( MonadInterface m
-    , TransformAST part from inter1
-    , TransformAST part inter1 inter2
-    , TransformAST part inter2 to
-    ) => part from -> m (part to)
-transitively2 ast = do
-    intermediate1 :: part inter1 <- transformAST ast
-    intermediate2 :: part inter2 <- transformAST intermediate1
-    transformAST intermediate2
-
 instance ASTTag a => TransformAST AST a a where
     transformAST = pure
 instance ASTTag a => TransformAST Module a a where
