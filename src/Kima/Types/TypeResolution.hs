@@ -15,12 +15,32 @@ type MonadTypeResolution m
 -- | Resolve all typeExprs in an AST.
 -- Note: in DataDefs, accessor types are annotated with the type of the attribute,
 --       **not** their function type.
-resolveTypes
-    :: MonadTypeResolution m => AST Desugared -> m (AST TypeAnnotated)
-resolveTypes (ModuleAST ast) = do
-    processTopLevel ast
-    traverseFreeAnnotations (traverse resolveTypeExpr) (ModuleAST ast)
-resolveTypes ast = traverseFreeAnnotations (traverse resolveTypeExpr) ast
+resolveASTTypes :: MonadTypeResolution m => AST Desugared -> m (AST TypeAnnotated)
+resolveASTTypes (ModuleAST   ast) = ModuleAST <$> resolveModuleTypes ast
+resolveASTTypes (TopLevelAST ast) = TopLevelAST <$> resolveTopLevelTypes ast
+resolveASTTypes (StmtAST     ast) = StmtAST <$> resolveStmtTypes ast
+resolveASTTypes (ExprAST     ast) = ExprAST <$> resolveExprTypes ast
+
+resolveModuleTypes
+    :: MonadTypeResolution m => Module Desugared -> m (Module TypeAnnotated)
+resolveModuleTypes =
+    traverseModuleFreeAnnotations (traverse resolveTypeExpr)
+
+resolveTopLevelTypes
+    :: MonadTypeResolution m => TopLevel Desugared -> m (TopLevel TypeAnnotated)
+resolveTopLevelTypes =
+    traverseTopLevelFreeAnnotations (traverse resolveTypeExpr)
+
+resolveStmtTypes
+    :: MonadTypeResolution m => Stmt Desugared -> m (Stmt TypeAnnotated)
+resolveStmtTypes =
+    traverseStmtFreeAnnotations (traverse resolveTypeExpr)
+
+resolveExprTypes
+    :: MonadTypeResolution m => Expr Desugared -> m (Expr TypeAnnotated)
+resolveExprTypes =
+    traverseExprFreeAnnotations (traverse resolveTypeExpr)
+
 
 processTopLevel :: MonadTypeResolution m => Module Desugared -> m ()
 processTopLevel (Program topLevelDecls) = forM_ topLevelDecls $ \case

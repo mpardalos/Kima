@@ -21,7 +21,7 @@ import Kima.Builtins
 --
 -- It is equivalent to
 -- desugared :: AST 'Module Desugared <- fromFileTo "input.k"
-fromFileTo :: forall to m. (MonadInterface m, TransformAST Parsed to) => FilePath -> m (AST 'Module to)
+fromFileTo :: forall to m. (MonadInterface m, TransformAST Module Parsed to) => FilePath -> m (Module to)
 fromFileTo fn = do
     src <- liftIO (readFile fn)
     parsedAST <- runEither (runParser program fn src)
@@ -29,7 +29,8 @@ fromFileTo fn = do
 
 runFile :: FilePath -> IO ()
 runFile fn = do
-    ast :: AST 'Module Runtime <- fromFileTo fn
-    Interpreter.run (Interpreter.Environment baseEnv) ast >>= \case
+    ast :: Module Runtime <- fromFileTo fn
+    env <- refify (Interpreter.Environment baseEnv)
+    Interpreter.execInterpreter env (Interpreter.runModule ast) >>= \case
         Right _ -> pure ()
         Left runtimeError -> putStrLn (userShow runtimeError)

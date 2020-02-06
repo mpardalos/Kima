@@ -15,12 +15,6 @@ import           Safe
 import           GHC.Exts
 import qualified Data.Map                      as Map
 
-runAST :: MonadInterpreter m => AST Runtime -> m Value
-runAST (ModuleAST ast)  = Unit <$ runProgram ast
-runAST (TopLevelAST ast) = bindTopLevel ast
-runAST (StmtAST    ast)  = runStmt ast
-runAST (ExprAST    ast)  = evalExpr ast
-
 ---------- Expressions ----------
 evalExpr :: MonadInterpreter m => Expr Runtime -> m Value
 evalExpr (LiteralE   l     )     = return $ evalLiteral l
@@ -159,8 +153,8 @@ bindTopLevel (DataDef name members)       = do
     bind (TIdentifier name constructorType) constructor
     return constructor
 
-runProgram :: MonadInterpreter m => Module Runtime -> m ()
-runProgram (Program defs) = do
+runModule :: MonadInterpreter m => Module Runtime -> m ()
+runModule (Program defs) = do
     forM_ defs bindTopLevel
     mainFunc <- getName (TIdentifier "main" (KFunc [] ioEffect KUnit))
     _        <- runFunc mainFunc []
