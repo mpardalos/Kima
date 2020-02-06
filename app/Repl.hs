@@ -71,11 +71,11 @@ runLine ReplState { typeCtx, interpreterEnv } input = runExceptT $ do
     (typedAST, newTypeCtx) <-
         liftEither
         $   (runParser stmt "" >>> first errorBundlePretty) input
-        <&> desugar
-        >>= (typecheckWithTypeCtx typeCtx >>> first (show . pretty))
+        <&> desugarStmt
+        >>= (typecheckStmtWithTypeCtx typeCtx >>> first (show . pretty))
     -- Run the typedAST, lifting as needed
     (value, newEnv) <- liftEither =<< liftIO
         (   first (show . pretty)
-        <$> runInterpreter interpreterEnv (unReplInterpreter . runAST $ typedAST)
+        <$> runInterpreter interpreterEnv (unReplInterpreter . runStmt $ typedAST)
         )
     return (value, ReplState newTypeCtx newEnv)

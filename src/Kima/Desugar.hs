@@ -1,5 +1,8 @@
 module Kima.Desugar
-    ( desugar
+    ( desugarModule
+    , desugarTopLevel
+    , desugarStmt
+    , desugarExpr
     )
 where
 
@@ -7,45 +10,51 @@ import           Data.Bifunctor
 
 import           Kima.AST
 
-desugar :: AST p Parsed -> AST p Desugared
-desugar (BinE    bin  )  = desugarBinary (desugar <$> bin)
-desugar (UnaryE  unary)  = desugarUnary (desugar <$> unary)
-desugar (AccessE expr field) = Call (IdentifierE (Accessor field)) [desugar expr]
-desugar (Program ast) = Program (desugar <$> ast)
-desugar (DataDef name members) =
+desugarModule :: Module Parsed -> Module Desugared
+desugarModule (Program ast) = Program (desugarTopLevel <$> ast)
+
+desugarTopLevel :: TopLevel Parsed -> TopLevel Desugared
+desugarTopLevel (DataDef name members) =
     DataDef name (second (fmap desugarTypeExpr) <$> members)
-desugar (FuncDef name args (Just eff) rt body) = FuncDef
+desugarTopLevel (FuncDef name args (Just eff) rt body) = FuncDef
     name
     (second (fmap desugarTypeExpr) <$> args)
     eff
     (desugarTypeExpr <$> rt)
-    (desugar body)
-desugar (FuncDef name args Nothing rt body) = FuncDef
+    (desugarStmt body)
+desugarTopLevel (FuncDef name args Nothing rt body) = FuncDef
     name
     (second (fmap desugarTypeExpr) <$> args)
     noEffect
     (desugarTypeExpr <$> rt)
-    (desugar body)
-desugar (LiteralE    lit                 ) = LiteralE lit
-desugar (IdentifierE name) = IdentifierE (desugarIdentifier name)
-desugar (FuncExpr args (Just eff) rt body) = FuncExpr
+    (desugarStmt body)
+
+desugarStmt :: Stmt Parsed -> Stmt Desugared
+desugarStmt (ExprStmt expr     ) = ExprStmt (desugarExpr expr)
+desugarStmt (Block    stmts    ) = Block (desugarStmt <$> stmts)
+desugarStmt (Assign target expr) = Assign target (desugarExpr expr)
+desugarStmt (Let name t expr   ) = Let name (desugarTypeExpr <$> t) (desugarExpr expr)
+desugarStmt (Var name t expr   ) = Var name (desugarTypeExpr <$> t) (desugarExpr expr)
+desugarStmt (While stmt        ) = While (bimap desugarExpr desugarStmt stmt)
+desugarStmt (If    stmt        ) = If (bimap desugarExpr desugarStmt stmt)
+
+desugarExpr :: Expr Parsed -> Expr Desugared
+desugarExpr (BinE    bin  )  = desugarBinary (desugarExpr <$> bin)
+desugarExpr (UnaryE  unary)  = desugarUnary (desugarExpr <$> unary)
+desugarExpr (AccessE expr field) = Call (IdentifierE (Accessor field)) [desugarExpr expr]
+desugarExpr (LiteralE    lit                 ) = LiteralE lit
+desugarExpr (IdentifierE name) = IdentifierE (desugarIdentifier name)
+desugarExpr (FuncExpr args (Just eff) rt body) = FuncExpr
     (second (fmap desugarTypeExpr) <$> args)
     eff
     (desugarTypeExpr <$> rt)
-    (desugar body)
-desugar (FuncExpr args Nothing rt body) = FuncExpr
+    (desugarStmt body)
+desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     (second (fmap desugarTypeExpr) <$> args)
     noEffect
     (desugarTypeExpr <$> rt)
-    (desugar body)
-desugar (Call callee args  ) = Call (desugar callee) (desugar <$> args)
-desugar (ExprStmt expr     ) = ExprStmt (desugar expr)
-desugar (Block    stmts    ) = Block (desugar <$> stmts)
-desugar (Assign target expr) = Assign target (desugar expr)
-desugar (Let name t expr   ) = Let name (desugarTypeExpr <$> t) (desugar expr)
-desugar (Var name t expr   ) = Var name (desugarTypeExpr <$> t) (desugar expr)
-desugar (While stmt        ) = While (bimap desugar desugar stmt)
-desugar (If    stmt        ) = If (bimap desugar desugar stmt)
+    (desugarStmt body)
+desugarExpr (Call callee args  ) = Call (desugarExpr callee) (desugarExpr <$> args)
 
 desugarIdentifier :: Identifier t -> Identifier t
 desugarIdentifier (Identifier "print") = Builtin PrintFunc
@@ -55,7 +64,7 @@ desugarIdentifier name = name
 desugarBinary
     :: ( TagSugar tag ~ 'NoSugar
        , NameAnnotation tag ~ 'NoAnnotation)
-    => Binary (AST 'Expr tag) -> AST 'Expr tag
+    => Binary (Expr tag) -> Expr tag
 desugarBinary (Add     l r) = Call (IdentifierE $ Builtin AddOp) [l, r]
 desugarBinary (Sub     l r) = Call (IdentifierE $ Builtin SubOp) [l, r]
 desugarBinary (Div     l r) = Call (IdentifierE $ Builtin DivOp) [l, r]
@@ -73,7 +82,7 @@ desugarBinary (NotEq   l r) = Call
 desugarUnary
     :: ( TagSugar tag ~ 'NoSugar
        , NameAnnotation tag ~ 'NoAnnotation)
-    => Unary (AST 'Expr tag) -> AST 'Expr tag
+    => Unary (Expr tag) -> Expr tag
 desugarUnary (Negate e) = Call (IdentifierE $ Builtin NegateOp) [e]
 desugarUnary (Invert e) = Call (IdentifierE $ Builtin InvertOp) [e]
 

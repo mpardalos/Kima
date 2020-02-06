@@ -4,7 +4,6 @@ module Kima.Test.Interpreters where
 
 import           Kima.Interpreter
 import           Kima.Interpreter.Types
-import           Kima.Interpreter.Interpreter
 import           Kima.Interface
 import           Kima.Builtins
 import           Kima.AST
@@ -12,7 +11,6 @@ import           Control.Monad.State
 import           Control.Monad.Reader
 import           Control.Monad.Except
 import           Control.Monad.Writer
-import           Data.Functor
 import           Data.Function
 import           Data.IORef.Class
 import           Test.Hspec
@@ -55,9 +53,9 @@ shouldRun action = runExceptT (runTestInterface action) >>= \case
         expectationFailure ("Expected a result but failed with: \n" <> show err)
     Right{} -> pure ()
 
-shouldRunWithInputOutput :: AST p Runtime -> String -> Maybe String -> Expectation
+shouldRunWithInputOutput :: Module Runtime -> String -> Maybe String -> Expectation
 shouldRunWithInputOutput ast input maybeExpectedOutput = do
-    (_, output) <- runInTestInterpreterWithInput input ast
+    output <- runInTestInterpreterWithInput input ast
     case maybeExpectedOutput of
         Nothing -> pure ()
         Just expectedOutput
@@ -69,11 +67,11 @@ shouldRunWithInputOutput ast input maybeExpectedOutput = do
                 <> output
                 )
 
-runInTestInterpreter :: MonadInterface m => AST p Runtime -> m (Value, String)
+runInTestInterpreter :: MonadInterface m => Module Runtime -> m String
 runInTestInterpreter = runInTestInterpreterWithInput ""
 
 runInTestInterpreterWithInput
-    :: MonadInterface m => String -> AST p Runtime -> m (Value, String)
+    :: MonadInterface m => String -> Module Runtime -> m (String)
 runInTestInterpreterWithInput input inAST = do
     refEnv <- liftIO $ refify (Environment baseEnv)
     result <-
@@ -84,15 +82,11 @@ runInTestInterpreterWithInput input inAST = do
         . (`runReaderT` input)
         . (`evalStateT` refEnv)
         . Kima.Test.Interpreters.runInterpreter
-        . \case
-              ProgramAST  ast  -> runProgram ast $> Unit
-              TopLevelAST ast  -> bindTopLevel ast
-              StmtAST     stmt -> runStmt stmt
-              ExprAST     expr -> evalExpr expr
+        . runModule
 
     case result of
         Left  err -> userThrow err
-        Right val -> return val
+        Right ((), output) -> return output
 
 instance MonadConsole TestInterpreter where
     consoleRead  = ask

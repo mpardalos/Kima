@@ -69,7 +69,7 @@ subsumedBy _ _ = False
 -- | Try to infer the type of an expression. Returns the typed expression as
 -- well as its type. Throws an error if a type can't be assigned to the
 -- expression *or* if there are multiple possible types
-infer :: MonadTC m => AST 'Expr TypeAnnotated -> m (AST 'Expr Typed, KType)
+infer :: MonadTC m => Expr TypeAnnotated -> m (Expr Typed, KType)
 infer (LiteralE    lit@(IntExpr    _)) = pure (LiteralE lit, KInt)
 infer (LiteralE    lit@(FloatExpr  _)) = pure (LiteralE lit, KFloat)
 infer (LiteralE    lit@(BoolExpr   _)) = pure (LiteralE lit, KBool)
@@ -112,7 +112,7 @@ infer (Call callee args) = do
         []               -> throwError NoMatchingFunction
 
 -- | List all possible types for an expression
-enumerateTypes :: MonadTC m => AST 'Expr TypeAnnotated -> m (Set KType)
+enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
 enumerateTypes (LiteralE    IntExpr{}   ) = pure [KInt]
 enumerateTypes (LiteralE    FloatExpr{} ) = pure [KFloat]
 enumerateTypes (LiteralE    BoolExpr{}  ) = pure [KBool]
@@ -141,7 +141,7 @@ enumerateTypes (Call callee args) = do
 
 -- | Check that an expression has a certain type. If it applies, return the
 -- expression with the type applied. If not, throw an appropriate error.
-check :: MonadTC m => KType -> AST 'Expr TypeAnnotated -> m (AST 'Expr Typed)
+check :: MonadTC m => KType -> Expr TypeAnnotated -> m (Expr Typed)
 check expectedType (IdentifierE ident) = lookupName ident >>= \case
     (Binding _ availableTypes) -> do
         let possibleTypes =
@@ -171,7 +171,7 @@ check expectedType expr = do
 -- typed statement and the inferred return type. If not, throw an appropriate
 -- error
 inferReturns
-    :: MonadTC m => AST 'Stmt TypeAnnotated -> m (AST 'Stmt Typed, KType)
+    :: MonadTC m => Stmt TypeAnnotated -> m (Stmt Typed, KType)
 inferReturns (ExprStmt expr ) = first ExprStmt <$> infer expr
 inferReturns (Block    stmts) = withState id $ do
     (typedStatements, statementReturnTypes) <- unzip <$> mapM inferReturns stmts
@@ -271,7 +271,7 @@ inferAccessor (WriteAccess name path) = do
 -- | Check that a statement returns a given type. If it does, return the typed
 -- statement, otherwise, throw an appropriate error
 checkReturns
-    :: MonadTC m => KType -> AST 'Stmt TypeAnnotated -> m (AST 'Stmt Typed)
+    :: MonadTC m => KType -> Stmt TypeAnnotated -> m (Stmt Typed)
 checkReturns KUnit (ExprStmt expr) =
     -- If it's not Unit then anything else will do, doesn't matter
     ExprStmt <$> (check KUnit expr `catchError` const (fst <$> infer expr))
@@ -288,12 +288,12 @@ checkReturns t stmt            = do
 
 -- | Try to typecheck a module
 checkProgram
-    :: MonadTC m => AST 'Module TypeAnnotated -> m (AST 'Module Typed)
+    :: MonadTC m => Module TypeAnnotated -> m (Module Typed)
 checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
 
 -- | Try to typecheck a top-level declaration
 checkTopLevel
-    :: MonadTC m => AST 'TopLevel TypeAnnotated -> m (AST 'TopLevel Typed)
+    :: MonadTC m => TopLevel TypeAnnotated -> m (TopLevel Typed)
 checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff (Just rt) body)
     =   FuncDef name args eff rt
     <$> withState (addArgs args) (checkReturns rt body)

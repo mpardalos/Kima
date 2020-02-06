@@ -15,5 +15,5 @@ import Text.Megaparsec
 parseProgram
     :: String
     -> String
-    -> Either (ParseErrorBundle String Void) (AST 'Module Parsed)
+    -> Either (ParseErrorBundle String Void) (Module Parsed)
 parseProgram = runParser program

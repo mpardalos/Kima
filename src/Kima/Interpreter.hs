@@ -1,9 +1,9 @@
 module Kima.Interpreter (
-    Kima.Interpreter.run,
-    Kima.Interpreter.runWithEnv,
-    E.runAST,
-    E.evalExpr,
+    -- Kima.Interpreter.run,
+    -- Kima.Interpreter.runWithEnv,
+    E.runModule,
     E.runStmt,
+    E.evalExpr,
     E.execInterpreter,
     refify,
     unrefify,
@@ -13,38 +13,32 @@ module Kima.Interpreter (
     E.RuntimeError(..)
 ) where
 
-import Data.Bitraversable
 import Data.IORef.Class
 
 import Kima.Interpreter.Interpreter as E
 import Kima.Interpreter.Types as E
 
-import Kima.AST
+-- runAST :: Environment Value -> AST Runtime -> IO (Either RuntimeError Value)
+-- runAST env (ModuleAST ast) = do
+--     refEnv <- refify env
+--     result <- execInterpreter refEnv (E.runProgram ast)
+--     return $ Unit <$ result
+-- runAST _   (TopLevelAST _  ) = pure (Right Unit)
+-- runAST env (StmtAST     ast) = do
+--     refEnv <- refify env
+--     execInterpreter refEnv (E.runStmt ast)
+-- runAST env (ExprAST ast) = do
+--     refEnv <- refify env
+--     execInterpreter refEnv (E.evalExpr ast)
 
-run
-    :: Environment Value
-    -> AST p Runtime
-    -> IO (Either RuntimeError Value)
-run env (ProgramAST  ast) = do
-    refEnv <- refify env
-    result <- execInterpreter refEnv (E.runProgram ast)
-    return $ Unit <$ result
-run _   (TopLevelAST _  ) = pure (Right Unit)
-run env (StmtAST     ast) = do
-    refEnv <- refify env
-    execInterpreter refEnv (E.runStmt ast)
-run env (ExprAST     ast) = do
-    refEnv <- refify env
-    execInterpreter refEnv (E.evalExpr ast)
-
-runWithEnv
-    :: Environment Value
-    -> AST p Runtime
-    -> IO (Either RuntimeError (Value, Environment Value))
-runWithEnv env ast  = do
-    refEnv <- refify env
-    result <- runInterpreter refEnv (runAST ast)
-    mapM (bitraverse pure unrefify) result
+-- runASTWithEnv
+--     :: Environment Value
+--     -> AST Runtime
+--     -> IO (Either RuntimeError (Value, Environment Value))
+-- runASTWithEnv env ast  = do
+--     refEnv <- refify env
+--     result <- runInterpreter refEnv (runAST ast)
+--     mapM (bitraverse pure unrefify) result
 
 -- | Make a new Environment containing references to each value
 -- | Equivalent to `traverse newIORef`
