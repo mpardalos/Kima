@@ -10,6 +10,12 @@ import GHC.Generics
 import Kima.AST.Kinds
 import Kima.AST.Names
 
+data AST tag
+    = ModuleAST (Module tag)
+    | TopLevelAST (TopLevel tag)
+    | ExprAST (Expr tag)
+    | StmtAST (Stmt tag)
+
 data Module tag = Program [TopLevel tag]
 
 data TopLevel tag
