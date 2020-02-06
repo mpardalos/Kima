@@ -42,6 +42,17 @@ transitively2 ast = do
     intermediate2 :: part inter2 <- transformAST intermediate1
     transformAST intermediate2
 
+instance ASTTag a => TransformAST AST a a where
+    transformAST = pure
+instance ASTTag a => TransformAST Module a a where
+    transformAST = pure
+instance ASTTag a => TransformAST TopLevel a a where
+    transformAST = pure
+instance ASTTag a => TransformAST Stmt a a where
+    transformAST = pure
+instance ASTTag a => TransformAST Expr a a where
+    transformAST = pure
+
 instance TransformAST AST Parsed Desugared where
     transformAST = pure . desugarAST
 instance TransformAST Module Parsed Desugared where
