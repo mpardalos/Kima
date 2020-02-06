@@ -19,6 +19,7 @@ data AST (part :: ASTPart) tag where
     FuncDef
         :: Name
         -> [(Name, FreeAnnotation tag)]
+        -> EffectType tag
         -> FreeAnnotation tag
         -> AST 'Stmt tag
         -> AST 'TopLevel tag
@@ -37,6 +38,7 @@ data AST (part :: ASTPart) tag where
         -> AST 'Expr tag
     FuncExpr
         :: [(Name, FreeAnnotation tag)]
+        -> EffectType tag
         -> FreeAnnotation tag
         -> AST 'Stmt tag
         -> AST 'Expr tag
@@ -166,31 +168,42 @@ instance Pretty a => Pretty (Unary a) where
 
 instance (AnnotationConstraint Pretty (NameAnnotation tag),
           Pretty (AnnotatedName (NameAnnotation tag)),
+          Pretty (EffectType tag),
           Pretty (FreeAnnotation tag)) =>
          Show (AST p tag) where
     show = show . pretty
 
 instance (AnnotationConstraint Pretty (NameAnnotation tag),
           Pretty (AnnotatedName (NameAnnotation tag)),
+          Pretty (EffectType tag),
           Pretty (FreeAnnotation tag)) =>
          Pretty (AST p tag) where
     pretty (Program ast) = vcat (pretty <$> ast)
-    pretty (FuncDef name sig rt body) =
+    pretty (FuncDef name sig eff rt body) =
         "fun"
             <+> pretty name
             <>  prettyArgList sig
+            <+> "=>"
+            <+> pretty eff
             <+> "->"
             <+> pretty rt
             <+> pretty body
-    pretty (FuncExpr sig rt body) =
-        "fun" <+> prettyArgList sig <+> "->" <+> pretty rt <+> pretty body
+    pretty (FuncExpr sig eff rt body) =
+        "fun"
+            <+> prettyArgList sig
+            <+> "=>"
+            <+> pretty eff
+            <+> "->"
+            <+> pretty rt
+            <+> pretty body
     pretty (DataDef name members) =
         "data"
             <+> pretty name
             <+> "{"
             <>  line
             <>  vcat
-                    (punctuate ","
+                    (punctuate
+                        ","
                         ((\(n, t) -> pretty n <> ": " <> pretty t) <$> members)
                     )
             <>  line
@@ -199,13 +212,13 @@ instance (AnnotationConstraint Pretty (NameAnnotation tag),
         "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (Let name t expr) =
         "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
-    pretty (LiteralE    lit ) = pretty lit
-    pretty (IdentifierE name) = pretty name
-    pretty (Call callee args) = pretty callee <> tupled (pretty <$> args)
-    pretty (BinE     bin    ) = pretty bin
-    pretty (UnaryE   unary  ) = pretty unary
-    pretty (AccessE  expr name) = parens (pretty expr) <> "." <> pretty name
-    pretty (ExprStmt expr   ) = pretty expr
+    pretty (LiteralE    lit  ) = pretty lit
+    pretty (IdentifierE name ) = pretty name
+    pretty (Call callee args ) = pretty callee <> tupled (pretty <$> args)
+    pretty (BinE   bin       ) = pretty bin
+    pretty (UnaryE unary     ) = pretty unary
+    pretty (AccessE expr name) = parens (pretty expr) <> "." <> pretty name
+    pretty (ExprStmt expr    ) = pretty expr
     pretty (Block stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"
     pretty (Assign name expr) = pretty name <+> "=" <+> pretty expr
@@ -246,13 +259,16 @@ instance Bitraversable WhileStmt where
 
 deriving instance ( AnnotationConstraint Eq (NameAnnotation tag)
                   , Eq (AnnotatedName (NameAnnotation tag))
-                  , Eq (FreeAnnotation tag)) => Eq (AST p tag)
+                  , Eq (FreeAnnotation tag)
+                  , Eq (EffectType tag)) => Eq (AST p tag)
 
 -- -- Traverals
 mapFreeAnnotations
     :: forall t1 t2 p
     . (TagSugar t1 ~ TagSugar t2
-    ,  NameAnnotation t1 ~ NameAnnotation t2)
+    ,  NameAnnotation t1 ~ NameAnnotation t2
+    ,  EffectType t1 ~ EffectType t2
+    )
     => (FreeAnnotation t1 -> FreeAnnotation t2)
     -> AST p t1
     -> AST p t2
@@ -265,6 +281,7 @@ mapFreeAnnotations = coerce
 traverseFreeAnnotations
     :: ( TagSugar t1 ~ TagSugar t2
        , NameAnnotation t1 ~ NameAnnotation t2
+       , EffectType t1 ~ EffectType t2
        , Applicative m)
     => (FreeAnnotation t1 -> m (FreeAnnotation t2))
     -> AST p t1
@@ -275,12 +292,14 @@ traverseFreeAnnotations f (Var n t e) = Var n
 traverseFreeAnnotations f (Let n t e) = Let n
     <$> f t
     <*> traverseFreeAnnotations f e
-traverseFreeAnnotations f (FuncDef n args rt b) = FuncDef n
+traverseFreeAnnotations f (FuncDef n args eff rt b) = FuncDef n
     <$> traverse (traverse f) args
+    <*> pure eff
     <*> f rt
     <*> traverseFreeAnnotations f b
-traverseFreeAnnotations f (FuncExpr args rt b) = FuncExpr
+traverseFreeAnnotations f (FuncExpr args eff rt b) = FuncExpr
     <$> traverse (traverse f) args
+    <*> pure eff
     <*> f rt
     <*> traverseFreeAnnotations f b
 traverseFreeAnnotations f (Program ast      ) = Program
@@ -316,7 +335,8 @@ addIdAnnotations
        , TagSugar t1 ~ TagSugar t2
        , FreeAnnotation t1 ~ FreeAnnotation t2
        , NameAnnotation t1 ~ 'NoAnnotation
-       , NameAnnotation t2 ~ 'Annotation idAnn)
+       , NameAnnotation t2 ~ 'Annotation idAnn
+       , EffectType t1 ~ EffectType t2)
     => m idAnn -- ^ Applicative action producing Annotations
     -> AST p t1 -- ^ Original AST
     -> m (AST p t2)
@@ -340,9 +360,9 @@ addIdAnnotations f (If stmt) = If
     <$> bitraverse (addIdAnnotations f) (addIdAnnotations f) stmt
 addIdAnnotations f (Block blk) = Block
     <$> traverse (addIdAnnotations f) blk
-addIdAnnotations f (FuncDef n args rt b) = FuncDef n args rt
+addIdAnnotations f (FuncDef n args eff rt b) = FuncDef n args eff rt
     <$> addIdAnnotations f b
-addIdAnnotations f (FuncExpr args rt b) = FuncExpr args rt
+addIdAnnotations f (FuncExpr args eff rt b) = FuncExpr args eff rt
     <$> addIdAnnotations f b
 addIdAnnotations _ (DataDef n members) = pure $ DataDef n members
 addIdAnnotations f (Call callee args) = Call
@@ -360,7 +380,9 @@ traverseIdAnnotations
        , TagSugar t1 ~ TagSugar t2
        , FreeAnnotation t1 ~ FreeAnnotation t2
        , NameAnnotation t1 ~ 'Annotation idAnn1
-       , NameAnnotation t2 ~ 'Annotation idAnn2)
+       , NameAnnotation t2 ~ 'Annotation idAnn2
+       , EffectType t1 ~ EffectType t2
+       )
     => (idAnn1 -> m idAnn2)
     -> AST p t1
     -> m (AST p t2)
@@ -381,9 +403,9 @@ traverseIdAnnotations f (If stmt) = If
     <$> bitraverse (traverseIdAnnotations f) (traverseIdAnnotations f) stmt
 traverseIdAnnotations f (Block blk) = Block
     <$> traverse (traverseIdAnnotations f) blk
-traverseIdAnnotations f (FuncDef n args rt b) = FuncDef n args rt
+traverseIdAnnotations f (FuncDef n args eff rt b) = FuncDef n args eff rt
     <$> traverseIdAnnotations f b
-traverseIdAnnotations f (FuncExpr args rt b) = FuncExpr args rt
+traverseIdAnnotations f (FuncExpr args eff rt b) = FuncExpr args eff rt
     <$> traverseIdAnnotations f b
 traverseIdAnnotations _ (DataDef n members) = pure $ DataDef n members
 traverseIdAnnotations f (Call callee args) = Call

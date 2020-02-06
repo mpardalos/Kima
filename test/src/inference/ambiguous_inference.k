@@ -3,7 +3,7 @@
 fun id(x: Int) -> Int { x; }
 fun id(s: String) -> String { s; }
 
-fun main() -> Unit {
+fun main() : IO -> Unit {
     let n = id(5);
     let s = id("a");
 

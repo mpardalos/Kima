@@ -1,5 +1,5 @@
 ##output: 1
 
-fun main() -> Unit {
+fun main() : IO -> Unit {
     print(2-1);
 }

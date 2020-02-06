@@ -30,3 +30,4 @@ baseTypeCtx :: TypeCtx
 baseTypeCtx = TypeCtx
     baseTypeBindings
     (Binding Constant . Set.fromList <$> baseBindings)
+    noEffect

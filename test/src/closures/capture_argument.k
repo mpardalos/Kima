@@ -1,11 +1,11 @@
 ##output: abc
 
-fun printer(s: String) -> () -> Unit {
-    fun() -> Unit {
+fun printer(s: String) -> () : IO -> Unit {
+    fun() : IO -> Unit {
         print(s);
     }
 }
 
-fun main() -> Unit {
+fun main() : IO -> Unit {
     printer("abc")();
 }

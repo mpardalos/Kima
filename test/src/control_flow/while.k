@@ -1,4 +1,4 @@
-fun main() -> Unit {
+fun main() : IO -> Unit {
     var i: Int = 1;
     while (i < 3) {
         print(i);

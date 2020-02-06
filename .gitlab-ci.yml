@@ -7,7 +7,9 @@ variables:
     STACK_ROOT: "${CI_PROJECT_DIR}/.stack-root"
 
 build:
-    stage: "test"  
+    stage: "test"
+    only:
+        - master
     cache:
         key: "$CI_BUILD_NAME"
         paths:

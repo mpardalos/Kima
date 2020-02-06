@@ -1,5 +1,5 @@
 ##output: hello
 
-fun main() -> Unit {
+fun main() : IO -> Unit {
     print("hello");
 }

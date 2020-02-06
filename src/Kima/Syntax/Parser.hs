@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 module Kima.Syntax.Parser where
 
 import Prelude hiding (mod)
@@ -8,6 +9,7 @@ import qualified Kima.Syntax.Tokenizer as T (Symbol(Mod))
 import Kima.Syntax.Types
 
 import Control.Monad.Combinators.Expr
+import Data.Functor
 import GHC.Exts
 import Text.Megaparsec
 
@@ -18,26 +20,59 @@ program = Program <$> (whitespace *> some topLevel <* eof)
 topLevel :: Parser (AST 'TopLevel Parsed)
 topLevel = funcDef <|> dataDef
 
+effectSpec :: Parser Effect
+effectSpec = try singleEffect <|> bracedEffects
+    where
+        singleEffect = fromEffectNames . pure <$> identifier
+        bracedEffects = fromEffectNames <$> braces (identifier `sepBy` symbol Comma)
+
+functionReturn :: Parser (Maybe Effect, Maybe ParsedTypeExpr)
+functionReturn =
+    try effectAndReturnType
+        <|> try justReturnType
+        <|> try justEffectType
+        <|> neither
+  where
+    effectAndReturnType = label "both effect and return type" $ do
+        effects    <- symbol Colon *> effectSpec
+        returnType <- symbol Arrow *> typeExpr
+        return (Just effects, Just returnType)
+
+    justReturnType =
+        (symbol Arrow *> typeExpr)
+            <&> (\rt -> (Nothing, Just rt))
+            <?> "just return type"
+
+    justEffectType =
+        (symbol Colon *> effectSpec)
+            <&> (\eff -> (Just eff, Nothing))
+            <?> "just effect type"
+
+    neither = label "No return spec" $ pure (Nothing, Nothing)
+
 funcDef :: Parser (AST 'TopLevel Parsed)
-funcDef = reserved RFun *> (
-    FuncDef
-    <$> identifier
-    <*> parens typedArgList
-    <*> optional (symbol Arrow *> typeExpr)
-    <*> block)
+funcDef = do
+    reserved RFun
+    pIdentifier            <- identifier
+    pArgs                  <- typedArgList
+    (pEffect, pReturnType) <- functionReturn
+    pBody                  <- block
+
+    return (FuncDef pIdentifier pArgs pEffect pReturnType pBody)
+
 
 dataDef :: Parser (AST 'TopLevel Parsed)
 dataDef = reserved RData *> (
     DataDef
     <$> identifier
-    <*> parens (typedArg `sepBy` symbol Comma))
+    <*> typedArgList)
     <?> "Datatype declaration"
 
-typedArgList :: Parser [(Name, Maybe TypeExpr)]
-typedArgList = typedArg `sepBy` symbol Comma
+typedArgList :: Parser [(Name, Maybe ParsedTypeExpr)]
+typedArgList = parens (typedArg `sepBy` symbol Comma)
     <?> "Argument list"
 
-typedArg :: IsString s => Parser (s, Maybe TypeExpr)
+typedArg :: IsString s => Parser (s, Maybe ParsedTypeExpr)
 typedArg = (,) <$> identifier <*> optional (symbol Colon *> typeExpr)
 
 -- Statements
@@ -118,14 +153,15 @@ prefix  p f = Prefix  (f <$ p)
 postfix p f = Postfix (f <$ p)
 
 term :: Parser (AST 'Expr Parsed)
-term = try accessCall <|> funcExpr <|> baseTerm
+term = try accessCall <|> try funcExpr <|> try baseTerm
 
 funcExpr :: Parser (AST 'Expr Parsed)
-funcExpr = reserved RFun *> (
-    FuncExpr
-    <$> parens typedArgList
-    <*> optional (symbol Arrow *> typeExpr)
-    <*> block)
+funcExpr = do
+    reserved RFun
+    pArgs                  <- typedArgList
+    (pEffect, pReturnType) <- functionReturn
+    body                   <- block
+    return (FuncExpr pArgs pEffect pReturnType body)
 
 -- | A term without calls (Useful for parsing calls)
 baseTerm :: Parser (AST 'Expr Parsed)
@@ -148,21 +184,18 @@ accessCall = do
     where
         callOrAccess =
             Left  <$> (symbol Dot *> identifier) <|>
-            Right <$> parens (expr `sepBy` symbol Comma)
+            Right <$> argList
 
         combiner acc (Left  attr) = AccessE acc attr
         combiner acc (Right args) = Call acc args
 
-typeExpr :: Parser TypeExpr
-typeExpr = uncurry SignatureType <$> try anonymousSignature
-       <|> (TypeName <$> try identifier)
-       <?> "type expression"
+typeExpr :: Parser ParsedTypeExpr
+typeExpr =
+    try anonymousSignature <|> (ParsedTypeName <$> identifier) <?> "type expression"
+  where
+    anonymousSignature = label "function signature" $ do
+        arguments  <- parens (typeExpr `sepBy` symbol Comma)
+        effect     <- optional (symbol Colon *> effectSpec)
+        returnType <- symbol Arrow *> typeExpr
 
-anonymousSignature :: Parser ([TypeExpr], TypeExpr)
-anonymousSignature = (,)
-    <$> parens (typeExpr `sepBy` symbol Comma)
-    <*> (symbol Arrow *> typeExpr)
-    <?> "function signature"
-
-typeName :: Parser TypeExpr
-typeName = TypeName <$> identifier
+        return (ParsedSignatureType arguments effect returnType)

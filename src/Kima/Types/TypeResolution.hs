@@ -32,22 +32,22 @@ processTopLevel (Program topLevelDecls) = forM_ topLevelDecls $ \case
 
         modify $ addType typeName declaredType
 
-        let constructorType = KFunc (memberTypes $-> declaredType)
+        let constructorType = KFunc memberTypes noEffect declaredType
         modify $ addBinding (Identifier typeName)
                             (Binding Constant [constructorType])
 
         forM_ resolvedMembers $ \(fieldName, fieldType) -> do
-            let accessorType = KFunc ([declaredType] $-> fieldType)
+            let accessorType = KFunc [declaredType] noEffect fieldType
             modify $ addBinding (Accessor fieldName)
                                 (Binding Constant [accessorType])
     DataDef{} -> throwError MissingFieldTypes
 
-    FuncDef name (ensureTypedArgs -> Just args) (Just rtExpr) _body -> do
+    FuncDef name (ensureTypedArgs -> Just args) eff (Just rtExpr) _body -> do
         argTypes <- mapM resolveTypeExpr (snd <$> args)
         rt       <- resolveTypeExpr rtExpr
-        let funcType = KFunc (argTypes $-> rt)
+        let funcType = KFunc argTypes eff rt
         modify (addBinding (Identifier name) (Binding Constant [funcType]))
-    FuncDef _ (ensureTypedArgs -> Just _) Nothing _body -> throwError MissingReturnType
+    FuncDef _ (ensureTypedArgs -> Just _) _eff Nothing _body -> throwError MissingReturnType
     FuncDef{} -> throwError MissingArgumentTypes
 
 resolveTypeExpr :: MonadTypeResolution m => TypeExpr -> m KType
@@ -55,10 +55,10 @@ resolveTypeExpr tExpr@(TypeName name) =
     gets (Map.lookup name . typeBindings) >>= \case
         Nothing -> throwError (TypeResolutionError tExpr)
         Just t  -> pure t
-resolveTypeExpr (SignatureType argExprs rtExpr) = do
+resolveTypeExpr (SignatureType argExprs eff rtExpr) = do
     args <- traverse resolveTypeExpr argExprs
     rt   <- resolveTypeExpr rtExpr
-    return (KFunc (args $-> rt))
+    return (KFunc args eff rt)
 
 ensureTypedArgs :: [(a, Maybe TypeExpr)] -> Maybe [(a, TypeExpr)]
 ensureTypedArgs = traverse sequence

@@ -1,6 +1,6 @@
 # Multiple assignments
 
-fun main() -> Unit {
+fun main() : IO -> Unit {
     var b: String = "hello";
     var i: Int = 0;
     while (i < 100) {

@@ -16,5 +16,6 @@ class ASTTag s where
     type TagSugar s :: Sugar
     type NameAnnotation s :: HasAnnotation
     type FreeAnnotation s :: Type
+    type EffectType s :: Type
 
 type HasSugar s = TagSugar s ~ 'Sugar

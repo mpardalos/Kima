@@ -25,7 +25,7 @@ runAST (ExprAST    ast)  = evalExpr ast
 evalExpr :: MonadInterpreter m => AST 'Expr Runtime -> m Value
 evalExpr (LiteralE   l     )     = return $ evalLiteral l
 evalExpr (IdentifierE name )     = getName name
-evalExpr (FuncExpr args _rt body) = Function (uncurry TIdentifier <$> args) body <$> get
+evalExpr (FuncExpr args _eff _rt body) = Function (uncurry TIdentifier <$> args) body <$> get
 evalExpr (Call callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 
@@ -69,7 +69,7 @@ runStmt (Assign (WriteAccess name path) expr) = do
             -> [AnnotatedName ('Annotation KType)] -- | Path
             -> m [Value]
         lookupFields baseType (TName subName subType:subFieldNames) = do
-            let accessorType = KFunc ([baseType] $-> subType)
+            let accessorType = KFunc [baseType] noEffect subType
             thisField <- getName (TAccessor subName accessorType)
             subFields <- lookupFields subType subFieldNames
             return (thisField:subFields)
@@ -134,9 +134,9 @@ getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
 -- | Bind either a function or the constructor and accessors of a
 -- | DataDef
 bindTopLevel :: MonadInterpreter m => AST 'TopLevel Runtime -> m Value
-bindTopLevel (FuncDef name args rt body) = do
-    let funcType = KFunc ((snd <$> args) $-> rt)
-    let funcIdentifier = (TIdentifier name funcType)
+bindTopLevel (FuncDef name args eff rt body) = do
+    let funcType = KFunc (snd <$> args) eff rt
+    let funcIdentifier = TIdentifier name funcType
 
     -- Bind it initially to something just to create the reference.
     -- Necessary because the closure will include the function itself
@@ -151,10 +151,10 @@ bindTopLevel (DataDef name members)       = do
     let declaredType = KUserType name members
     let memberTypes = snd <$> members
     let constructor = BuiltinFunction (return . ProductData)
-    let constructorType = KFunc (memberTypes $-> declaredType)
+    let constructorType = KFunc memberTypes noEffect declaredType
 
     forM_ (zip [0..] members) $ \(i, (memberName, memberType)) ->
-        let accessorType = KFunc ([declaredType] $-> memberType) in
+        let accessorType = KFunc [declaredType] noEffect memberType in
         bind (TAccessor memberName accessorType) (AccessorIdx memberName i)
     bind (TIdentifier name constructorType) constructor
     return constructor
@@ -162,6 +162,6 @@ bindTopLevel (DataDef name members)       = do
 runProgram :: MonadInterpreter m => AST 'Module Runtime -> m ()
 runProgram (Program defs) = do
     forM_ defs bindTopLevel
-    mainFunc <- getName (TIdentifier "main" (KFunc ([] $-> KUnit)))
+    mainFunc <- getName (TIdentifier "main" (KFunc [] ioEffect KUnit))
     _        <- runFunc mainFunc []
     return ()

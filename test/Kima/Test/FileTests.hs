@@ -27,6 +27,7 @@ data FileTest = FileTest {
     fileName :: String,
     input :: String,
     isPending :: Bool,
+    isFocused :: Bool,
     expectedFailStage :: TargetStage,
     expectedOut :: Maybe String,
     contents :: String
@@ -84,20 +85,23 @@ dirTreeSpec (File _ contents) = runFileTest contents
 runFileTest :: FileTest -> Spec
 runFileTest FileTest { fileName, isPending = True } =
     it (fileName ++ " is pending") pending
-runFileTest FileTest { fileName, contents, input, expectedFailStage, expectedOut, isPending = False }
-    = sequential $ case expectedFailStage of
-        Parsing -> it (fileName ++ " does not parse")
-            $ shouldFail (fromStringTo @Parsed contents)
-        Typechecking -> it (fileName ++ " does not typecheck") $ do
-            shouldRun (fromStringTo @Parsed contents)
-            shouldFail (fromStringTo @Typed contents)
-        None -> it (fileName ++ " runs") $ do
-            ast <- fromStringTo @Runtime contents
-            shouldRunWithInputOutput ast input expectedOut
+runFileTest test = maybeFocused $ sequential $ case expectedFailStage test of
+    Parsing -> it (fileName test ++ " does not parse")
+        $ shouldFail (fromStringTo @Parsed (contents test))
+
+    Typechecking -> it (fileName test ++ " does not typecheck") $ do
+        shouldRun (fromStringTo @Parsed (contents test))
+        shouldFail (fromStringTo @Typed (contents test))
+
+    None -> it (fileName test ++ " runs") $ do
+        ast <- fromStringTo @Runtime (contents test)
+        shouldRunWithInputOutput ast (input test) (expectedOut test)
+    where maybeFocused = if isFocused test then focus else id
 
 makeFileTest :: String -> String -> Either String FileTest
 makeFileTest name contents = do
     let isPending = not $ null (findPragmas "pending" contents)
+    let isFocused = not $ null (findPragmas "focused" contents)
     let input     = concat $ findPragmas "input" contents
     let expectedOut = case concat $ findPragmas "output" contents of
             "" -> Nothing
@@ -115,6 +119,7 @@ makeFileTest name contents = do
                       , contents
                       , expectedOut
                       , isPending
+                      , isFocused
                       , expectedFailStage
                       }
   where
