@@ -34,7 +34,7 @@ functionReturn =
         <|> neither
   where
     effectAndReturnType = label "both effect and return type" $ do
-        effects    <- symbol FatArrow *> effectSpec
+        effects    <- symbol Colon *> effectSpec
         returnType <- symbol Arrow *> typeExpr
         return (Just effects, Just returnType)
 
@@ -44,7 +44,7 @@ functionReturn =
             <?> "just return type"
 
     justEffectType =
-        (symbol FatArrow *> effectSpec)
+        (symbol Colon *> effectSpec)
             <&> (\eff -> (Just eff, Nothing))
             <?> "just effect type"
 
@@ -195,7 +195,7 @@ typeExpr =
   where
     anonymousSignature = label "function signature" $ do
         arguments  <- parens (typeExpr `sepBy` symbol Comma)
-        effect     <- optional (symbol FatArrow *> effectSpec)
+        effect     <- optional (symbol Colon *> effectSpec)
         returnType <- symbol Arrow *> typeExpr
 
         return (ParsedSignatureType arguments effect returnType)

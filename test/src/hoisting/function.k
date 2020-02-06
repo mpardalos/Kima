@@ -1,4 +1,4 @@
-fun main() => IO -> Unit {
+fun main() : IO -> Unit {
     thefunc();
 }
 

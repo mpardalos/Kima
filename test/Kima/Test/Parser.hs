@@ -67,9 +67,9 @@ expressionTests =
     , ( "fun () -> Unit {}", FuncExpr [] Nothing "Unit" (Block []))
     , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] Nothing "Unit" (Block []))
     , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] Nothing "Unit" (Block []))
-    , ( "fun () => eff -> Unit {}", FuncExpr [] (Just $ fromList ["eff"]) "Unit" (Block []))
-    , ( "fun (a: Int) => eff -> Unit {}", FuncExpr [("a", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
-    , ( "fun (a: Int, b: Int) => eff -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun () : eff -> Unit {}", FuncExpr [] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun (a: Int) : eff -> Unit {}", FuncExpr [("a", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun (a: Int, b: Int) : eff -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
     ]
 
 statementTests :: [(String, AST 'Stmt Parsed)]
@@ -102,12 +102,12 @@ typeTests =
                             (ParsedTypeName "c")
       )
     -- Effects
-    , ( "(a) => eff -> c"
+    , ( "(a) : eff -> c"
       , ParsedSignatureType [ParsedTypeName "a"]
                             (Just $ fromList ["eff"])
                             (ParsedTypeName "c")
       )
-    , ( "(a) => {eff1, eff2} -> c"
+    , ( "(a) : {eff1, eff2} -> c"
       , ParsedSignatureType [ParsedTypeName "a"]
                             (Just $ fromList ["eff1", "eff2"])
                             (ParsedTypeName "c")
@@ -120,14 +120,14 @@ typeTests =
           (ParsedSignatureType [ParsedTypeName "b"] Nothing (ParsedTypeName "c")
           )
       )
-    , ( "(a) => eff -> (b) -> c"
+    , ( "(a) : eff -> (b) -> c"
       , ParsedSignatureType
           [ParsedTypeName "a"]
           (Just $ fromList ["eff"])
           (ParsedSignatureType [ParsedTypeName "b"] Nothing (ParsedTypeName "c")
           )
       )
-    , ( "(a) -> (b) => eff -> c"
+    , ( "(a) -> (b) : eff -> c"
       , ParsedSignatureType
           [ParsedTypeName "a"]
           Nothing
@@ -136,7 +136,7 @@ typeTests =
                                (ParsedTypeName "c")
           )
       )
-    , ( "(a) => eff1 -> (b) => eff2 -> c"
+    , ( "(a) : eff1 -> (b) : eff2 -> c"
       , ParsedSignatureType
           [ParsedTypeName "a"]
           (Just $ fromList ["eff1"])

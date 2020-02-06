@@ -9,7 +9,7 @@ fun make_f() -> () -> Unit {
     };
 }
 
-fun main() => IO -> Unit {
+fun main() : IO -> Unit {
     let f: () -> Unit = make_f();
     f();
     f();
