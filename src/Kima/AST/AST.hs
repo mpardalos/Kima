@@ -10,7 +10,7 @@ import GHC.Generics
 import Kima.AST.Kinds
 import Kima.AST.Names
 
-data Program tag = Program [TopLevel tag]
+data Module tag = Program [TopLevel tag]
 
 data TopLevel tag
     = FuncDef Name [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
@@ -112,7 +112,7 @@ instance
     , Pretty (AnnotatedName (NameAnnotation stage))
     , Pretty (EffectType stage)
     , Pretty (FreeAnnotation stage)
-    ) => Show (Program stage) where
+    ) => Show (Module stage) where
     show = show . pretty
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
@@ -141,7 +141,7 @@ instance
     , Pretty (AnnotatedName (NameAnnotation stage))
     , Pretty (EffectType stage)
     , Pretty (FreeAnnotation stage)
-    ) => Pretty (Program stage) where
+    ) => Pretty (Module stage) where
     pretty (Program ast) = vcat (pretty <$> ast)
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
@@ -244,7 +244,7 @@ deriving instance
     , Eq (AnnotatedName (NameAnnotation stage))
     , Eq (EffectType stage)
     , Eq (FreeAnnotation stage)
-    ) => Eq (Program stage)
+    ) => Eq (Module stage)
 deriving instance
     ( AnnotationConstraint Eq (NameAnnotation stage)
     , Eq (AnnotatedName (NameAnnotation stage))

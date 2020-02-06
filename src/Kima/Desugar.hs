@@ -1,5 +1,5 @@
 module Kima.Desugar
-    ( desugarProgram
+    ( desugarModule
     , desugarTopLevel
     , desugarStmt
     , desugarExpr
@@ -10,8 +10,8 @@ import           Data.Bifunctor
 
 import           Kima.AST
 
-desugarProgram :: Program Parsed -> Program Desugared
-desugarProgram (Program ast) = Program (desugarTopLevel <$> ast)
+desugarModule :: Module Parsed -> Module Desugared
+desugarModule (Program ast) = Program (desugarTopLevel <$> ast)
 
 desugarTopLevel :: TopLevel Parsed -> TopLevel Desugared
 desugarTopLevel (DataDef name members) =
