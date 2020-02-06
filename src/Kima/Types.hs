@@ -1,11 +1,9 @@
 module Kima.Types
     ( module E
-    , typecheckAST
     , typecheckModule
     , typecheckTopLevel
     , typecheckStmt
     , typecheckExpr
-    , typecheckASTWithTypeCtx
     , typecheckModuleWithTypeCtx
     , typecheckTopLevelWithTypeCtx
     , typecheckStmtWithTypeCtx
@@ -15,8 +13,7 @@ module Kima.Types
 where
 
 import           Kima.Types.TypeResolution     as E
-                                                ( resolveASTTypes
-                                                , resolveModuleTypes
+                                                ( resolveModuleTypes
                                                 , resolveTopLevelTypes
                                                 , resolveStmtTypes
                                                 , resolveExprTypes
@@ -39,10 +36,6 @@ import           Kima.Types.Bidirectional      as E
 import           Kima.AST
 import           Control.Monad.State
 import           Data.Functor                   ( (<&>) )
-import           Data.Bifunctor                 ( first )
-
-typecheckAST :: TypeCtx -> AST Desugared -> Either TypecheckingError (AST Typed)
-typecheckAST typeCtx = fmap fst . typecheckASTWithTypeCtx typeCtx
 
 typecheckModule
     :: TypeCtx -> Module Desugared -> Either TypecheckingError (Module Typed)
@@ -61,17 +54,6 @@ typecheckStmt typeCtx = fmap fst . typecheckStmtWithTypeCtx typeCtx
 typecheckExpr
     :: TypeCtx -> Expr Desugared -> Either TypecheckingError (Expr Typed)
 typecheckExpr typeCtx = fmap fst . typecheckExprWithTypeCtx typeCtx
-
-typecheckASTWithTypeCtx
-    :: TypeCtx -> AST Desugared -> Either TypecheckingError (AST Typed, TypeCtx)
-typecheckASTWithTypeCtx baseTypeCtx (ModuleAST ast) =
-    first ModuleAST <$> typecheckModuleWithTypeCtx baseTypeCtx ast
-typecheckASTWithTypeCtx baseTypeCtx (TopLevelAST ast) =
-    first TopLevelAST <$> typecheckTopLevelWithTypeCtx baseTypeCtx ast
-typecheckASTWithTypeCtx baseTypeCtx (StmtAST ast) =
-    first StmtAST <$> typecheckStmtWithTypeCtx baseTypeCtx ast
-typecheckASTWithTypeCtx baseTypeCtx (ExprAST ast) =
-    first ExprAST <$> typecheckExprWithTypeCtx baseTypeCtx ast
 
 typecheckModuleWithTypeCtx
     :: TypeCtx

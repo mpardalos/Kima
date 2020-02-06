@@ -31,8 +31,6 @@ transitively1 ast = do
     intermediate :: part inter <- transformAST ast
     transformAST intermediate
 
-instance ASTTag a => TransformAST AST a a where
-    transformAST = pure
 instance ASTTag a => TransformAST Module a a where
     transformAST = pure
 instance ASTTag a => TransformAST TopLevel a a where
@@ -42,8 +40,6 @@ instance ASTTag a => TransformAST Stmt a a where
 instance ASTTag a => TransformAST Expr a a where
     transformAST = pure
 
-instance TransformAST AST Parsed Desugared where
-    transformAST = pure . desugarAST
 instance TransformAST Module Parsed Desugared where
     transformAST = pure . desugarModule
 instance TransformAST TopLevel Parsed Desugared where
@@ -53,10 +49,6 @@ instance TransformAST Stmt Parsed Desugared where
 instance TransformAST Expr Parsed Desugared where
     transformAST = pure . desugarExpr
 
-instance TransformAST AST Desugared TypeAnnotated where
-    transformAST = runEither
-        . (`evalStateT` baseTypeCtx)
-        . T.resolveASTTypes
 instance TransformAST Module Desugared TypeAnnotated where
     transformAST = runEither
         . (`evalStateT` baseTypeCtx)
@@ -74,8 +66,6 @@ instance TransformAST Expr Desugared TypeAnnotated where
         . (`evalStateT` baseTypeCtx)
         . T.resolveExprTypes
 
-instance TransformAST AST Desugared Typed where
-    transformAST = runEither . T.typecheckAST baseTypeCtx
 instance TransformAST Module Desugared Typed where
     transformAST = runEither . T.typecheckModule baseTypeCtx
 instance TransformAST TopLevel Desugared Typed where
@@ -85,8 +75,6 @@ instance TransformAST Stmt Desugared Typed where
 instance TransformAST Expr Desugared Typed where
     transformAST = runEither . T.typecheckExpr baseTypeCtx
 
-instance TransformAST AST Parsed TypeAnnotated where
-    transformAST = transitively1 @Desugared
 instance TransformAST Module Parsed TypeAnnotated where
     transformAST = transitively1 @Desugared
 instance TransformAST TopLevel Parsed TypeAnnotated where
@@ -96,8 +84,6 @@ instance TransformAST Stmt Parsed TypeAnnotated where
 instance TransformAST Expr Parsed TypeAnnotated where
     transformAST = transitively1 @Desugared
 
-instance TransformAST AST Parsed Typed where
-    transformAST = transitively1 @Desugared
 instance TransformAST Module Parsed Typed where
     transformAST = transitively1 @Desugared
 instance TransformAST TopLevel Parsed Typed where

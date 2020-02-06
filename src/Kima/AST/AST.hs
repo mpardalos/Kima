@@ -10,12 +10,6 @@ import GHC.Generics
 import Kima.AST.Kinds
 import Kima.AST.Names
 
-data AST tag
-    = ModuleAST (Module tag)
-    | TopLevelAST (TopLevel tag)
-    | ExprAST (Expr tag)
-    | StmtAST (Stmt tag)
-
 data Module tag = Program [TopLevel tag]
 
 data TopLevel tag
@@ -271,24 +265,6 @@ deriving instance
     ) => Eq (Expr stage)
 
 -- Traversals
-
-traverseFreeAnnotations
-    :: ( TagSugar t1 ~ TagSugar t2
-       , NameAnnotation t1 ~ NameAnnotation t2
-       , EffectType t1 ~ EffectType t2
-       , Applicative m
-       )
-    => (FreeAnnotation t1 -> m (FreeAnnotation t2))
-    -> AST t1
-    -> m (AST t2)
-traverseFreeAnnotations f (ModuleAST ast) =
-    ModuleAST <$> traverseModuleFreeAnnotations f ast
-traverseFreeAnnotations f (TopLevelAST ast) =
-    TopLevelAST <$> traverseTopLevelFreeAnnotations f ast
-traverseFreeAnnotations f (StmtAST ast) =
-    StmtAST <$> traverseStmtFreeAnnotations f ast
-traverseFreeAnnotations f (ExprAST ast) =
-    ExprAST <$> traverseExprFreeAnnotations f ast
 
 traverseModuleFreeAnnotations
     :: ( TagSugar t1 ~ TagSugar t2

@@ -4,7 +4,6 @@ module Kima.Test.Interpreters where
 
 import           Kima.Interpreter
 import           Kima.Interpreter.Types
-import           Kima.Interpreter.Interpreter
 import           Kima.Interface
 import           Kima.Builtins
 import           Kima.AST
@@ -12,7 +11,6 @@ import           Control.Monad.State
 import           Control.Monad.Reader
 import           Control.Monad.Except
 import           Control.Monad.Writer
-import           Data.Functor
 import           Data.Function
 import           Data.IORef.Class
 import           Test.Hspec

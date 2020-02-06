@@ -15,12 +15,6 @@ type MonadTypeResolution m
 -- | Resolve all typeExprs in an AST.
 -- Note: in DataDefs, accessor types are annotated with the type of the attribute,
 --       **not** their function type.
-resolveASTTypes :: MonadTypeResolution m => AST Desugared -> m (AST TypeAnnotated)
-resolveASTTypes (ModuleAST   ast) = ModuleAST <$> resolveModuleTypes ast
-resolveASTTypes (TopLevelAST ast) = TopLevelAST <$> resolveTopLevelTypes ast
-resolveASTTypes (StmtAST     ast) = StmtAST <$> resolveStmtTypes ast
-resolveASTTypes (ExprAST     ast) = ExprAST <$> resolveExprTypes ast
-
 resolveModuleTypes
     :: MonadTypeResolution m => Module Desugared -> m (Module TypeAnnotated)
 resolveModuleTypes ast = do
