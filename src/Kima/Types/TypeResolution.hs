@@ -23,8 +23,9 @@ resolveASTTypes (ExprAST     ast) = ExprAST <$> resolveExprTypes ast
 
 resolveModuleTypes
     :: MonadTypeResolution m => Module Desugared -> m (Module TypeAnnotated)
-resolveModuleTypes =
-    traverseModuleFreeAnnotations (traverse resolveTypeExpr)
+resolveModuleTypes ast = do
+    processTopLevel ast
+    traverseModuleFreeAnnotations (traverse resolveTypeExpr) ast
 
 resolveTopLevelTypes
     :: MonadTypeResolution m => TopLevel Desugared -> m (TopLevel TypeAnnotated)
