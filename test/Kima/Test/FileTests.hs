@@ -33,70 +33,33 @@ data FileTest = FileTest {
     contents :: String
 }
 
-
-
-instance Show FileTest where
-    show FileTest { fileName, isPending } =
-        "FileTest { "
-            <> "fileName = "
-            <> fileName
-            <> ", "
-            <> "pending = "
-            <> show isPending
-            <> "}"
-
-    showList xs = (intercalate "\n" (show <$> xs) <>)
-
-instance Eq FileTest where
-    (==) FileTest { fileName = name1 } FileTest { fileName = name2 } =
-        name1 == name2
-
-instance Ord FileTest where
-    compare FileTest { fileName = name1 } FileTest { fileName = name2 } =
-        compare name1 name2
-
 spec :: Spec
 spec = do
-    (_ :/ testSources) <- runIO $ readDirectoryWith
-        (\fp -> do
-            src <- readFile fp
-            pure (takeFileName fp, src)
-        )
+    testSources <- runIO readTestSources
+
+    parallel
+        $ context "Full File tests"
+        $ case traverse (uncurry makeFileTest) testSources of
+              Right (Dir _ contents) -> traverse_ dirTreeSpec (sort contents)
+              --  Failed cases
+              Right (File name _) ->
+                  it "Failed reading file tests" $ expectationFailure
+                      (  "Found file "
+                      <> name
+                      <> " where the test directory was expected"
+                      )
+              Right (Failed _ err) ->
+                  it "Failed reading file tests" $ expectationFailure (show err)
+              Left err ->
+                  it "Failed reading file tests" $ expectationFailure err
+
+
+readTestSources :: IO (DirTree (FilePath, String))
+readTestSources = do
+    (_ :/ testSources) <- readDirectoryWith
+        (\path -> (takeFileName path, ) <$> readFile path)
         "test/src"
-
-    case traverse (uncurry makeFileTest) testSources of
-        Right (Dir _ contents) ->
-            parallel $ context "Full File tests" $ traverse_ dirTreeSpec
-                                                             (sort contents)
-        --  Failed cases
-        Right (File name _) -> it "Failed reading file tests"
-            $ putStrLn (name <> " is not a directory")
-        Right (Failed _ err) -> it "Failed reading file tests" $ print err
-        Left  err            -> it "Failed reading file tests" $ putStrLn err
-
-dirTreeSpec :: DirTree FileTest -> Spec
-dirTreeSpec (Failed name err) =
-    xit ("Error " <> show err <> " on " <> name) False
-dirTreeSpec (Dir name contents) =
-    context name (traverse_ dirTreeSpec (sort contents))
-dirTreeSpec (File _ contents) = runFileTest contents
-
-
-runFileTest :: FileTest -> Spec
-runFileTest FileTest { fileName, isPending = True } =
-    it (fileName ++ " is pending") pending
-runFileTest test = maybeFocused $ sequential $ case expectedFailStage test of
-    Parsing -> it (fileName test ++ " does not parse")
-        $ shouldFail (fromStringTo @Parsed (contents test))
-
-    Typechecking -> it (fileName test ++ " does not typecheck") $ do
-        shouldRun (fromStringTo @Parsed (contents test))
-        shouldFail (fromStringTo @Typed (contents test))
-
-    None -> it (fileName test ++ " runs") $ do
-        ast <- fromStringTo @Runtime (contents test)
-        shouldRunWithInputOutput ast (input test) (expectedOut test)
-    where maybeFocused = if isFocused test then focus else id
+    return testSources
 
 makeFileTest :: String -> String -> Either String FileTest
 makeFileTest name contents = do
@@ -133,3 +96,49 @@ makeFileTest name contents = do
                         xs       -> xs
                     )
             >>> fmap (dropWhile isSpace)
+
+
+dirTreeSpec :: DirTree FileTest -> Spec
+dirTreeSpec (Failed name err) =
+    xit ("Error " <> show err <> " on " <> name) False
+dirTreeSpec (Dir name contents) =
+    context name (traverse_ dirTreeSpec (sort contents))
+dirTreeSpec (File _ contents) = runFileTest contents
+
+
+runFileTest :: FileTest -> Spec
+runFileTest FileTest { fileName, isPending = True } =
+    it (fileName ++ " is pending") pending
+runFileTest test = maybeFocused $ sequential $ case expectedFailStage test of
+    Parsing -> it (fileName test ++ " does not parse")
+        $ shouldFail (fromStringTo @Parsed (contents test))
+
+    Typechecking -> it (fileName test ++ " does not typecheck") $ do
+        shouldRun (fromStringTo @Parsed (contents test))
+        shouldFail (fromStringTo @Typed (contents test))
+
+    None -> it (fileName test ++ " runs") $ do
+        ast <- fromStringTo @Runtime (contents test)
+        shouldRunWithInputOutput ast (input test) (expectedOut test)
+    where maybeFocused = if isFocused test then focus else id
+
+
+instance Show FileTest where
+    show FileTest { fileName, isPending } =
+        "FileTest { "
+            <> "fileName = "
+            <> fileName
+            <> ", "
+            <> "pending = "
+            <> show isPending
+            <> "}"
+
+    showList xs = (intercalate "\n" (show <$> xs) <>)
+
+instance Eq FileTest where
+    (==) FileTest { fileName = name1 } FileTest { fileName = name2 } =
+        name1 == name2
+
+instance Ord FileTest where
+    compare FileTest { fileName = name1 } FileTest { fileName = name2 } =
+        compare name1 name2
