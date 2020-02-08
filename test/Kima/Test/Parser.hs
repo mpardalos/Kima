@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Kima.Test.Parser  where
+module Kima.Test.Parser (spec) where
 
 import Control.Monad
 import Kima.AST
@@ -150,36 +150,26 @@ typeTests =
 type ParseTestResult e s a = Either (ParseErrorBundle s e) (s, a)
 
 parsedBy :: s -> Parsec e s a -> ParseTestResult e s a
-parsedBy str p = case runParser' p (initialState str) of
-    (_, Left  err) -> Left err
+parsedBy str p = case runParser' p initialState of
+    (_, Left err ) -> Left err
     (s, Right res) -> Right (stateInput s, res)
+  where
+    initialState = State
+        { stateInput    = str
+        , stateOffset   = 0
+        , statePosState = PosState { pstateInput      = str
+                                   , pstateOffset     = 0
+                                   , pstateSourcePos  = initialPos ""
+                                   , pstateTabWidth   = defaultTabWidth
+                                   , pstateLinePrefix = ""
+                                   }
+        }
 
 shouldParseTo
-    :: (Eq a, Show a, Show s, Show (Token s), Show e)
+    :: (Eq a, Show a, Show s, Show e, Stream s, ShowErrorComponent e)
     => ParseTestResult e s a
     -> a
     -> Expectation
 shouldParseTo (Right (_, actual)) expected = actual `shouldBe` expected
-shouldParseTo (Left err) _ = expectationFailure ("Got error " <> show err)
-
-shouldLeave
-    :: (Eq s, Show a, Show s, Show (Token s), Show e)
-    => ParseTestResult e s a
-    -> s
-    -> Expectation
-shouldLeave (Right (s, _)) expected = s `shouldBe` expected
-shouldLeave (Left err) _ = expectationFailure ("Got error " <> show err)
-
--- | Given input for parsing, construct initial state for parser.
-initialState :: s -> State s
-initialState s =
-    State { stateInput = s, stateOffset = 0, statePosState = initialPosState s }
-
--- | Given input for parsing, construct initial positional state.
-initialPosState :: s -> PosState s
-initialPosState s = PosState { pstateInput      = s
-                             , pstateOffset     = 0
-                             , pstateSourcePos  = initialPos ""
-                             , pstateTabWidth   = defaultTabWidth
-                             , pstateLinePrefix = ""
-                             }
+shouldParseTo (Left err) _ =
+    expectationFailure ("Got error " <> errorBundlePretty err)
