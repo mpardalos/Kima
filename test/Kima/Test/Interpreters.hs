@@ -53,19 +53,13 @@ shouldRun action = runExceptT (runTestInterface action) >>= \case
         expectationFailure ("Expected a result but failed with: \n" <> show err)
     Right{} -> pure ()
 
-shouldRunWithInputOutput :: Module Runtime -> String -> Maybe String -> Expectation
-shouldRunWithInputOutput ast input maybeExpectedOutput = do
+shouldRunWithInputOutput
+    :: Module Runtime -> String -> Maybe String -> Expectation
+shouldRunWithInputOutput _   _     Nothing               = pure ()
+shouldRunWithInputOutput ast input (Just expectedOutput) = do
     output <- runInTestInterpreterWithInput input ast
-    case maybeExpectedOutput of
-        Nothing -> pure ()
-        Just expectedOutput
-            | output == expectedOutput -> pure ()
-            | otherwise -> expectationFailure
-                (  "Expected output: \n"
-                <> expectedOutput
-                <> "\nBut got: \n"
-                <> output
-                )
+    when (output /= expectedOutput) $ expectationFailure
+        ("Expected output: \n" <> expectedOutput <> "\nBut got: \n" <> output)
 
 runInTestInterpreter :: MonadInterface m => Module Runtime -> m String
 runInTestInterpreter = runInTestInterpreterWithInput ""

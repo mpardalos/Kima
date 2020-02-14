@@ -4,11 +4,9 @@ import           Test.Hspec
 import           Test.Hspec.Core.Spec
 
 import           Data.Maybe
+import           Data.Function
 import           Data.Foldable
 import           Data.List
-import           Control.Arrow           hiding ( first
-                                                , second
-                                                )
 import           System.FilePath
 import           System.Directory.Tree   hiding ( contents )
 import           Data.Char
@@ -34,25 +32,22 @@ data FileTest = FileTest {
 }
 
 spec :: Spec
-spec = do
-    testSources <- runIO readTestSources
+spec = runIO readTestSources >>= \case
+    testDir@Dir{} -> parallel $ context
+        "Full File tests"
+        (testsForDir (uncurry makeFileTest <$> testDir))
+    --  Failed cases
+    (File name _) -> it "Failed reading file tests" $ expectationFailure
+        ("Found file " <> name <> " where the test directory was expected")
+    (Failed _ err) ->
+        it "Failed reading file tests" $ expectationFailure (show err)
 
-    parallel
-        $ context "Full File tests"
-        $ case traverse (uncurry makeFileTest) testSources of
-              Right (Dir _ contents) -> traverse_ dirTreeSpec (sort contents)
-              --  Failed cases
-              Right (File name _) ->
-                  it "Failed reading file tests" $ expectationFailure
-                      (  "Found file "
-                      <> name
-                      <> " where the test directory was expected"
-                      )
-              Right (Failed _ err) ->
-                  it "Failed reading file tests" $ expectationFailure (show err)
-              Left err ->
-                  it "Failed reading file tests" $ expectationFailure err
-
+testsForDir :: DirTree FileTest -> Spec
+testsForDir (Dir name contents) =
+    context name $ traverse_ testsForDir (sort contents)
+testsForDir (File _ contents) = runFileTest contents
+testsForDir (Failed name err) =
+    xit ("Error " <> show err <> " on " <> name) False
 
 readTestSources :: IO (DirTree (FilePath, String))
 readTestSources = do
@@ -61,50 +56,39 @@ readTestSources = do
         "test/src"
     return testSources
 
-makeFileTest :: String -> String -> Either String FileTest
-makeFileTest name contents = do
-    let isPending = not $ null (findPragmas "pending" contents)
-    let isFocused = not $ null (findPragmas "focused" contents)
-    let input     = concat $ findPragmas "input" contents
-    let expectedOut = case concat $ findPragmas "output" contents of
+makeFileTest :: String -> String -> FileTest
+makeFileTest name contents =
+    let isPending   = not $ null (findPragmas "pending")
+        isFocused   = not $ null (findPragmas "focused")
+        input       = concat $ findPragmas "input"
+        expectedOut = case concat $ findPragmas "output" of
             "" -> Nothing
             s  -> Just s
-    let shouldParse     = null (findPragmas "shouldNotParse" contents)
-    let shouldTypecheck = null (findPragmas "shouldNotTypecheck" contents)
-    let expectedFailStage = case (shouldParse, shouldTypecheck) of
-            (False, False) -> Parsing
+        shouldParse       = null (findPragmas "shouldNotParse")
+        shouldTypecheck   = null (findPragmas "shouldNotTypecheck")
+        expectedFailStage = case (shouldParse, shouldTypecheck) of
+            (False, _    ) -> Parsing
             (True , False) -> Typechecking
             (True , True ) -> None
-            (False, True ) -> error "Invalid test spec"
-
-    return $ FileTest { fileName          = name
-                      , input
-                      , contents
-                      , expectedOut
-                      , isPending
-                      , isFocused
-                      , expectedFailStage
-                      }
+    in  FileTest { fileName          = name
+                 , input
+                 , contents
+                 , expectedOut
+                 , isPending
+                 , isFocused
+                 , expectedFailStage
+                 }
   where
     findPragmas p =
-        lines
-            >>> mapMaybe (stripPrefix ("##" <> p))
-            >>> fmap (dropWhile isSpace)
-            >>> fmap
-                    (\case
-                        ':' : xs -> xs
-                        xs       -> xs
-                    )
-            >>> fmap (dropWhile isSpace)
-
-
-dirTreeSpec :: DirTree FileTest -> Spec
-dirTreeSpec (Failed name err) =
-    xit ("Error " <> show err <> " on " <> name) False
-dirTreeSpec (Dir name contents) =
-    context name (traverse_ dirTreeSpec (sort contents))
-dirTreeSpec (File _ contents) = runFileTest contents
-
+        lines contents
+            & mapMaybe (stripPrefix ("##" <> p))
+            & fmap (dropWhile isSpace)
+            & fmap
+                  (\case
+                      ':' : xs -> xs
+                      xs       -> xs
+                  )
+            & fmap (dropWhile isSpace)
 
 runFileTest :: FileTest -> Spec
 runFileTest FileTest { fileName, isPending = True } =
