@@ -6,4 +6,5 @@ import           Kima.Interface.Monad          as E
                                                 , UserThrowableError(..)
                                                 , MonadInterface(..)
                                                 , runEither
+                                                , UserInterface(..)
                                                 )

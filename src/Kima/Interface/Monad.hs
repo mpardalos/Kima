@@ -37,10 +37,13 @@ data UserThrowableError = forall err. UserThrowable err => UserThrowableError er
 instance Show UserThrowableError where
     show (UserThrowableError err) = userShow err
 
+newtype UserInterface a = UserInterface { runUserInterface :: IO a }
+    deriving (Functor, Applicative, Monad, MonadIO)
 class MonadIO m => MonadInterface m where
     userThrow :: UserThrowable e => e -> m a
-instance MonadInterface IO where
-    userThrow = throwIO . userError . userShow
+
+instance MonadInterface UserInterface where
+    userThrow = liftIO . throwIO . userError . userShow
 
 runEither :: (MonadInterface m, UserThrowable err) => Either err a -> m a
 runEither (Right val) = return val

@@ -10,6 +10,7 @@ import           Data.List
 import           System.FilePath
 import           System.Directory.Tree   hiding ( contents )
 import           Data.Char
+import           Control.Monad.IO.Class
 
 import           Kima.AST
 import           Kima.Interface
@@ -101,9 +102,11 @@ runFileTest test = maybeFocused $ sequential $ case expectedFailStage test of
         shouldRun (fromStringTo @Parsed (contents test))
         shouldFail (fromStringTo @Typed (contents test))
 
-    None -> it (fileName test ++ " runs") $ do
+    None -> it (fileName test ++ " runs") $ shouldRun $ do
         ast <- fromStringTo @Runtime (contents test)
-        shouldRunWithInputOutput ast (input test) (expectedOut test)
+        output <- runModuleWithInput (input test) ast
+        liftIO $ expectOutput (expectedOut test) output
+
     where maybeFocused = if isFocused test then focus else id
 
 

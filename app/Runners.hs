@@ -29,7 +29,7 @@ fromFileTo fn = do
 
 runFile :: FilePath -> IO ()
 runFile fn = do
-    ast :: Module Runtime <- fromFileTo fn
+    ast :: Module Runtime <- runUserInterface $ fromFileTo fn
     env <- refify (Interpreter.Environment baseEnv)
     Interpreter.execInterpreter env (Interpreter.runModule ast) >>= \case
         Right _ -> pure ()
