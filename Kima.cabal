@@ -24,7 +24,6 @@ library
 
         Kima.AST
         Kima.AST.AST
-        Kima.AST.Effects
         Kima.AST.Kinds
         Kima.AST.Names
         Kima.AST.Stages

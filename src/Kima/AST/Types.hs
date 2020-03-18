@@ -1,18 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Kima.AST.Types where
 
-import Kima.AST.Effects
-
 import Data.String
 import Data.Text.Prettyprint.Doc
 import GHC.Generics
+import Data.Text.Prettyprint.Doc
+import GHC.Exts
 
--- | The types of the kima programming language
-data KType = KString | KUnit | KBool | KInt | KFloat
-           | KFunc [KType] Effect KType
-           -- | A user defined type is defined by its name and fields
-           | KUserType String [(String, KType)]
-  deriving (Eq, Ord, Generic)
+-------- Parsed types --------
+type EffectName = String
+newtype ParsedEffect = EffectNames [EffectName]
+    deriving (Show, Eq, Ord, IsList, Semigroup, Monoid)
 
 type TypeName = String
 
@@ -20,15 +18,41 @@ data ParsedTypeExpr
     -- | Just a single type
     = ParsedTypeName TypeName
     -- | Function signature
-    | ParsedSignatureType [ParsedTypeExpr] (Maybe Effect) ParsedTypeExpr
+    | ParsedSignatureType [ParsedTypeExpr] (Maybe ParsedEffect) ParsedTypeExpr
     deriving Eq
 
 data TypeExpr
     -- | Just a single type
     = TypeName TypeName
     -- | Function signature
-    | SignatureType [TypeExpr] Effect TypeExpr
+    | SignatureType [TypeExpr] ParsedEffect TypeExpr
     deriving Eq
+
+-------- Resolved  types --------
+
+-- | The types of the kima programming language
+data KType = KString | KUnit | KBool | KInt | KFloat
+           | KFunc [KType] KEffect KType
+           -- | A user defined type is defined by its name and fields
+           | KUserType String [(String, KType)]
+  deriving (Eq, Ord, Generic)
+
+-- | Resolved effects
+type KEffect = [KOperation]
+
+-- | A single effectful operation. Defined by its name and signature
+data KOperation = KOperation String [KType] KType
+    deriving (Eq, Ord, Generic)
+
+-------- Resolved  types --------
+
+instance IsString ParsedEffect where
+    fromString s = EffectNames [s]
+
+instance Pretty ParsedEffect where
+    pretty (EffectNames [eff]) = pretty eff
+    pretty (EffectNames effects) =
+        encloseSep lbrace rbrace comma (pretty <$> effects)
 
 instance Show ParsedTypeExpr where
     show (ParsedTypeName s           ) = "#\"" ++ s ++ "\""
@@ -68,6 +92,14 @@ instance IsString (Maybe TypeExpr) where
 
 instance Show KType where
   show = show . pretty
+
+instance Pretty KOperation where
+    pretty (KOperation name args rt) =
+        "effect"
+        <+> pretty name
+        <+> encloseSep lparen rparen comma (pretty <$> args)
+        <+> "->"
+        <+> pretty rt
 
 instance Pretty KType where
   pretty KString          = "String"
