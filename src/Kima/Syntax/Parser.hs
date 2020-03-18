@@ -20,13 +20,13 @@ program = Program <$> (whitespace *> some topLevel <* eof)
 topLevel :: Parser (TopLevel Parsed)
 topLevel = funcDef <|> dataDef
 
-effectSpec :: Parser Effect
+effectSpec :: Parser ParsedEffect
 effectSpec = try singleEffect <|> bracedEffects
     where
-        singleEffect = fromEffectNames . pure <$> identifier
-        bracedEffects = fromEffectNames <$> braces (identifier `sepBy` symbol Comma)
+        singleEffect = EffectNames . pure @[] <$> identifier
+        bracedEffects = EffectNames <$> braces (identifier `sepBy` symbol Comma)
 
-functionReturn :: Parser (Maybe Effect, Maybe ParsedTypeExpr)
+functionReturn :: Parser (Maybe ParsedEffect, Maybe ParsedTypeExpr)
 functionReturn =
     try effectAndReturnType
         <|> try justReturnType

@@ -17,7 +17,7 @@ import           Kima.AST
 data TypeCtx = TypeCtx {
     typeBindings  :: Map TypeName KType,
     bindings      :: Map (Identifier 'NoAnnotation) Binding,
-    activeEffect :: Effect
+    activeEffects :: Effect
 }
 
 data Binding = Binding {

@@ -63,7 +63,7 @@ runStmt (Assign (WriteAccess name path) expr) = do
             -> [AnnotatedName ('Annotation KType)] -- | Path
             -> m [Value]
         lookupFields baseType (TName subName subType:subFieldNames) = do
-            let accessorType = KFunc [baseType] noEffect subType
+            let accessorType = KFunc [baseType] [] subType
             thisField <- getName (TAccessor subName accessorType)
             subFields <- lookupFields subType subFieldNames
             return (thisField:subFields)
@@ -145,10 +145,10 @@ bindTopLevel (DataDef name members)       = do
     let declaredType = KUserType name members
     let memberTypes = snd <$> members
     let constructor = BuiltinFunction (return . ProductData)
-    let constructorType = KFunc memberTypes noEffect declaredType
+    let constructorType = KFunc memberTypes [] declaredType
 
     forM_ (zip [0..] members) $ \(i, (memberName, memberType)) ->
-        let accessorType = KFunc [declaredType] noEffect memberType in
+        let accessorType = KFunc [declaredType] [] memberType in
         bind (TAccessor memberName accessorType) (AccessorIdx memberName i)
     bind (TIdentifier name constructorType) constructor
     return constructor
@@ -156,6 +156,6 @@ bindTopLevel (DataDef name members)       = do
 runModule :: MonadInterpreter m => Module Runtime -> m ()
 runModule (Program defs) = do
     forM_ defs bindTopLevel
-    mainFunc <- getName (TIdentifier "main" (KFunc [] ioEffect KUnit))
+    mainFunc <- getName (TIdentifier "main" (KFunc [] _ioEffect KUnit))
     _        <- runFunc mainFunc []
     return ()
