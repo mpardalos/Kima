@@ -15,9 +15,10 @@ import           GHC.Generics
 import           Kima.AST
 
 data TypeCtx = TypeCtx {
-    typeBindings  :: Map TypeName KType,
-    bindings      :: Map (Identifier 'NoAnnotation) Binding,
-    activeEffects :: Effect
+    typeBindings   :: Map TypeName KType,
+    effectBindings :: Map EffectName KEffect,
+    bindings       :: Map (Identifier 'NoAnnotation) Binding,
+    activeEffect   :: KEffect
 }
 
 data Binding = Binding {
@@ -46,7 +47,16 @@ instance Semigroup Binding where
         Binding (mutL <> mutR) (typesL <> typesR)
 
 instance Semigroup TypeCtx where
-    (TypeCtx tBindsLeft bindsLeft effectLeft) <> (TypeCtx tBindsRight bindsRight effectRight) =
-        TypeCtx (tBindsLeft <> tBindsRight)
-                (Map.unionWith (<>) bindsLeft bindsRight)
-                (effectLeft <> effectRight)
+    (TypeCtx tBindsLeft effBindsLeft bindsLeft effectLeft) <> (TypeCtx tBindsRight effBindsRight bindsRight effectRight)
+        = TypeCtx { typeBindings   = tBindsLeft <> tBindsRight
+                  , effectBindings = effBindsLeft <> effBindsRight
+                  , bindings       = Map.unionWith (<>) bindsLeft bindsRight
+                  , activeEffect   = effectLeft <> effectRight
+                  }
+
+instance Monoid TypeCtx where
+    mempty = TypeCtx { bindings = Map.empty
+                     , typeBindings = Map.empty
+                     , effectBindings = Map.empty
+                     , activeEffect = []
+                     }

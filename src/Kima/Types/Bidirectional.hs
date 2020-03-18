@@ -327,7 +327,7 @@ ensureTypedArgs = traverse sequence
 -- | Add a set of function arguments to a TypeCtx.
 addArgs :: [(Name, KType)] -> TypeCtx -> TypeCtx
 addArgs args ctx =
-    ctx <> TypeCtx Map.empty (Map.fromList (zip names bindings)) []
+    ctx <> (mempty { bindings = Map.fromList (zip names bindings) }) :: TypeCtx
   where
     bindings = (Binding Constant . Set.singleton) . snd <$> args
     names    = Identifier . fst <$> args
