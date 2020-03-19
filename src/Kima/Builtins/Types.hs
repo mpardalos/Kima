@@ -28,6 +28,8 @@ baseTypeBindings=
 
 baseTypeCtx :: TypeCtx
 baseTypeCtx = TypeCtx
-    baseTypeBindings
-    (Binding Constant . Set.fromList <$> baseBindings)
-    noEffect
+    { typeBindings = baseTypeBindings
+    , effectBindings = []
+    , bindings = Binding Constant . Set.fromList <$> baseBindings
+    , activeEffect = []
+    }
