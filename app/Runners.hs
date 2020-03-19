@@ -31,6 +31,6 @@ runFile :: FilePath -> IO ()
 runFile fn = do
     ast :: Module Runtime <- runUserInterface $ fromFileTo fn
     env <- refify (Interpreter.Environment baseEnv)
-    Interpreter.execInterpreter env (Interpreter.runModule ast) >>= \case
+    Interpreter.execInterpreter env (Interpreter.runModule (TIdentifier "main" (KFunc [] ioEffect KUnit)) ast) >>= \case
         Right _ -> pure ()
         Left runtimeError -> putStrLn (userShow runtimeError)

@@ -153,9 +153,9 @@ bindTopLevel (DataDef name members)       = do
     bind (TIdentifier name constructorType) constructor
     return constructor
 
-runModule :: MonadInterpreter m => Module Runtime -> m ()
-runModule (Program defs) = do
+runModule :: MonadInterpreter m => RuntimeIdentifier -> Module Runtime -> m ()
+runModule mainName (Program defs) = do
     forM_ defs bindTopLevel
-    mainFunc <- getName (TIdentifier "main" (KFunc [] _ioEffect KUnit))
+    mainFunc <- getName mainName
     _        <- runFunc mainFunc []
     return ()
