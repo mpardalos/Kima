@@ -45,6 +45,9 @@ runTypeChecking ctx action = evalStateT action ctx
 ---------- Type subsumption -----
 ---------------------------------
 
+isSubEffect :: KEffect -> KEffect -> Bool
+isSubEffect subEff superEff = and [ op `elem` superEff | op <- subEff ]
+
 -- | Check whether a type 'fits into' another. Currently checks for
 -- * Subeffects
 -- * Subsumption in function arguments/return types (contravariantly)
@@ -53,13 +56,12 @@ runTypeChecking ctx action = evalStateT action ctx
 -- We could also possibly move overloading checking to here
 subsumedBy :: KType -> KType -> Bool
 subsumedBy t1 t2 | t1 == t2 = True
-subsumedBy (KFunc argList1 eff1 rt1) (KFunc argList2 eff2 rt2)
-    = and @[]
-        [ length argList1 == length argList2
-        , and (zipWith subsumedBy argList2 argList1)
-        , rt1 `subsumedBy` rt2
-        , eff1 `isSubEffect` eff2
-        ]
+subsumedBy (KFunc argList1 eff1 rt1) (KFunc argList2 eff2 rt2) = and @[]
+    [ length argList1 == length argList2
+    , and (zipWith subsumedBy argList2 argList1)
+    , rt1 `subsumedBy` rt2
+    , eff1 `isSubEffect` eff2
+    ]
 subsumedBy _ _ = False
 
 ---------------------------------
@@ -93,9 +95,9 @@ infer (FuncExpr (ensureTypedArgs -> Just args) eff Nothing body) = do
     let functionType  = KFunc (snd <$> args) eff rt
     let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
-infer FuncExpr{} = throwError MissingArgumentTypes
+infer FuncExpr{}         = throwError MissingArgumentTypes
 infer (Call callee args) = do
-    calleeTypes <- Set.toList <$> enumerateTypes callee
+    calleeTypes     <- Set.toList <$> enumerateTypes callee
 
     possibleResults <- forM calleeTypes $ \case
         calleeType@(KFunc argTypes _eff returnType) ->
@@ -120,7 +122,7 @@ enumerateTypes (LiteralE    StringExpr{}) = pure [KString]
 enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
 enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]
-enumerateTypes FuncExpr{} = throwError MissingArgumentTypes
+enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
 enumerateTypes (Call callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args
@@ -135,8 +137,8 @@ enumerateTypes (Call callee args) = do
     return (Set.fromList returnTypes)
   where
     returnsWithArgs :: KType -> [KType] -> Maybe KType
-    returnsWithArgs (KFunc argTypes' _eff rt) argTypes
-        | argTypes == argTypes' = Just rt
+    returnsWithArgs (KFunc argTypes' _eff rt) argTypes | argTypes == argTypes' =
+        Just rt
     returnsWithArgs _ _ = Nothing
 
 -- | Check that an expression has a certain type. If it applies, return the
@@ -170,8 +172,7 @@ check expectedType expr = do
 -- | Try to infer the return type of a statement. If it can be typed, return the
 -- typed statement and the inferred return type. If not, throw an appropriate
 -- error
-inferReturns
-    :: MonadTC m => Stmt TypeAnnotated -> m (Stmt Typed, KType)
+inferReturns :: MonadTC m => Stmt TypeAnnotated -> m (Stmt Typed, KType)
 inferReturns (ExprStmt expr ) = first ExprStmt <$> infer expr
 inferReturns (Block    stmts) = withState id $ do
     (typedStatements, statementReturnTypes) <- unzip <$> mapM inferReturns stmts
@@ -270,8 +271,7 @@ inferAccessor (WriteAccess name path) = do
 
 -- | Check that a statement returns a given type. If it does, return the typed
 -- statement, otherwise, throw an appropriate error
-checkReturns
-    :: MonadTC m => KType -> Stmt TypeAnnotated -> m (Stmt Typed)
+checkReturns :: MonadTC m => KType -> Stmt TypeAnnotated -> m (Stmt Typed)
 checkReturns KUnit (ExprStmt expr) =
     -- If it's not Unit then anything else will do, doesn't matter
     ExprStmt <$> (check KUnit expr `catchError` const (fst <$> infer expr))
@@ -287,13 +287,11 @@ checkReturns t stmt            = do
 -----------------------------
 
 -- | Try to typecheck a module
-checkProgram
-    :: MonadTC m => Module TypeAnnotated -> m (Module Typed)
+checkProgram :: MonadTC m => Module TypeAnnotated -> m (Module Typed)
 checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
 
 -- | Try to typecheck a top-level declaration
-checkTopLevel
-    :: MonadTC m => TopLevel TypeAnnotated -> m (TopLevel Typed)
+checkTopLevel :: MonadTC m => TopLevel TypeAnnotated -> m (TopLevel Typed)
 checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff (Just rt) body)
     =   FuncDef name args eff rt
     <$> withState (addArgs args) (checkReturns rt body)
