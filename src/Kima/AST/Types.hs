@@ -93,6 +93,9 @@ instance IsString (Maybe TypeExpr) where
 instance Show KType where
   show = show . pretty
 
+instance Show KOperation where
+    show = show . pretty
+
 instance Pretty KOperation where
     pretty (KOperation name args rt) =
         "effect"
