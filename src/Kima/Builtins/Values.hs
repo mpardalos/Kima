@@ -8,8 +8,12 @@ import Data.Map (Map)
 import Kima.AST
 import Kima.Interpreter.Types
 
-ioEffect :: KEffect
-ioEffect = [_, _]
+printStringOperation = KOperation "print" [KString] KUnit
+printIntOperation = KOperation "print" [KInt]    KUnit
+printFloatOperation = KOperation "print" [KFloat]  KUnit
+printBoolOperation = KOperation "print" [KBool]   KUnit
+printUnitOperation = KOperation "print" [KUnit]   KUnit
+inputOperation = KOperation "input" [] KString
 
 baseEnv :: Map RuntimeIdentifier Value
 baseEnv =
@@ -54,12 +58,12 @@ baseEnv =
     , ( TBuiltin NegateOp  (KFunc [KInt]              [] KInt   ), BuiltinFunction $ kimaNegate                  )
     , ( TBuiltin NegateOp  (KFunc [KFloat]            [] KFloat ), BuiltinFunction $ kimaNegate                  )
     , ( TBuiltin InvertOp  (KFunc [KBool]             [] KBool  ), BuiltinFunction $ kimaInvert                  )
-    , ( TBuiltin PrintFunc (KFunc [KString]           ioEffect KUnit  ), BuiltinFunction kimaPrint                     )
-    , ( TBuiltin PrintFunc (KFunc [KInt]              ioEffect KUnit  ), BuiltinFunction kimaPrint                     )
-    , ( TBuiltin PrintFunc (KFunc [KFloat]            ioEffect KUnit  ), BuiltinFunction kimaPrint                     )
-    , ( TBuiltin PrintFunc (KFunc [KBool]             ioEffect KUnit  ), BuiltinFunction kimaPrint                     )
-    , ( TBuiltin PrintFunc (KFunc [KUnit]             ioEffect KUnit  ), BuiltinFunction kimaPrint                     )
-    , ( TBuiltin InputFunc (KFunc []                  ioEffect KString), BuiltinFunction (\_ -> String <$> consoleRead))
+    , ( TBuiltin PrintFunc (KFunc [KString]  [printStringOperation] KUnit  ), BuiltinFunction kimaPrint                     )
+    , ( TBuiltin PrintFunc (KFunc [KInt]     [printIntOperation] KUnit  ), BuiltinFunction kimaPrint                     )
+    , ( TBuiltin PrintFunc (KFunc [KFloat]   [printFloatOperation] KUnit  ), BuiltinFunction kimaPrint                     )
+    , ( TBuiltin PrintFunc (KFunc [KBool]    [printBoolOperation] KUnit  ), BuiltinFunction kimaPrint                     )
+    , ( TBuiltin PrintFunc (KFunc [KUnit]    [printUnitOperation] KUnit  ), BuiltinFunction kimaPrint                     )
+    , ( TBuiltin InputFunc (KFunc []         [inputOperation] KString), BuiltinFunction (\_ -> String <$> consoleRead))
     ]
 
 showValue :: Value -> Maybe String
