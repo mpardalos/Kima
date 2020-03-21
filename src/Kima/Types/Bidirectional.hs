@@ -83,14 +83,10 @@ infer (IdentifierE name) = (lookupName name <&> types) <&> Set.toList >>= \case
     -- error in lookupName
     [t]   -> pure (IdentifierE (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
-infer (FuncExpr (ensureTypedArgs -> Just args) eff (Just rt) body) = do
-    typedBody <- withState (addArgs args) $ checkReturns rt body
-
-    let functionType  = KFunc (snd <$> args) eff rt
-    let typedFuncExpr = FuncExpr args eff rt typedBody
-    return (typedFuncExpr, functionType)
-infer (FuncExpr (ensureTypedArgs -> Just args) eff Nothing body) = do
-    (typedBody, rt) <- withState (addArgs args) $ inferReturns body
+infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
+    (typedBody, rt) <- case maybeRt of
+        Just rt -> (,rt) <$> withState (addArgs args) (checkReturns rt body)
+        Nothing -> withState (addArgs args) (inferReturns body)
 
     let functionType  = KFunc (snd <$> args) eff rt
     let typedFuncExpr = FuncExpr args eff rt typedBody
