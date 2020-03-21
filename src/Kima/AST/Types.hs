@@ -4,7 +4,6 @@ module Kima.AST.Types where
 import Data.String
 import Data.Text.Prettyprint.Doc
 import GHC.Generics
-import Data.Text.Prettyprint.Doc
 import GHC.Exts
 
 -------- Parsed types --------
