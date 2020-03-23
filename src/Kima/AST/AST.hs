@@ -15,6 +15,8 @@ data Module tag = Program [TopLevel tag]
 data TopLevel tag
     = FuncDef Name [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | DataDef Name [(Name, FreeAnnotation tag)]
+    | OperationDef Name [(Name, FreeAnnotation tag)] (FreeAnnotation tag)
+    | EffectSynonymDef Name [Name]
 
 data Expr tag
     = LiteralE Literal
@@ -263,84 +265,3 @@ deriving instance
     , Eq (EffectType stage)
     , Eq (FreeAnnotation stage)
     ) => Eq (Expr stage)
-
--- Traversals
-
-traverseModuleFreeAnnotations
-    :: ( TagSugar t1 ~ TagSugar t2
-       , NameAnnotation t1 ~ NameAnnotation t2
-       , EffectType t1 ~ EffectType t2
-       , Applicative m)
-    => (FreeAnnotation t1 -> m (FreeAnnotation t2))
-    -> Module t1
-    -> m (Module t2)
-traverseModuleFreeAnnotations f (Program ast      ) = Program
-    <$> traverse (traverseTopLevelFreeAnnotations f) ast
-
-traverseTopLevelFreeAnnotations
-    :: ( TagSugar t1 ~ TagSugar t2
-       , NameAnnotation t1 ~ NameAnnotation t2
-       , EffectType t1 ~ EffectType t2
-       , Applicative m)
-    => (FreeAnnotation t1 -> m (FreeAnnotation t2))
-    -> TopLevel t1
-    -> m (TopLevel t2)
-traverseTopLevelFreeAnnotations f (FuncDef n args eff rt b) = FuncDef n
-    <$> traverse (traverse f) args
-    <*> pure eff
-    <*> f rt
-    <*> traverseStmtFreeAnnotations f b
-traverseTopLevelFreeAnnotations f (DataDef n members) = DataDef n
-    <$> traverse (traverse f) members
-
-
-traverseStmtFreeAnnotations
-    :: ( TagSugar t1 ~ TagSugar t2
-       , NameAnnotation t1 ~ NameAnnotation t2
-       , EffectType t1 ~ EffectType t2
-       , Applicative m)
-    => (FreeAnnotation t1 -> m (FreeAnnotation t2))
-    -> Stmt t1
-    -> m (Stmt t2)
-traverseStmtFreeAnnotations f (Var n t e) = Var n
-    <$> f t
-    <*> traverseExprFreeAnnotations f e
-traverseStmtFreeAnnotations f (Let n t e) = Let n
-    <$> f t
-    <*> traverseExprFreeAnnotations f e
-traverseStmtFreeAnnotations f (ExprStmt e) = ExprStmt
-    <$> traverseExprFreeAnnotations f e
-traverseStmtFreeAnnotations f (Block blk) = Block
-    <$> traverse (traverseStmtFreeAnnotations f) blk
-traverseStmtFreeAnnotations f (While stmt) = While
-    <$> bitraverse (traverseExprFreeAnnotations f) (traverseStmtFreeAnnotations f) stmt
-traverseStmtFreeAnnotations f (If stmt) = If
-    <$> bitraverse (traverseExprFreeAnnotations f) (traverseStmtFreeAnnotations f) stmt
-traverseStmtFreeAnnotations f (Assign n e) = Assign n
-    <$> traverseExprFreeAnnotations f e
-
-traverseExprFreeAnnotations
-    :: ( TagSugar t1 ~ TagSugar t2
-       , NameAnnotation t1 ~ NameAnnotation t2
-       , EffectType t1 ~ EffectType t2
-       , Applicative m)
-    => (FreeAnnotation t1 -> m (FreeAnnotation t2))
-    -> Expr t1
-    -> m (Expr t2)
-traverseExprFreeAnnotations f (FuncExpr args eff rt b) = FuncExpr
-    <$> traverse (traverse f) args
-    <*> pure eff
-    <*> f rt
-    <*> traverseStmtFreeAnnotations f b
-traverseExprFreeAnnotations f (Call callee args) = Call
-    <$> traverseExprFreeAnnotations f callee
-    <*> traverse (traverseExprFreeAnnotations f) args
-traverseExprFreeAnnotations f (AccessE expr name) = AccessE
-    <$> traverseExprFreeAnnotations f expr
-    <*> pure name
-traverseExprFreeAnnotations f (BinE bin) = BinE
-    <$> traverse (traverseExprFreeAnnotations f) bin
-traverseExprFreeAnnotations f (UnaryE unary) = UnaryE
-    <$> traverse (traverseExprFreeAnnotations f) unary
-traverseExprFreeAnnotations _ (LiteralE lit) = pure $ LiteralE lit
-traverseExprFreeAnnotations _ (IdentifierE n) = pure $ IdentifierE n
