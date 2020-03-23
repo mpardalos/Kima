@@ -1,7 +1,9 @@
 module Kima.Interface.Monad where
 
+import System.Exit
+import System.IO
+
 import Control.Monad.Except
-import Control.Exception
 
 import Data.Void
 
@@ -43,7 +45,9 @@ class MonadIO m => MonadInterface m where
     userThrow :: UserThrowable e => e -> m a
 
 instance MonadInterface UserInterface where
-    userThrow = liftIO . throwIO . userError . userShow
+    userThrow err = liftIO $ do
+        hPutStrLn stderr (userShow err)
+        exitFailure -- TODO throw an exception and catch it in main
 
 runEither :: (MonadInterface m, UserThrowable err) => Either err a -> m a
 runEither (Right val) = return val
