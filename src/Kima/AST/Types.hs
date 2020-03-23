@@ -111,7 +111,12 @@ instance Pretty KType where
   pretty KFloat           = "Float"
   pretty (KFunc arguments effect returnType) =
       encloseSep lparen rparen comma (pretty <$> arguments)
+          <+> ":"
+          <+> prettyEffect
           <+> "->"
-          <+> pretty effect
           <+> pretty returnType
+      where
+          prettyEffect = case effect of
+              [] -> "pure"
+              _ -> pretty effect
   pretty (KUserType n _f) = pretty n
