@@ -38,6 +38,10 @@ resolveTopLevelTypes (FuncDef name argExprs effExpr rtExpr body) =
         <*> resolveStmtTypes body
 resolveTopLevelTypes (DataDef name args) =
     DataDef name <$> traverse (traverse (traverse resolveTypeExpr)) args
+resolveTopLevelTypes (OperationDef name argExprs rtExpr ) =
+    OperationDef name
+        <$> traverse (traverse (traverse resolveTypeExpr)) argExprs
+        <*> traverse resolveTypeExpr rtExpr
 
 resolveStmtTypes
     :: MonadTypeResolution m => Stmt Desugared -> m (Stmt TypeAnnotated)
@@ -96,6 +100,18 @@ processTopLevel topLevelDecls = forM_ topLevelDecls $ \case
     FuncDef _ (ensureTypedArgs -> Just _) _eff Nothing _body ->
         throwError MissingReturnType
     FuncDef{} -> throwError MissingArgumentTypes
+
+    OperationDef name (ensureTypedArgs -> Just args) (Just rtExpr) -> do
+        rt <- resolveTypeExpr rtExpr
+        argTypes <- mapM resolveTypeExpr (snd <$> args)
+        let declaredEffect = [KOperation name argTypes rt]
+        modify (addEffect name declaredEffect)
+        modify (addBinding (Identifier name) (Binding Constant [KFunc argTypes declaredEffect rt]))
+
+    OperationDef _ (ensureTypedArgs -> Just _) Nothing ->
+        throwError MissingReturnType
+    OperationDef{} -> throwError MissingArgumentTypes
+
 
 resolveTypeExpr :: MonadTypeResolution m => TypeExpr -> m KType
 resolveTypeExpr tExpr@(TypeName name) =

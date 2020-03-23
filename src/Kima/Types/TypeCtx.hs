@@ -4,6 +4,7 @@ module Kima.Types.TypeCtx
     , Mutability(..)
     , addType
     , addBinding
+    , addEffect
     )
 where
 
@@ -32,6 +33,10 @@ data Mutability = Constant | Variable
 addType :: TypeName -> KType -> TypeCtx -> TypeCtx
 addType name t ctx@TypeCtx { typeBindings } =
     ctx { typeBindings = Map.insert name t typeBindings }
+
+addEffect :: EffectName -> KEffect -> TypeCtx -> TypeCtx
+addEffect name eff ctx@TypeCtx { effectBindings } =
+    ctx { effectBindings = Map.insert name eff effectBindings }
 
 addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =
