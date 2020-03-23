@@ -21,7 +21,10 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
 
 instance Pretty TypecheckingError where
     pretty (UnexpectedType expected got) =
-        "Expected" <+> pretty expected <+> "but got" <+> pretty got
+        "Expected" <> line
+        <> pretty expected <> line
+        <> "but got" <> line
+        <> pretty got
     pretty (UnavailableType [available] requested) = pretty (UnexpectedType requested available)
     pretty (UnavailableType available requested) =
         "Expected" <+> pretty requested <+> "but got one of" <> line <> indent
