@@ -61,7 +61,7 @@ instance Pretty TypecheckingError where
     pretty (UnavailableEffect available requested) =
         "Requested the effects:" <> line
         <> indent 4 (bulletList requested) <> line
-        <> "In a context where no effects are available" <> line
+        <> "In a context where only the following effects are available" <> line
         <> indent 4 (bulletList available)
 
 bulletList :: Pretty a => [a] -> Doc ann
