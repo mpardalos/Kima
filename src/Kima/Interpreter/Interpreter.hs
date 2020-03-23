@@ -125,9 +125,8 @@ getName name = gets (Map.lookup (toIdentifier name) . unEnv) >>= \case
     Just ref -> readIORef ref
     Nothing  -> throwError (NotInScope (toIdentifier name))
 
--- | Bind either a function or the constructor and accessors of a
--- | DataDef
-bindTopLevel :: MonadInterpreter m => TopLevel Runtime -> m Value
+-- | Bind all the relevant items for a top-level declaration
+bindTopLevel :: MonadInterpreter m => TopLevel Runtime -> m ()
 bindTopLevel (FuncDef name args eff rt body) = do
     let funcType = KFunc (snd <$> args) eff rt
     let funcIdentifier = TIdentifier name funcType
@@ -139,8 +138,6 @@ bindTopLevel (FuncDef name args eff rt body) = do
     let function = Function (uncurry TIdentifier <$> args) body closure
     -- Then, when we have the function, give the correct binding
     bind funcIdentifier function
-
-    return function
 bindTopLevel (DataDef name members)       = do
     let declaredType = KUserType name members
     let memberTypes = snd <$> members
@@ -151,7 +148,15 @@ bindTopLevel (DataDef name members)       = do
         let accessorType = KFunc [declaredType] [] memberType in
         bind (TAccessor memberName accessorType) (AccessorIdx memberName i)
     bind (TIdentifier name constructorType) constructor
-    return constructor
+bindTopLevel (OperationDef name args rt)       = do
+    let declaredOperation = KOperation name (snd <$> args) rt
+    let declaredEffect = [declaredOperation]
+    let declaredFunctionType = KFunc (snd <$> args) declaredEffect rt
+
+    -- TODO Bind handler
+
+    return ()
+
 
 runModule :: MonadInterpreter m => RuntimeIdentifier -> Module Runtime -> m ()
 runModule mainName (Program defs) = do
