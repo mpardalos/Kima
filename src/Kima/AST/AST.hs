@@ -16,7 +16,6 @@ data TopLevel tag
     = FuncDef Name [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | DataDef Name [(Name, FreeAnnotation tag)]
     | OperationDef Name [(Name, FreeAnnotation tag)] (FreeAnnotation tag)
-    | EffectSynonymDef Name [Name]
 
 data Expr tag
     = LiteralE Literal
