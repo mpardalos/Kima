@@ -154,7 +154,7 @@ instance
         "fun"
             <+> pretty name
             <>  prettyArgList sig
-            <+> "=>"
+            <+> ":"
             <+> pretty eff
             <+> "->"
             <+> pretty rt
