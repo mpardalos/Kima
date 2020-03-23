@@ -99,7 +99,7 @@ instance Pretty KOperation where
     pretty (KOperation name args rt) =
         "effect"
         <+> pretty name
-        <+> encloseSep lparen rparen comma (pretty <$> args)
+        <> encloseSep lparen rparen comma (pretty <$> args)
         <+> "->"
         <+> pretty rt
 
