@@ -1,11 +1,10 @@
 ##output: abc
 
-fun printer(s: String) -> () : IO -> Unit {
-    fun() : IO -> Unit {
-        print(s);
-    }
+fun capturer(s: String) -> () -> String {
+    fun() -> String { s; }
 }
 
 fun main() : IO -> Unit {
-    printer("abc")();
+    let s = capturer("abc")();
+    print(s);
 }

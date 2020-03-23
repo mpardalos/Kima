@@ -85,7 +85,7 @@ infer (IdentifierE name) = (lookupName name <&> types) <&> Set.toList >>= \case
     types -> throwError (AmbiguousName name types)
 infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
     (typedBody, rt) <- case maybeRt of
-        Just rt -> (,rt) <$> withState (addArgs args) (checkReturns rt body)
+        Just rt -> (, rt) <$> withState (addArgs args) (checkReturns rt body)
         Nothing -> withState (addArgs args) (inferReturns body)
 
     let functionType  = KFunc (snd <$> args) eff rt
@@ -94,20 +94,28 @@ infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
 infer FuncExpr{}         = throwError MissingArgumentTypes
 infer (Call callee args) = do
     calleeTypes     <- Set.toList <$> enumerateTypes callee
+    availableEffect <- gets activeEffect
 
     possibleResults <- forM calleeTypes $ \case
-        calleeType@(KFunc argTypes _eff returnType) ->
+        calleeType@(KFunc argTypes calleeEff returnType) ->
             do
                     typedArgs   <- zipWithM check argTypes args
                     typedCallee <- check calleeType callee
-                    return $ Just (Call typedCallee typedArgs, returnType)
+                    return
+                        $ Just
+                              ( calleeEff
+                              , (Call typedCallee typedArgs, returnType)
+                              )
                 `catchError` const (pure Nothing)
         _ -> pure Nothing
 
     case catMaybes possibleResults of
-        [        result] -> return result
-        results@(_ : _ ) -> throwError (AmbiguousCall (snd <$> results))
-        []               -> throwError NoMatchingFunction
+        [(calleeEffect, result)] -> do
+            assert (calleeEffect `isSubEffect` availableEffect)
+                   (UnavailableEffect availableEffect calleeEffect)
+            return result
+        results@(_ : _) -> throwError (AmbiguousCall (snd . snd <$> results))
+        []              -> throwError NoMatchingFunction
 
 -- | List all possible types for an expression
 enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
@@ -140,20 +148,22 @@ enumerateTypes (Call callee args) = do
 -- | Check that an expression has a certain type. If it applies, return the
 -- expression with the type applied. If not, throw an appropriate error.
 check :: MonadTC m => KType -> Expr TypeAnnotated -> m (Expr Typed)
-check expectedType (IdentifierE ident) = lookupName ident >>= \case
-    (Binding _ availableTypes) -> do
-        let possibleTypes =
-                Set.filter (expectedType `subsumedBy`) availableTypes
+check expectedType (IdentifierE ident) = do
+    Binding _ availableTypes <- lookupName ident
 
-        case Set.toList possibleTypes of
-            [        result] -> return (IdentifierE (typeAnnotate result ident))
-            results@(_ : _ ) -> throwError (AmbiguousCall results)
-            []               -> throwError
-                (UnavailableType (Set.toList availableTypes) expectedType)
+    let possibleTypes = Set.filter (`subsumedBy` expectedType) availableTypes
+
+    case Set.toList possibleTypes of
+        [        result] -> return (IdentifierE (typeAnnotate result ident))
+        results@(_ : _ ) -> throwError (AmbiguousCall results)
+        []               -> throwError
+            (UnavailableType (Set.toList availableTypes) expectedType)
 check expectedType (Call callee args) = do
     (typedArgs, argTypes) <- unzip <$> mapM infer args
     callEffect            <- gets activeEffect
+
     typedCallee <- check (KFunc argTypes callEffect expectedType) callee
+
     return (Call typedCallee typedArgs)
 check expectedType expr = do
     (typedExpr, inferedType) <- infer expr
@@ -271,11 +281,14 @@ checkReturns :: MonadTC m => KType -> Stmt TypeAnnotated -> m (Stmt Typed)
 checkReturns KUnit (ExprStmt expr) =
     -- If it's not Unit then anything else will do, doesn't matter
     ExprStmt <$> (check KUnit expr `catchError` const (fst <$> infer expr))
-checkReturns t (ExprStmt expr) = ExprStmt <$> check t expr
-checkReturns t stmt            = do
+checkReturns t            (ExprStmt expr) = ExprStmt <$> check t expr
+checkReturns expectedType stmt            = do
     (typedBlk, returnType) <- inferReturns stmt
+
     -- When we're expecting Unit, anything else will do
-    when (t /= KUnit) $ assert (t == returnType) (UnexpectedType t returnType)
+    when (expectedType /= KUnit) $ assert
+        (returnType `subsumedBy` expectedType)
+        (UnexpectedType expectedType returnType)
     return typedBlk
 
 -----------------------------
@@ -290,10 +303,11 @@ checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
 checkTopLevel :: MonadTC m => TopLevel TypeAnnotated -> m (TopLevel Typed)
 checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff (Just rt) body)
     =   FuncDef name args eff rt
-    <$> withState (addArgs args) (checkReturns rt body)
+    <$> withState (setEffect eff . addArgs args) (checkReturns rt body)
 checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff Nothing body) =
     do
-        (typedBody, rt) <- withState (addArgs args) (inferReturns body)
+        (typedBody, rt) <- withState (setEffect eff . addArgs args)
+                                     (inferReturns body)
         return (FuncDef name args eff rt typedBody)
 checkTopLevel FuncDef{} = throwError MissingArgumentTypes
 checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) =
@@ -325,6 +339,9 @@ addArgs args ctx =
   where
     bindings = (Binding Constant . Set.singleton) . snd <$> args
     names    = Identifier . fst <$> args
+
+setEffect :: KEffect -> TypeCtx -> TypeCtx
+setEffect eff ctx = ctx { activeEffect = eff }
 
 cartesianProduct :: [[a]] -> [[a]]
 cartesianProduct []         = [[]]

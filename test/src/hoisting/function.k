@@ -1,7 +1,7 @@
 fun main() : IO -> Unit {
-    thefunc();
+    print(thefunc());
 }
 
 fun thefunc() -> Unit {
-    print("works");
+    "works"
 }
