@@ -313,7 +313,10 @@ checkTopLevel FuncDef{} = throwError MissingArgumentTypes
 checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) =
     pure (DataDef name typeFields)
 checkTopLevel DataDef{} = throwError MissingFieldTypes
-
+checkTopLevel (OperationDef name (ensureTypedArgs -> Just args) (Just rt)) =
+    pure (OperationDef name args rt)
+checkTopLevel (OperationDef _ (ensureTypedArgs -> Just _) Nothing) = throwError MissingReturnType
+checkTopLevel OperationDef{} = throwError MissingArgumentTypes
 -----------------------------
 ---------- Helpers ----------
 -----------------------------
