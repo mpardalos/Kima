@@ -29,6 +29,10 @@ desugarTopLevel (FuncDef name args Nothing rt body) = FuncDef
     []
     (desugarTypeExpr <$> rt)
     (desugarStmt body)
+desugarTopLevel (OperationDef name args rt) = OperationDef
+    name
+    (second (fmap desugarTypeExpr) <$> args)
+    (desugarTypeExpr <$> rt)
 
 desugarStmt :: Stmt Parsed -> Stmt Desugared
 desugarStmt (ExprStmt expr     ) = ExprStmt (desugarExpr expr)
