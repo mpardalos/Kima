@@ -171,6 +171,12 @@ instance
                     )
             <>  line
             <>  "}"
+    pretty (OperationDef name args rt) =
+        "effect"
+            <+> pretty name
+            <>  prettyArgList args
+            <+> "->"
+            <+> pretty rt
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
     , Pretty (AnnotatedName (NameAnnotation stage))
