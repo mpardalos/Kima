@@ -16,6 +16,7 @@ data TopLevel tag
     = FuncDef Name [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | DataDef Name [(Name, FreeAnnotation tag)]
     | OperationDef Name [(Name, FreeAnnotation tag)] (FreeAnnotation tag)
+    | EffectSynonymDef Name [Name]
 
 data Expr tag
     = LiteralE Literal
@@ -177,6 +178,11 @@ instance
             <>  prettyArgList args
             <+> "->"
             <+> pretty rt
+    pretty (EffectSynonymDef name ops) =
+        "effect"
+            <+> pretty name <> "{" <> line
+            <>  vcat (punctuate comma (pretty <$> ops)) <> line
+            <>  "}"
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
     , Pretty (AnnotatedName (NameAnnotation stage))

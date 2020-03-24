@@ -42,6 +42,7 @@ resolveTopLevelTypes (OperationDef name argExprs rtExpr ) =
     OperationDef name
         <$> traverse (traverse (traverse resolveTypeExpr)) argExprs
         <*> traverse resolveTypeExpr rtExpr
+resolveTopLevelTypes (EffectSynonymDef name ops) = pure (EffectSynonymDef name ops)
 
 resolveStmtTypes
     :: MonadTypeResolution m => Stmt Desugared -> m (Stmt TypeAnnotated)
@@ -112,6 +113,9 @@ processTopLevel topLevelDecls = forM_ topLevelDecls $ \case
         throwError MissingReturnType
     OperationDef{} -> throwError MissingArgumentTypes
 
+    EffectSynonymDef name ops -> do
+        (KEffect _ resolvedOps) <- resolveEffectExpr (EffectNames ops)
+        modify (addEffect name (KEffect (Just name) resolvedOps))
 
 resolveTypeExpr :: MonadTypeResolution m => TypeExpr -> m KType
 resolveTypeExpr tExpr@(TypeName name) =

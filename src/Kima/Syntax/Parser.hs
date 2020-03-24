@@ -19,7 +19,7 @@ program = Program <$> (whitespace *> some topLevel <* eof)
 
 -- Function defintions
 topLevel :: Parser (TopLevel Parsed)
-topLevel = funcDef <|> dataDef <|> effectDef
+topLevel = funcDef <|> dataDef <|> try effectSynonymDef <|> operationDef
 
 effectSpec :: Parser ParsedEffect
 effectSpec = try singleEffect <|> bracedEffects
@@ -220,11 +220,18 @@ typeExpr =
 
         return (ParsedSignatureType arguments effect returnType)
 
-effectDef :: Parser (TopLevel Parsed)
-effectDef =
+operationDef :: Parser (TopLevel Parsed)
+operationDef =
     reserved REffect
         *> (   OperationDef
            <$> identifier
            <*> typedArgList
            <*> (Just <$> (symbol Arrow *> typeExpr))
+           )
+
+effectSynonymDef :: Parser (TopLevel Parsed)
+effectSynonymDef =
+    reserved REffect
+        *> (EffectSynonymDef <$> identifier <*> braces
+               (identifier `sepBy` symbol Comma)
            )

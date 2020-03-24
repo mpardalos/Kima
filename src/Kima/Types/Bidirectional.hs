@@ -319,6 +319,7 @@ checkTopLevel (OperationDef name (ensureTypedArgs -> Just args) (Just rt)) =
     pure (OperationDef name args rt)
 checkTopLevel (OperationDef _ (ensureTypedArgs -> Just _) Nothing) = throwError MissingReturnType
 checkTopLevel OperationDef{} = throwError MissingArgumentTypes
+checkTopLevel (EffectSynonymDef name ops) = pure (EffectSynonymDef name ops)
 -----------------------------
 ---------- Helpers ----------
 -----------------------------

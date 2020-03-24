@@ -156,6 +156,10 @@ bindTopLevel (OperationDef name args rt)       = do
     -- TODO Bind handler
 
     return ()
+bindTopLevel (EffectSynonymDef name effs)       = do
+    -- TODO Bind synonym
+
+    return ()
 
 
 runModule :: MonadInterpreter m => RuntimeIdentifier -> Module Runtime -> m ()

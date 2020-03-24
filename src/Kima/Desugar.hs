@@ -33,6 +33,7 @@ desugarTopLevel (OperationDef name args rt) = OperationDef
     name
     (second (fmap desugarTypeExpr) <$> args)
     (desugarTypeExpr <$> rt)
+desugarTopLevel (EffectSynonymDef name ops) = EffectSynonymDef name ops
 
 desugarStmt :: Stmt Parsed -> Stmt Desugared
 desugarStmt (ExprStmt expr     ) = ExprStmt (desugarExpr expr)
