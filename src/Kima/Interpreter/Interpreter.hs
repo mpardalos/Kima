@@ -151,14 +151,13 @@ bindTopLevel (DataDef name members)       = do
 bindTopLevel (OperationDef name args rt)       = do
     let declaredOperation = KOperation name (snd <$> args) rt
     let declaredEffect = KEffect (Just name) [declaredOperation]
-    let declaredFunctionType = KFunc (snd <$> args) declaredEffect rt
+    let _declaredFunctionType = KFunc (snd <$> args) declaredEffect rt
 
     -- TODO Bind handler
 
     return ()
-bindTopLevel (EffectSynonymDef name effs)       = do
+bindTopLevel (EffectSynonymDef _name _effs)       = do
     -- TODO Bind synonym
-
     return ()
 
 
