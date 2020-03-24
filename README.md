@@ -138,8 +138,12 @@ And more features are coming soon!
 * [x] Type checking
 * [x] Type inference (bidirectional typing takes care of both)
 * [x] Control flow (if, while)
+* [x] Effect checking
+* [ ] Effect handlers
 * [ ] Pattern matching
-* [ ] Effect system
 * [ ] Sum types
 * [ ] Polymorphic types
 * [ ] Source position annotations (better error messages)
+
+Effects checking has been implemented. But, for now you can only add effects,
+never handle/discharge them. The full implementation is coming soon!
