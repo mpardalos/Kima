@@ -46,7 +46,9 @@ runTypeChecking ctx action = evalStateT action ctx
 ---------------------------------
 
 isSubEffect :: KEffect -> KEffect -> Bool
-isSubEffect subEff superEff = and [ op `elem` superEff | op <- subEff ]
+isSubEffect (KEffect _ subOps) (KEffect _ superOps) =
+    and [ op `elem` superOps | op <- subOps ]
+
 
 -- | Check whether a type 'fits into' another. Currently checks for
 -- * Subeffects

@@ -54,15 +54,20 @@ instance Pretty TypecheckingError where
     pretty MissingArgumentTypes = "Missing argument types"
     pretty MissingReturnType = "Missing return type"
     pretty MissingFieldTypes = "Missing field types"
-    pretty (UnavailableEffect [] requested) =
-        "Requested the effects:" <> line
+    pretty (UnavailableEffect (KEffect _ available) (KEffect requestedName requested)) =
+        "Requested" <+> effectNamePretty <> line
         <> indent 4 (bulletList requested) <> line
-        <> "In a context where no effects are available"
-    pretty (UnavailableEffect available requested) =
-        "Requested the effects:" <> line
-        <> indent 4 (bulletList requested) <> line
-        <> "In a context where only the following effects are available" <> line
-        <> indent 4 (bulletList available)
+        <> availablePretty
+        where
+            effectNamePretty = case requestedName of
+                Just name -> "the effect" <+> pretty name <+> "containing the operations:"
+                Nothing -> "the operations:"
+            availablePretty = case available of
+                [] ->
+                    "In a context where no effect is available"
+                availableOps ->
+                    "In a context where only the following operations are available:" <> line
+                    <> indent 4 (bulletList availableOps)
 
 bulletList :: Pretty a => [a] -> Doc ann
 bulletList = vsep . fmap (("•" <+>) . pretty)

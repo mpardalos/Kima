@@ -27,7 +27,7 @@ baseTypeBindings=
     ]
 
 ioEffect :: KEffect
-ioEffect =
+ioEffect = KEffect (Just "IO")
     [ printStringOperation
     , printIntOperation
     , printFloatOperation
@@ -41,5 +41,5 @@ baseTypeCtx = TypeCtx
     { typeBindings = baseTypeBindings
     , effectBindings = [("IO", ioEffect)]
     , bindings = Binding Constant . Set.fromList <$> baseBindings
-    , activeEffect = []
+    , activeEffect = PureEffect
     }

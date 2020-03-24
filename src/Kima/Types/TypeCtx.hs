@@ -63,5 +63,5 @@ instance Monoid TypeCtx where
     mempty = TypeCtx { bindings = Map.empty
                      , typeBindings = Map.empty
                      , effectBindings = Map.empty
-                     , activeEffect = []
+                     , activeEffect = PureEffect
                      }

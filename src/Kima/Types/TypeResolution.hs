@@ -80,12 +80,12 @@ processTopLevel topLevelDecls = forM_ topLevelDecls $ \case
 
         modify $ addType typeName declaredType
 
-        let constructorType = KFunc memberTypes [] declaredType
+        let constructorType = KFunc memberTypes PureEffect declaredType
         modify $ addBinding (Identifier typeName)
                             (Binding Constant [constructorType])
 
         forM_ resolvedMembers $ \(fieldName, fieldType) -> do
-            let accessorType = KFunc [declaredType] [] fieldType
+            let accessorType = KFunc [declaredType] PureEffect fieldType
             modify $ addBinding (Accessor fieldName)
                                 (Binding Constant [accessorType])
     DataDef{} -> throwError MissingFieldTypes
@@ -104,7 +104,7 @@ processTopLevel topLevelDecls = forM_ topLevelDecls $ \case
     OperationDef name (ensureTypedArgs -> Just args) (Just rtExpr) -> do
         rt <- resolveTypeExpr rtExpr
         argTypes <- mapM resolveTypeExpr (snd <$> args)
-        let declaredEffect = [KOperation name argTypes rt]
+        let declaredEffect = KEffect (Just name) [KOperation name argTypes rt]
         modify (addEffect name declaredEffect)
         modify (addBinding (Identifier name) (Binding Constant [KFunc argTypes declaredEffect rt]))
 
@@ -127,7 +127,7 @@ resolveTypeExpr (SignatureType argExprs effExpr rtExpr) = do
 resolveEffectExpr :: MonadTypeResolution m => ParsedEffect -> m KEffect
 resolveEffectExpr (EffectNames names) = do
     effectBindings <- gets effectBindings
-    return (concat (mapMaybe (`Map.lookup` effectBindings) names))
+    return (mconcat (mapMaybe (`Map.lookup` effectBindings) names))
 
 ensureTypedArgs :: [(a, Maybe TypeExpr)] -> Maybe [(a, TypeExpr)]
 ensureTypedArgs = traverse sequence

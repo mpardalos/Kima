@@ -63,7 +63,7 @@ runStmt (Assign (WriteAccess name path) expr) = do
             -> [AnnotatedName ('Annotation KType)] -- | Path
             -> m [Value]
         lookupFields baseType (TName subName subType:subFieldNames) = do
-            let accessorType = KFunc [baseType] [] subType
+            let accessorType = KFunc [baseType] PureEffect subType
             thisField <- getName (TAccessor subName accessorType)
             subFields <- lookupFields subType subFieldNames
             return (thisField:subFields)
@@ -142,15 +142,15 @@ bindTopLevel (DataDef name members)       = do
     let declaredType = KUserType name members
     let memberTypes = snd <$> members
     let constructor = BuiltinFunction (return . ProductData)
-    let constructorType = KFunc memberTypes [] declaredType
+    let constructorType = KFunc memberTypes PureEffect declaredType
 
     forM_ (zip [0..] members) $ \(i, (memberName, memberType)) ->
-        let accessorType = KFunc [declaredType] [] memberType in
+        let accessorType = KFunc [declaredType] PureEffect memberType in
         bind (TAccessor memberName accessorType) (AccessorIdx memberName i)
     bind (TIdentifier name constructorType) constructor
 bindTopLevel (OperationDef name args rt)       = do
     let declaredOperation = KOperation name (snd <$> args) rt
-    let declaredEffect = [declaredOperation]
+    let declaredEffect = KEffect (Just name) [declaredOperation]
     let declaredFunctionType = KFunc (snd <$> args) declaredEffect rt
 
     -- TODO Bind handler
