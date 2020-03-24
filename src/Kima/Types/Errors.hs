@@ -17,11 +17,15 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | MissingArgumentTypes
                        | MissingReturnType
                        | MissingFieldTypes
+                       | UnavailableEffect KEffect KEffect
     deriving (Eq, Show)
 
 instance Pretty TypecheckingError where
     pretty (UnexpectedType expected got) =
-        "Expected" <+> pretty expected <+> "but got" <+> pretty got
+        "Expected" <> line
+        <> pretty expected <> line
+        <> "but got" <> line
+        <> pretty got
     pretty (UnavailableType [available] requested) = pretty (UnexpectedType requested available)
     pretty (UnavailableType available requested) =
         "Expected" <+> pretty requested <+> "but got one of" <> line <> indent
@@ -50,6 +54,20 @@ instance Pretty TypecheckingError where
     pretty MissingArgumentTypes = "Missing argument types"
     pretty MissingReturnType = "Missing return type"
     pretty MissingFieldTypes = "Missing field types"
+    pretty (UnavailableEffect (KEffect _ available) (KEffect requestedName requested)) =
+        "Requested" <+> effectNamePretty <> line
+        <> indent 4 (bulletList requested) <> line
+        <> availablePretty
+        where
+            effectNamePretty = case requestedName of
+                Just name -> "the effect" <+> pretty name <+> "containing the operations:"
+                Nothing -> "the operations:"
+            availablePretty = case available of
+                [] ->
+                    "In a context where no effect is available"
+                availableOps ->
+                    "In a context where only the following operations are available:" <> line
+                    <> indent 4 (bulletList availableOps)
 
 bulletList :: Pretty a => [a] -> Doc ann
 bulletList = vsep . fmap (("•" <+>) . pretty)

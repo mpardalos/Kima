@@ -26,8 +26,20 @@ baseTypeBindings=
     , ("Bool", KBool)
     ]
 
+ioEffect :: KEffect
+ioEffect = KEffect (Just "IO")
+    [ printStringOperation
+    , printIntOperation
+    , printFloatOperation
+    , printBoolOperation
+    , printUnitOperation
+    , inputOperation
+    ]
+
 baseTypeCtx :: TypeCtx
 baseTypeCtx = TypeCtx
-    baseTypeBindings
-    (Binding Constant . Set.fromList <$> baseBindings)
-    noEffect
+    { typeBindings = baseTypeBindings
+    , effectBindings = [("IO", ioEffect)]
+    , bindings = Binding Constant . Set.fromList <$> baseBindings
+    , activeEffect = PureEffect
+    }

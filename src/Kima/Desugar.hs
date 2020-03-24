@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 module Kima.Desugar
     ( desugarModule
     , desugarTopLevel
@@ -25,9 +26,14 @@ desugarTopLevel (FuncDef name args (Just eff) rt body) = FuncDef
 desugarTopLevel (FuncDef name args Nothing rt body) = FuncDef
     name
     (second (fmap desugarTypeExpr) <$> args)
-    noEffect
+    []
     (desugarTypeExpr <$> rt)
     (desugarStmt body)
+desugarTopLevel (OperationDef name args rt) = OperationDef
+    name
+    (second (fmap desugarTypeExpr) <$> args)
+    (desugarTypeExpr <$> rt)
+desugarTopLevel (EffectSynonymDef name ops) = EffectSynonymDef name ops
 
 desugarStmt :: Stmt Parsed -> Stmt Desugared
 desugarStmt (ExprStmt expr     ) = ExprStmt (desugarExpr expr)
@@ -51,7 +57,7 @@ desugarExpr (FuncExpr args (Just eff) rt body) = FuncExpr
     (desugarStmt body)
 desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     (second (fmap desugarTypeExpr) <$> args)
-    noEffect
+    []
     (desugarTypeExpr <$> rt)
     (desugarStmt body)
 desugarExpr (Call callee args  ) = Call (desugarExpr callee) (desugarExpr <$> args)
@@ -91,4 +97,4 @@ desugarTypeExpr (ParsedTypeName name) = TypeName name
 desugarTypeExpr (ParsedSignatureType args (Just eff) rt) =
     SignatureType (desugarTypeExpr <$> args) eff (desugarTypeExpr rt)
 desugarTypeExpr (ParsedSignatureType args Nothing rt) =
-    SignatureType (desugarTypeExpr <$> args) noEffect (desugarTypeExpr rt)
+    SignatureType (desugarTypeExpr <$> args) [] (desugarTypeExpr rt)

@@ -82,7 +82,7 @@ runModuleWithInput input inAST = do
     refEnv <- liftIO $ refify (Environment baseEnv)
 
     inAST
-        & Kima.Interpreter.runModule
+        & Kima.Interpreter.runModule (TIdentifier "main" (KFunc [] ioEffect KUnit))
         & Kima.Test.Interpreters.runInterpreter
         & (`evalStateT` refEnv)
         & (`runReaderT` input)

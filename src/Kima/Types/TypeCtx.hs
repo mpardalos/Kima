@@ -4,6 +4,7 @@ module Kima.Types.TypeCtx
     , Mutability(..)
     , addType
     , addBinding
+    , addEffect
     )
 where
 
@@ -15,9 +16,10 @@ import           GHC.Generics
 import           Kima.AST
 
 data TypeCtx = TypeCtx {
-    typeBindings  :: Map TypeName KType,
-    bindings      :: Map (Identifier 'NoAnnotation) Binding,
-    activeEffect :: Effect
+    typeBindings   :: Map TypeName KType,
+    effectBindings :: Map EffectName KEffect,
+    bindings       :: Map (Identifier 'NoAnnotation) Binding,
+    activeEffect   :: KEffect
 }
 
 data Binding = Binding {
@@ -31,6 +33,10 @@ data Mutability = Constant | Variable
 addType :: TypeName -> KType -> TypeCtx -> TypeCtx
 addType name t ctx@TypeCtx { typeBindings } =
     ctx { typeBindings = Map.insert name t typeBindings }
+
+addEffect :: EffectName -> KEffect -> TypeCtx -> TypeCtx
+addEffect name eff ctx@TypeCtx { effectBindings } =
+    ctx { effectBindings = Map.insert name eff effectBindings }
 
 addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =
@@ -46,7 +52,16 @@ instance Semigroup Binding where
         Binding (mutL <> mutR) (typesL <> typesR)
 
 instance Semigroup TypeCtx where
-    (TypeCtx tBindsLeft bindsLeft effectLeft) <> (TypeCtx tBindsRight bindsRight effectRight) =
-        TypeCtx (tBindsLeft <> tBindsRight)
-                (Map.unionWith (<>) bindsLeft bindsRight)
-                (effectLeft <> effectRight)
+    (TypeCtx tBindsLeft effBindsLeft bindsLeft effectLeft) <> (TypeCtx tBindsRight effBindsRight bindsRight effectRight)
+        = TypeCtx { typeBindings   = tBindsLeft <> tBindsRight
+                  , effectBindings = effBindsLeft <> effBindsRight
+                  , bindings       = Map.unionWith (<>) bindsLeft bindsRight
+                  , activeEffect   = effectLeft <> effectRight
+                  }
+
+instance Monoid TypeCtx where
+    mempty = TypeCtx { bindings = Map.empty
+                     , typeBindings = Map.empty
+                     , effectBindings = Map.empty
+                     , activeEffect = PureEffect
+                     }

@@ -1,16 +1,16 @@
 ##output: 1
 ##output: 2
 
-fun make_f() -> () -> Unit {
+fun make_f() -> () -> Int {
     var a: Int = 0;
-    fun() -> Unit {
+    fun() -> Int {
         a = a + 1;
-        print(a);
+        a;
     };
 }
 
 fun main() : IO -> Unit {
-    let f: () -> Unit = make_f();
-    f();
-    f();
+    let f: () -> Int = make_f();
+    print(f());
+    print(f());
 }
