@@ -1,4 +1,4 @@
-image: "fpco/stack-build"
+image: "fpco/stack-build:lts"
 
 stages:
     - test
