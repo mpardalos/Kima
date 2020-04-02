@@ -36,7 +36,7 @@ addType name t ctx@TypeCtx { typeBindings } =
 
 addEffect :: EffectName -> KEffect -> TypeCtx -> TypeCtx
 addEffect name eff ctx@TypeCtx { effectBindings } =
-    ctx { effectBindings = Map.insert name eff effectBindings }
+    ctx { effectBindings = Map.insertWith (<>) name eff effectBindings }
 
 addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =
