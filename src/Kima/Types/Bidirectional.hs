@@ -101,7 +101,7 @@ infer (Call callee args) = do
     possibleResults <- forM calleeTypes $ \case
         calleeType@(KFunc argTypes calleeEff returnType) ->
             do
-                    typedArgs   <- zipWithM check argTypes args
+                    typedArgs   <- checkArgList argTypes args
                     typedCallee <- check calleeType callee
                     return
                         $ Just
@@ -353,3 +353,8 @@ cartesianProduct :: [[a]] -> [[a]]
 cartesianProduct []         = [[]]
 cartesianProduct (xs : xss) = [ x : ys | x <- xs, ys <- yss ]
     where yss = cartesianProduct xss
+
+checkArgList :: MonadTC m => [KType] -> [Expr TypeAnnotated] -> m [Expr Typed]
+checkArgList argTypes args = do
+    assert (length argTypes == length args) NoMatchingFunction
+    zipWithM check argTypes args
