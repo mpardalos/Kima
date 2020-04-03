@@ -75,7 +75,8 @@ class StringToken a where
     parserFor :: a -> Parser ()
     parserFor t = void (verbatim $ toString t) <?> toString t
 
-data Reserved = RWhile | RFun | RTrue | RFalse | RLet | RVar | RIf | RElse | RData | REffect
+data Reserved = RWhile | RFun | RTrue | RFalse | RLet | RVar | RIf | RElse
+              | RData | REffect | RHandle
     deriving (Eq, Enum, Bounded)
 
 -- Reserved words
@@ -91,6 +92,7 @@ instance StringToken Reserved where
     toString RIf     = "if"
     toString RElse   = "else"
     toString REffect = "effect"
+    toString RHandle = "handle"
 
 reserved :: Reserved -> Parser ()
 reserved = parserFor
