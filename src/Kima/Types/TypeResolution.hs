@@ -142,12 +142,10 @@ resolveEffectExpr :: MonadTypeResolution m => ParsedEffect -> m KEffect
 resolveEffectExpr (EffectNames names) = do
     effectBindings <- gets effectBindings
 
-    let lookupResults =
-            fmap (\name -> (name, name `Map.lookup` effectBindings)) names
-
-    resolved <- forM lookupResults $ \case
-        (_   , Just eff) -> pure eff
-        (name, Nothing ) -> throwError (NonExistentEffect name)
+    resolved <- forM names $ \name ->
+        case Map.lookup name effectBindings of
+            Just eff -> pure eff
+            Nothing  -> throwError (NonExistentEffect name)
 
     return (mconcat resolved)
 
