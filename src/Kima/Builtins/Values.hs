@@ -129,6 +129,9 @@ baseEnv =
     , ( TBuiltin EqualsOp (KFunc [KFloat, KFloat] PureEffect KBool)
       , BuiltinFunction $ liftComparison (==)
       )
+    , ( TBuiltin EqualsOp (KFunc [KString, KString] PureEffect KBool)
+      , BuiltinFunction stringEquality
+      )
     , ( TBuiltin DivOp (KFunc [KInt, KInt] PureEffect KInt)
       , BuiltinFunction kimaDivision
       )
@@ -286,6 +289,15 @@ liftComparison _  [l        , r        ] = throwError
         ("Can't apply operation to " <> show l <> " and " <> show r)
     )
 liftComparison _ _ = throwError
+    (BuiltinFunctionError "Wrong argument count for comparison operator")
+
+stringEquality :: MonadRE m => [Value] -> m Value
+stringEquality [String l, String r] = return $ Bool (l == r)
+stringEquality [l        , r        ] = throwError
+    (BuiltinFunctionError
+        ("Can't apply operation to " <> show l <> " and " <> show r)
+    )
+stringEquality _ = throwError
     (BuiltinFunctionError "Wrong argument count for comparison operator")
 
 kimaNegate :: MonadRE m => [Value] -> m Value
