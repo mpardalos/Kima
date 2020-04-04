@@ -24,17 +24,7 @@ evalExpr (FuncExpr args _eff _rt body) =
 evalExpr (Call callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 evalExpr (Handle expr handlers) = do
-    handlerClosure <- get
-    handlerPairs   <- forM handlers $ \(HandlerClause name args rt body) -> do
-        let handledEffect =
-                KEffect (Just name) [KOperation name (snd <$> args) rt]
-        let funcType = KFunc (snd <$> args) handledEffect rt
-
-        funcRef <- newIORef
-            $ Function (uncurry TIdentifier <$> args) body handlerClosure
-
-        return (TIdentifier name funcType, funcRef)
-    let handlerEnv = Environment (Map.fromList handlerPairs)
+    handlerEnv <- mkHandlerEnv handlers
     withState (handlerEnv <>) $ evalExpr expr
 
 evalLiteral :: Literal -> Value
@@ -174,6 +164,20 @@ bindTopLevel (EffectSynonymDef _name _effs)       = do
     -- TODO Bind synonym
     return ()
 
+
+mkHandlerEnv :: MonadInterpreter m => [HandlerClause Runtime] -> m (Environment (IORef Value))
+mkHandlerEnv handlers = do
+    handlerClosure <- get
+    handlerPairs   <- forM handlers $ \(HandlerClause name args rt body) -> do
+        let handledEffect =
+                KEffect (Just name) [KOperation name (snd <$> args) rt]
+        let funcType = KFunc (snd <$> args) handledEffect rt
+
+        funcRef <- newIORef
+            $ Function (uncurry TIdentifier <$> args) body handlerClosure
+
+        return (TIdentifier name funcType, funcRef)
+    return (Environment (Map.fromList handlerPairs))
 
 runModule :: MonadInterpreter m => RuntimeIdentifier -> Module Runtime -> m ()
 runModule mainName (Program defs) = do
