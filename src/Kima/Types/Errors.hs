@@ -18,6 +18,7 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | MissingReturnType
                        | MissingFieldTypes
                        | UnavailableEffect KEffect KEffect
+                       | NonExistentEffect Name
     deriving (Eq, Show)
 
 instance Pretty TypecheckingError where
@@ -68,6 +69,7 @@ instance Pretty TypecheckingError where
                 availableOps ->
                     "In a context where only the following operations are available:" <> line
                     <> indent 4 (bulletList availableOps)
+    pretty (NonExistentEffect name) = "This effect does not exist:" <+> pretty name
 
 bulletList :: Pretty a => [a] -> Doc ann
 bulletList = vsep . fmap (("•" <+>) . pretty)

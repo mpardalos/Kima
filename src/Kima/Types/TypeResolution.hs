@@ -11,7 +11,6 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Bitraversable
 import qualified Data.Map                      as Map
-import           Data.Maybe
 import           Kima.AST
 import           Kima.Types.TypeCtx
 import           Kima.Types.Errors
@@ -142,7 +141,15 @@ resolveTypeExpr (SignatureType argExprs effExpr rtExpr) = do
 resolveEffectExpr :: MonadTypeResolution m => ParsedEffect -> m KEffect
 resolveEffectExpr (EffectNames names) = do
     effectBindings <- gets effectBindings
-    return (mconcat (mapMaybe (`Map.lookup` effectBindings) names))
+
+    let lookupResults =
+            fmap (\name -> (name, name `Map.lookup` effectBindings)) names
+
+    resolved <- forM lookupResults $ \case
+        (_   , Just eff) -> pure eff
+        (name, Nothing ) -> throwError (NonExistentEffect name)
+
+    return (mconcat resolved)
 
 ensureTypedArgs :: [(a, Maybe TypeExpr)] -> Maybe [(a, TypeExpr)]
 ensureTypedArgs = traverse sequence
