@@ -62,7 +62,7 @@ identifier = do
         else return $ fromString idName
 
 string :: IsString s => Parser s
-string = lexeme $ char '"' *> (fromString <$> takeWhileP Nothing (/= '"')) <* char '"'
+string = lexeme $ char '"' *> (fromString <$> manyTill L.charLiteral (char '"'))
 
 -- Reserved words and symbols
 
