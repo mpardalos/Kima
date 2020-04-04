@@ -102,7 +102,7 @@ reservedWords = toString <$> ([minBound .. maxBound] :: [Reserved])
 
 -- Symbols
 
-data Symbol = Quote | Bang | Plus | Minus | Star | Slash | Slashslash | Mod
+data Symbol = Quote | Bang | Plus | Minus | Star | StarStar | Slash | Slashslash | Mod
             | Comma | Semicolon | Colon | Equals | Newline | Ellipsis | Arrow
             | GreaterThan | GreaterEqual | LessThan | LessEqual | EqualsEquals
             | BangEquals | Dot
@@ -118,6 +118,7 @@ instance StringToken Symbol where
     toString Plus         = "+"
     toString Minus        = "-"
     toString Star         = "*"
+    toString StarStar     = "**"
     toString Slash        = "/"
     toString Slashslash   = "//"
     toString Mod          = "%"

@@ -146,6 +146,7 @@ expr =
               ]
             , [ binary (symbol Plus)         ((BinE .) . Add)
               , binary (symbol Minus)        ((BinE .) . Sub)
+              , binary (symbol StarStar)     ((BinE .) . Pow)
               , binary (symbol Star)         ((BinE .) . Mul)
               , binary (symbol Slash)        ((BinE .) . Div)
               , binary (symbol T.Mod)        ((BinE .) . Mod)
@@ -204,6 +205,7 @@ accessCall = do
     return (foldl combiner callee argLists)
   where
     callOrAccess = Left <$> (symbol Dot *> identifier) <|> Right <$> argList
+        <?> "Call"
 
     combiner acc (Left  attr) = AccessE acc attr
     combiner acc (Right args) = Call acc args

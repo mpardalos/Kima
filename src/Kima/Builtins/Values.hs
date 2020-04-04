@@ -57,6 +57,18 @@ baseEnv =
     , ( TBuiltin MulOp (KFunc [KFloat, KFloat] PureEffect KInt)
       , BuiltinFunction $ liftNumOp (*)
       )
+    , ( TBuiltin PowOp (KFunc [KInt, KInt] PureEffect KInt)
+      , BuiltinFunction $ liftFloatingOp (**)
+      )
+    , ( TBuiltin PowOp (KFunc [KInt, KFloat] PureEffect KInt)
+      , BuiltinFunction $ liftFloatingOp (**)
+      )
+    , ( TBuiltin PowOp (KFunc [KFloat, KInt] PureEffect KFloat)
+      , BuiltinFunction $ liftFloatingOp (**)
+      )
+    , ( TBuiltin PowOp (KFunc [KFloat, KFloat] PureEffect KInt)
+      , BuiltinFunction $ liftFloatingOp (**)
+      )
     , ( TBuiltin GTOp (KFunc [KInt, KInt] PureEffect KBool)
       , BuiltinFunction $ liftComparison (>)
       )
@@ -230,6 +242,22 @@ liftIntegralOp _  [l        , r        ] = throwError
         ("Can't apply operation to " <> show l <> " and " <> show r)
     )
 liftIntegralOp _ _ = throwError
+    (BuiltinFunctionError "Wrong argument count for numerical operator")
+
+liftFloatingOp
+    :: (MonadRE m)
+    => (forall a . (RealFrac a, Floating a) => a -> a -> a)
+    -> ([Value] -> m Value)
+liftFloatingOp op [Integer l, Integer r] =
+    return $ Integer (truncate ((fromIntegral l `op` fromIntegral r) :: Double))
+liftFloatingOp op [Integer l, Float r  ] = return $ Float (fromInteger l `op` r)
+liftFloatingOp op [Float   l, Integer r] = return $ Float (l `op` fromInteger r)
+liftFloatingOp op [Float   l, Float r  ] = return $ Float (l `op` r)
+liftFloatingOp _  [l        , r        ] = throwError
+    (BuiltinFunctionError
+        ("Can't apply operation to " <> show l <> " and " <> show r)
+    )
+liftFloatingOp _ _ = throwError
     (BuiltinFunctionError "Wrong argument count for numerical operator")
 
 liftNumOp

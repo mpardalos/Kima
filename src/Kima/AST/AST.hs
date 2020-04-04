@@ -48,7 +48,7 @@ data HandlerClause tag = HandlerClause
 
 data Binary e
     = Add e e | Sub e e | Div e e | Mul e e | Mod e e | Less e e | LessEq e e
-    | Greater e e | GreatEq e e | Eq e e | NotEq e e
+    | Greater e e | GreatEq e e | Eq e e | NotEq e e | Pow e e
     deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
 
 data Unary e = Negate e | Invert e
@@ -112,6 +112,7 @@ instance Pretty a => Pretty (Binary a) where
     pretty (GreatEq l r) = pretty l <+> ">=" <+> pretty r
     pretty (Eq      l r) = pretty l <+> "==" <+> pretty r
     pretty (NotEq   l r) = pretty l <+> "!=" <+> pretty r
+    pretty (Pow     l r) = pretty l <+> "**" <+> pretty r
 
 instance Pretty a => Pretty (Unary a) where
     pretty (Negate e) = "-" <> pretty e

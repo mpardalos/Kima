@@ -9,6 +9,7 @@ import Kima.AST.Kinds
 
 data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
                  | GTOp | GTEOp | LTOp | LTEOp | EqualsOp
+                 | PowOp
                  | InvertOp | NegateOp -- Unary ops
                  | PrintFunc | InputFunc -- Builtin functions
     deriving (Show, Eq, Ord, Generic)
@@ -67,6 +68,7 @@ instance Pretty BuiltinName where
     pretty EqualsOp  = "(==)"
     pretty InvertOp  = "(-)"
     pretty NegateOp  = "(!)"
+    pretty PowOp     = "(**)"
     pretty PrintFunc = "b'print"
     pretty InputFunc = "b'input"
 
