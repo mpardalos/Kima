@@ -162,7 +162,7 @@ prefix p f = Prefix (f <$ p)
 postfix p f = Postfix (f <$ p)
 
 term :: Parser (Expr Parsed)
-term = try accessCall <|> try funcExpr <|> try baseTerm
+term = try handlerExpr <|> try accessCall <|> try funcExpr <|> try baseTerm
 
 funcExpr :: Parser (Expr Parsed)
 funcExpr = do
@@ -206,6 +206,20 @@ accessCall = do
 
     combiner acc (Left  attr) = AccessE acc attr
     combiner acc (Right args) = Call acc args
+
+handlerExpr :: Parser (Expr Parsed)
+handlerExpr = do
+    reserved RHandle
+    handledExpr <- expr
+    handlers <- braces (many handlerClause)
+    return (Handle handledExpr handlers)
+
+handlerClause :: Parser (HandlerClause Parsed)
+handlerClause = HandlerClause
+    <$> identifier
+    <*> typedArgList
+    <*> optional (symbol Arrow *> typeExpr)
+    <*> block
 
 typeExpr :: Parser ParsedTypeExpr
 typeExpr =

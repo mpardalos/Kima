@@ -23,6 +23,7 @@ data Expr tag
     | IdentifierE (Identifier (NameAnnotation tag))
     | FuncExpr [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | Call (Expr tag) [Expr tag]
+    | Handle (Expr tag) [HandlerClause tag]
     | (HasSugar tag) => AccessE (Expr tag) Name
     | (HasSugar tag) => BinE (Binary (Expr tag))
     | (HasSugar tag) => UnaryE (Unary (Expr tag))
@@ -35,6 +36,13 @@ data Stmt tag
     | Assign (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
     | Var Name (FreeAnnotation tag) (Expr tag)
     | Let Name (FreeAnnotation tag) (Expr tag)
+
+data HandlerClause tag = HandlerClause
+    { opName :: Name
+    , args :: [(Name, FreeAnnotation tag)]
+    , returnType :: FreeAnnotation tag
+    , body :: Stmt tag
+    }
 
 ---------------- Factored out parts of the AST ------------------------------
 
@@ -213,12 +221,29 @@ instance
             <+> "->"
             <+> pretty rt
             <+> pretty body
-    pretty (LiteralE    lit  ) = pretty lit
-    pretty (IdentifierE name ) = pretty name
-    pretty (Call callee args ) = pretty callee <> tupled (pretty <$> args)
+    pretty (LiteralE    lit ) = pretty lit
+    pretty (IdentifierE name) = pretty name
+    pretty (Call callee args) = pretty callee <> tupled (pretty <$> args)
+    pretty (Handle expr handlers) =
+        "handle"
+            <+> pretty expr
+            <+> "{"
+            <>  line
+            <>  indent 4 (vcat (pretty <$> handlers))
+            <>  line
+            <>  "}"
     pretty (BinE   bin       ) = pretty bin
     pretty (UnaryE unary     ) = pretty unary
     pretty (AccessE expr name) = parens (pretty expr) <> "." <> pretty name
+
+instance
+    ( AnnotationConstraint Pretty (NameAnnotation stage)
+    , Pretty (AnnotatedName (NameAnnotation stage))
+    , Pretty (EffectType stage)
+    , Pretty (FreeAnnotation stage)
+    ) => Pretty (HandlerClause stage) where
+    pretty (HandlerClause name args rt body) =
+        pretty name <> prettyArgList args <+> "->" <+> pretty rt <+> pretty body
 
 instance Pretty ident => Pretty (WriteAccess ident) where
     pretty (WriteAccess ident rest) =
@@ -276,3 +301,9 @@ deriving instance
     , Eq (EffectType stage)
     , Eq (FreeAnnotation stage)
     ) => Eq (Expr stage)
+deriving instance
+    ( AnnotationConstraint Eq (NameAnnotation stage)
+    , Eq (AnnotatedName (NameAnnotation stage))
+    , Eq (EffectType stage)
+    , Eq (FreeAnnotation stage)
+    ) => Eq (HandlerClause stage)

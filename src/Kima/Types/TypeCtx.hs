@@ -5,6 +5,7 @@ module Kima.Types.TypeCtx
     , addType
     , addBinding
     , addEffect
+    , addActiveOperations
     )
 where
 
@@ -37,6 +38,10 @@ addType name t ctx@TypeCtx { typeBindings } =
 addEffect :: EffectName -> KEffect -> TypeCtx -> TypeCtx
 addEffect name eff ctx@TypeCtx { effectBindings } =
     ctx { effectBindings = Map.insert name eff effectBindings }
+
+addActiveOperations :: [KOperation] -> TypeCtx -> TypeCtx
+addActiveOperations ops ctx@TypeCtx { activeEffect } =
+    ctx { activeEffect = activeEffect <> KEffect Nothing ops }
 
 addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =

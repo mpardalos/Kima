@@ -17,11 +17,15 @@ import qualified Data.Map                      as Map
 
 ---------- Expressions ----------
 evalExpr :: MonadInterpreter m => Expr Runtime -> m Value
-evalExpr (LiteralE   l     )     = return $ evalLiteral l
-evalExpr (IdentifierE name )     = getName name
-evalExpr (FuncExpr args _eff _rt body) = Function (uncurry TIdentifier <$> args) body <$> get
+evalExpr (LiteralE    l   ) = return $ evalLiteral l
+evalExpr (IdentifierE name) = getName name
+evalExpr (FuncExpr args _eff _rt body) =
+    Function (uncurry TIdentifier <$> args) body <$> get
 evalExpr (Call callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
+evalExpr (Handle expr handlers) = do
+    handlerEnv <- mkHandlerEnv handlers
+    withState (handlerEnv <>) $ evalExpr expr
 
 evalLiteral :: Literal -> Value
 evalLiteral (IntExpr    i) = Integer i
@@ -148,18 +152,22 @@ bindTopLevel (DataDef name members)       = do
         let accessorType = KFunc [declaredType] PureEffect memberType in
         bind (TAccessor memberName accessorType) (AccessorIdx memberName i)
     bind (TIdentifier name constructorType) constructor
-bindTopLevel (OperationDef name args rt)       = do
-    let declaredOperation = KOperation name (snd <$> args) rt
-    let declaredEffect = KEffect (Just name) [declaredOperation]
-    let _declaredFunctionType = KFunc (snd <$> args) declaredEffect rt
+bindTopLevel OperationDef{}     = return ()
+bindTopLevel EffectSynonymDef{} = return ()
 
-    -- TODO Bind handler
+mkHandlerEnv :: MonadInterpreter m => [HandlerClause Runtime] -> m (Environment (IORef Value))
+mkHandlerEnv handlers = do
+    handlerClosure <- get
+    handlerPairs   <- forM handlers $ \(HandlerClause name args rt body) -> do
+        let handledEffect =
+                KEffect (Just name) [KOperation name (snd <$> args) rt]
+        let funcType = KFunc (snd <$> args) handledEffect rt
 
-    return ()
-bindTopLevel (EffectSynonymDef _name _effs)       = do
-    -- TODO Bind synonym
-    return ()
+        funcRef <- newIORef
+            $ Function (uncurry TIdentifier <$> args) body handlerClosure
 
+        return (TIdentifier name funcType, funcRef)
+    return (Environment (Map.fromList handlerPairs))
 
 runModule :: MonadInterpreter m => RuntimeIdentifier -> Module Runtime -> m ()
 runModule mainName (Program defs) = do

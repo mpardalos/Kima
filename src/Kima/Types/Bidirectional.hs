@@ -73,7 +73,7 @@ subsumedBy _ _ = False
 -- | Try to infer the type of an expression. Returns the typed expression as
 -- well as its type. Throws an error if a type can't be assigned to the
 -- expression *or* if there are multiple possible types
-infer :: MonadTC m => Expr TypeAnnotated -> m (Expr Typed, KType)
+infer :: forall m. MonadTC m => Expr TypeAnnotated -> m (Expr Typed, KType)
 infer (LiteralE    lit@(IntExpr    _)) = pure (LiteralE lit, KInt)
 infer (LiteralE    lit@(FloatExpr  _)) = pure (LiteralE lit, KFloat)
 infer (LiteralE    lit@(BoolExpr   _)) = pure (LiteralE lit, KBool)
@@ -118,6 +118,21 @@ infer (Call callee args) = do
             return result
         results@(_ : _) -> throwError (AmbiguousCall (snd . snd <$> results))
         []              -> throwError NoMatchingFunction
+infer (Handle expr handlers) = do
+    (typedHandlers, availableOps) <- unzip <$> traverse inferHandler handlers
+    (typedExpr, exprType) <- withState (addActiveOperations availableOps) $ infer expr
+    return (Handle typedExpr typedHandlers, exprType)
+
+inferHandler :: MonadTC m => HandlerClause TypeAnnotated -> m (HandlerClause Typed, KOperation)
+inferHandler (HandlerClause name (ensureTypedArgs -> Just args) (Just rt) body) = do
+    let inferedOp = KOperation name (snd <$> args) rt
+
+    typedBody <- withState (addArgs args) $ checkReturns rt body
+    let typedHandler = HandlerClause name args rt typedBody
+
+    pure (typedHandler, inferedOp)
+inferHandler HandlerClause{ returnType = Just _ } = throwError MissingArgumentTypes
+inferHandler HandlerClause{ returnType = Nothing } = throwError MissingReturnType
 
 -- | List all possible types for an expression
 enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
@@ -129,6 +144,8 @@ enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
 enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]
 enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
+-- TODO: When enumerating the types of a handler expr, take the handlers into account
+enumerateTypes (Handle expr _) = enumerateTypes expr
 enumerateTypes (Call callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args

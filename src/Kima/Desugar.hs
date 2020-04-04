@@ -61,6 +61,7 @@ desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     (desugarTypeExpr <$> rt)
     (desugarStmt body)
 desugarExpr (Call callee args  ) = Call (desugarExpr callee) (desugarExpr <$> args)
+desugarExpr (Handle callee handlers) = Handle (desugarExpr callee) (desugarHandler <$> handlers)
 
 desugarIdentifier :: Identifier t -> Identifier t
 desugarIdentifier (Identifier "print") = Builtin PrintFunc
@@ -91,6 +92,13 @@ desugarUnary
     => Unary (Expr tag) -> Expr tag
 desugarUnary (Negate e) = Call (IdentifierE $ Builtin NegateOp) [e]
 desugarUnary (Invert e) = Call (IdentifierE $ Builtin InvertOp) [e]
+
+desugarHandler :: HandlerClause Parsed -> HandlerClause Desugared
+desugarHandler (HandlerClause name args rt body) = HandlerClause
+    name
+    (fmap (fmap desugarTypeExpr) <$> args)
+    (desugarTypeExpr <$> rt)
+    (desugarStmt body)
 
 desugarTypeExpr :: ParsedTypeExpr -> TypeExpr
 desugarTypeExpr (ParsedTypeName name) = TypeName name

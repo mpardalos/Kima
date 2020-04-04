@@ -70,6 +70,17 @@ resolveExprTypes (Call callee args) =
     Call <$> resolveExprTypes callee <*> traverse resolveExprTypes args
 resolveExprTypes (LiteralE    lit ) = pure (LiteralE lit)
 resolveExprTypes (IdentifierE name) = pure (IdentifierE name)
+resolveExprTypes (Handle handled handlers) =
+    Handle
+    <$> resolveExprTypes handled
+    <*> traverse resolveHandlerTypes handlers
+
+resolveHandlerTypes :: MonadTypeResolution m => HandlerClause Desugared -> m (HandlerClause TypeAnnotated)
+resolveHandlerTypes (HandlerClause name args rt body) =
+    HandlerClause name
+    <$> traverse (traverse (traverse resolveTypeExpr)) args
+    <*> traverse resolveTypeExpr rt
+    <*> resolveStmtTypes body
 
 processTopLevel :: MonadTypeResolution m => [TopLevel Desugared] -> m ()
 processTopLevel topLevelDecls = forM_ topLevelDecls $ \case
