@@ -1,4 +1,3 @@
-##focused
 ##shouldNotTypecheck
 
 fun proc() : SomeEffect -> Unit {}
