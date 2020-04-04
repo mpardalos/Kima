@@ -186,8 +186,8 @@ baseEnv =
     , ( TIdentifier "at" (KFunc [KInt, KString] PureEffect KString)
       , BuiltinFunction kimaAt
       )
-    , ( TIdentifier "error" (KFunc [KString] PureEffect KUnit)
-      , BuiltinFunction kimaError
+    , ( TIdentifier "panic" (KFunc [KString] PureEffect KUnit)
+      , BuiltinFunction kimaPanic
       )
     , ( TIdentifier "length" (KFunc [KString] PureEffect KInt)
       , BuiltinFunction kimaLength
@@ -318,6 +318,6 @@ kimaLength :: MonadRE m => [Value] -> m Value
 kimaLength [String xs] = return (Integer (fromIntegral $ length xs))
 kimaLength _ = throwError (BuiltinFunctionError "Wrong arguments for 'length'")
 
-kimaError :: MonadRE m => [Value] -> m Value
-kimaError [String msg] = throwError (BuiltinFunctionError msg)
-kimaError _ = throwError (BuiltinFunctionError "Wrong arguments for 'error'")
+kimaPanic :: MonadRE m => [Value] -> m Value
+kimaPanic [String msg] = throwError (BuiltinFunctionError msg)
+kimaPanic _ = throwError (BuiltinFunctionError "Wrong arguments for 'error'")
