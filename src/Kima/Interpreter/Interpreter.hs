@@ -152,18 +152,8 @@ bindTopLevel (DataDef name members)       = do
         let accessorType = KFunc [declaredType] PureEffect memberType in
         bind (TAccessor memberName accessorType) (AccessorIdx memberName i)
     bind (TIdentifier name constructorType) constructor
-bindTopLevel (OperationDef name args rt)       = do
-    let declaredOperation = KOperation name (snd <$> args) rt
-    let declaredEffect = KEffect (Just name) [declaredOperation]
-    let _declaredFunctionType = KFunc (snd <$> args) declaredEffect rt
-
-    -- TODO Bind handler
-
-    return ()
-bindTopLevel (EffectSynonymDef _name _effs)       = do
-    -- TODO Bind synonym
-    return ()
-
+bindTopLevel OperationDef{}     = return ()
+bindTopLevel EffectSynonymDef{} = return ()
 
 mkHandlerEnv :: MonadInterpreter m => [HandlerClause Runtime] -> m (Environment (IORef Value))
 mkHandlerEnv handlers = do
