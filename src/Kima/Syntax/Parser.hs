@@ -83,6 +83,7 @@ stmt =
         <|> whileStmt
         <|> ifStmt
         <|> assignStmt
+        <|> block
         <|> exprStmt
         <?> "statement"
 
@@ -130,7 +131,7 @@ ifStmt =
         <$> (   IfStmt
             <$> (reserved RIf *> expr)
             <*> block
-            <*> (reserved RElse *> block)
+            <*> (reserved RElse *> stmt)
             )
 
 -- Expressions
