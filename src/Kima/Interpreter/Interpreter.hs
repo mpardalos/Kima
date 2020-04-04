@@ -17,11 +17,25 @@ import qualified Data.Map                      as Map
 
 ---------- Expressions ----------
 evalExpr :: MonadInterpreter m => Expr Runtime -> m Value
-evalExpr (LiteralE   l     )     = return $ evalLiteral l
-evalExpr (IdentifierE name )     = getName name
-evalExpr (FuncExpr args _eff _rt body) = Function (uncurry TIdentifier <$> args) body <$> get
+evalExpr (LiteralE    l   ) = return $ evalLiteral l
+evalExpr (IdentifierE name) = getName name
+evalExpr (FuncExpr args _eff _rt body) =
+    Function (uncurry TIdentifier <$> args) body <$> get
 evalExpr (Call callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
+evalExpr (Handle expr handlers) = do
+    handlerClosure <- get
+    handlerPairs   <- forM handlers $ \(HandlerClause name args rt body) -> do
+        let handledEffect =
+                KEffect (Just name) [KOperation name (snd <$> args) rt]
+        let funcType = KFunc (snd <$> args) handledEffect rt
+
+        funcRef <- newIORef
+            $ Function (uncurry TIdentifier <$> args) body handlerClosure
+
+        return (TIdentifier name funcType, funcRef)
+    let handlerEnv = Environment (Map.fromList handlerPairs)
+    withState (handlerEnv <>) $ evalExpr expr
 
 evalLiteral :: Literal -> Value
 evalLiteral (IntExpr    i) = Integer i
