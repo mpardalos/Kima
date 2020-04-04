@@ -1,4 +1,3 @@
-##focused
 ##output: 2
 
 effect readInt() -> Int
