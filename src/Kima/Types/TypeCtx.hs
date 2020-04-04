@@ -6,6 +6,7 @@ module Kima.Types.TypeCtx
     , addBinding
     , addEffect
     , addActiveOperations
+    , operations
     )
 where
 
@@ -46,6 +47,10 @@ addActiveOperations ops ctx@TypeCtx { activeEffect } =
 addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =
     ctx { bindings = Map.insertWith (<>) n b bindings }
+
+operations :: TypeCtx -> [KOperation]
+operations TypeCtx { effectBindings } =
+    (\(KEffect _ ops) -> ops) =<< Map.elems effectBindings
 
 instance Semigroup Mutability where
     Constant <> _        = Constant

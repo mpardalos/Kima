@@ -126,6 +126,8 @@ infer (Handle expr handlers) = do
 inferHandler :: MonadTC m => HandlerClause TypeAnnotated -> m (HandlerClause Typed, KOperation)
 inferHandler (HandlerClause name (ensureTypedArgs -> Just args) (Just rt) body) = do
     let inferedOp = KOperation name (snd <$> args) rt
+    allOperations <- gets operations
+    assert (inferedOp `elem` allOperations) (NonExistentOperation inferedOp)
 
     typedBody <- withState (addArgs args) $ checkReturns rt body
     let typedHandler = HandlerClause name args rt typedBody
