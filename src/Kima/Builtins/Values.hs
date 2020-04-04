@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 module Kima.Builtins.Values where
 
+import Safe
 import Control.Monad.Except
 import Data.Functor
 import Data.Map (Map)
@@ -58,6 +59,7 @@ baseEnv =
     , ( TBuiltin NegateOp  (KFunc [KInt]             PureEffect KInt   ), BuiltinFunction $ kimaNegate                  )
     , ( TBuiltin NegateOp  (KFunc [KFloat]           PureEffect KFloat ), BuiltinFunction $ kimaNegate                  )
     , ( TBuiltin InvertOp  (KFunc [KBool]            PureEffect KBool  ), BuiltinFunction $ kimaInvert                  )
+    , ( TIdentifier "at"   (KFunc [KInt, KString]    PureEffect KString), BuiltinFunction $ kimaAt                      )
     , ( TBuiltin PrintFunc (KFunc [KString]  (AnonymousEffect [printStringOperation]) KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin PrintFunc (KFunc [KInt]     (AnonymousEffect [printIntOperation])    KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin PrintFunc (KFunc [KFloat]   (AnonymousEffect [printFloatOperation])  KUnit  ), BuiltinFunction kimaPrint                     )
@@ -155,3 +157,11 @@ kimaNegate [l]           = throwError
     (BuiltinFunctionError ("Can't negate " <> show l))
 kimaNegate _ = throwError
     (BuiltinFunctionError "Wrong argument count for negation")
+
+kimaAt :: MonadRE m => [Value] -> m Value
+kimaAt [Integer n, String xs] = case xs `atMay` fromIntegral n of
+    Just c -> return (String [c])
+    Nothing -> throwError
+        (BuiltinFunctionError ("String has no element " <> show n))
+kimaAt _ = throwError
+    (BuiltinFunctionError "Wrong arguments for 'at'")
