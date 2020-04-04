@@ -9,6 +9,7 @@ module Kima.Types
     , typecheckStmtWithTypeCtx
     , typecheckExprWithTypeCtx
     , TypecheckingError(..)
+    , TypeCtx(..)
     )
 where
 
@@ -19,7 +20,7 @@ import           Kima.Types.TypeResolution     as E
                                                 , resolveExprTypes
                                                 )
 import           Kima.Types.TypeCtx            as E
-                                                ( TypeCtx(typeBindings) )
+                                                ( TypeCtx(..) )
 
 import           Kima.Types.Errors             as E
                                                 ( TypecheckingError(..) )

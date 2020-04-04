@@ -49,7 +49,7 @@ data ReplState = ReplState {
 repl :: IO ()
 repl = do
     refEnv <- refify (Environment baseEnv)
-    replStateRef <- newIORef (ReplState baseTypeCtx refEnv)
+    replStateRef <- newIORef (ReplState (baseTypeCtx { activeEffect = ioEffect }) refEnv)
     runInputT defaultSettings (mainloop replStateRef)
   where
     -- | The main loop of the repl. Quits only when EOF is received from haskeline
