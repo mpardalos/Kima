@@ -59,14 +59,15 @@ baseEnv =
     , ( TBuiltin NegateOp  (KFunc [KInt]             PureEffect KInt   ), BuiltinFunction $ kimaNegate                  )
     , ( TBuiltin NegateOp  (KFunc [KFloat]           PureEffect KFloat ), BuiltinFunction $ kimaNegate                  )
     , ( TBuiltin InvertOp  (KFunc [KBool]            PureEffect KBool  ), BuiltinFunction $ kimaInvert                  )
-    , ( TIdentifier "at"   (KFunc [KInt, KString]    PureEffect KString), BuiltinFunction $ kimaAt                      )
-    , ( TIdentifier "error"(KFunc [KString]          PureEffect KUnit  ), BuiltinFunction $ kimaError                   )
     , ( TBuiltin PrintFunc (KFunc [KString]  (AnonymousEffect [printStringOperation]) KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin PrintFunc (KFunc [KInt]     (AnonymousEffect [printIntOperation])    KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin PrintFunc (KFunc [KFloat]   (AnonymousEffect [printFloatOperation])  KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin PrintFunc (KFunc [KBool]    (AnonymousEffect [printBoolOperation])   KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin PrintFunc (KFunc [KUnit]    (AnonymousEffect [printUnitOperation])   KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin InputFunc (KFunc []         (AnonymousEffect [inputOperation])       KString), BuiltinFunction (\_ -> String <$> consoleRead))
+    , ( TIdentifier "at"   (KFunc [KInt, KString]    PureEffect KString), BuiltinFunction $ kimaAt                      )
+    , ( TIdentifier "error" (KFunc [KString]          PureEffect KUnit  ), BuiltinFunction $ kimaError                   )
+    , ( TIdentifier "length" (KFunc [KString]          PureEffect KInt  ), BuiltinFunction $ kimaLength                   )
     ]
 
 showValue :: Value -> Maybe String
@@ -166,6 +167,11 @@ kimaAt [Integer n, String xs] = case xs `atMay` fromIntegral n of
         (BuiltinFunctionError ("String has no element " <> show n))
 kimaAt _ = throwError
     (BuiltinFunctionError "Wrong arguments for 'at'")
+
+kimaLength :: MonadRE m => [Value] -> m Value
+kimaLength [String xs] = return (Integer (fromIntegral $ length xs))
+kimaLength _ = throwError
+    (BuiltinFunctionError "Wrong arguments for 'length'")
 
 kimaError :: MonadRE m => [Value] -> m Value
 kimaError [String msg] = throwError
