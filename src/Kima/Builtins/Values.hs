@@ -60,6 +60,7 @@ baseEnv =
     , ( TBuiltin NegateOp  (KFunc [KFloat]           PureEffect KFloat ), BuiltinFunction $ kimaNegate                  )
     , ( TBuiltin InvertOp  (KFunc [KBool]            PureEffect KBool  ), BuiltinFunction $ kimaInvert                  )
     , ( TIdentifier "at"   (KFunc [KInt, KString]    PureEffect KString), BuiltinFunction $ kimaAt                      )
+    , ( TIdentifier "error"(KFunc [KString]          PureEffect KUnit  ), BuiltinFunction $ kimaError                   )
     , ( TBuiltin PrintFunc (KFunc [KString]  (AnonymousEffect [printStringOperation]) KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin PrintFunc (KFunc [KInt]     (AnonymousEffect [printIntOperation])    KUnit  ), BuiltinFunction kimaPrint                     )
     , ( TBuiltin PrintFunc (KFunc [KFloat]   (AnonymousEffect [printFloatOperation])  KUnit  ), BuiltinFunction kimaPrint                     )
@@ -165,3 +166,9 @@ kimaAt [Integer n, String xs] = case xs `atMay` fromIntegral n of
         (BuiltinFunctionError ("String has no element " <> show n))
 kimaAt _ = throwError
     (BuiltinFunctionError "Wrong arguments for 'at'")
+
+kimaError :: MonadRE m => [Value] -> m Value
+kimaError [String msg] = throwError
+    (BuiltinFunctionError msg)
+kimaError _ = throwError
+    (BuiltinFunctionError "Wrong arguments for 'error'")
