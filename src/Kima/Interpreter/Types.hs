@@ -15,6 +15,7 @@ import           Data.IORef.Class
 
 import           GHC.Generics
 import           GHC.Exts
+import           System.IO
 
 type RuntimeIdentifier = Identifier ('Annotation KType)
 
@@ -103,7 +104,9 @@ class Monad m => MonadConsole m where
 
 instance MonadConsole Interpreter where
     consoleRead = liftIO getLine
-    consoleWrite = liftIO . putStr
+    consoleWrite str = liftIO $ do
+        putStr str
+        hFlush stdout
 
 instance MonadIORef Interpreter
 
