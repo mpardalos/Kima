@@ -2,7 +2,7 @@
 Running Kima up to a certain stage.
 -}
 
-module Runners(runFile) where
+module Runners(dumpFileAtStage, runFile) where
 
 import Control.Monad.Except
 
@@ -11,6 +11,8 @@ import Kima.AST
 import Kima.Interpreter as Interpreter
 import Kima.Syntax
 import Kima.Builtins
+
+import ArgumentParser
 
 -- | Take the code in a file up to a certain stage.
 -- TypeApplications are probably necessary to use this effectively,
@@ -34,3 +36,10 @@ runFile fn = do
     Interpreter.execInterpreter env (Interpreter.runModule (TIdentifier "main" (KFunc [] ioEffect KUnit)) ast) >>= \case
         Right _ -> pure ()
         Left runtimeError -> putStrLn (userShow runtimeError)
+
+dumpFileAtStage :: DumpStage -> FilePath -> IO ()
+dumpFileAtStage stg fn = case stg of
+    Parsed        -> runUserInterface (fromFileTo @Parsed fn) >>= print
+    Desugared     -> runUserInterface (fromFileTo @Desugared fn) >>= print
+    TypeAnnotated -> runUserInterface (fromFileTo @TypeAnnotated fn) >>= print
+    Typed         -> runUserInterface (fromFileTo @Typed fn) >>= print

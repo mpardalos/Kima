@@ -1,4 +1,4 @@
-module ArgumentParser (Command(..), RunOpts, CompileOpts, getCommand, getCommand') where
+module ArgumentParser (Command(..), RunOpts, CompileOpts, DumpStage(..), getCommand, getCommand') where
 
 import           Options.Applicative
 
@@ -6,6 +6,7 @@ import           Options.Applicative
 data Command
     = Run RunOpts FilePath
     | Compile CompileOpts FilePath
+    | Dump DumpStage FilePath
     | Repl
     deriving Show
 
@@ -19,6 +20,13 @@ newtype CompileOpts = CompileOpts {
     output :: Maybe FilePath
 } deriving Show
 
+data DumpStage
+    = Parsed
+    | Desugared
+    | TypeAnnotated
+    | Typed
+    deriving (Show)
+
 -- | Top-level command parser
 parseCommand :: Parser Command
 parseCommand =
@@ -26,6 +34,7 @@ parseCommand =
             (  command "run"     (parseRun `info` progDesc "Run FILENAME")
             <> command "compile" (parseCompile `info` progDesc "Compile FILENAME")
             <> command "repl"    (parseRepl `info` progDesc "Run repl")
+            <> command "dump"    (parseDump `info` progDesc "Dump ast at STAGE for FILENAME")
             )
         <|> pure Repl
   where
@@ -43,6 +52,21 @@ parseCommand =
 
     parseRepl :: Parser Command
     parseRepl = pure Repl
+
+    parseDump :: Parser Command
+    parseDump =
+        Dump
+            <$> argument
+                    (str >>= \case
+                        "parsed"        -> pure Parsed
+                        "desugared"     -> pure Desugared
+                        "typeannotated" -> pure TypeAnnotated
+                        "typed"         -> pure Typed
+                        s               -> fail (s <> " is not a stage")
+                    )
+                    (metavar "STAGE" <> help "Which compiler stage to dump")
+            <*> filepath
+
 
 filepath :: Parser FilePath
 filepath = argument str (metavar "FILENAME")
