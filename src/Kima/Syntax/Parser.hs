@@ -126,13 +126,15 @@ exprStmt :: Parser (Stmt Parsed)
 exprStmt = ExprStmt <$> expr <?> "expression statement"
 
 ifStmt :: Parser (Stmt Parsed)
-ifStmt =
-    If
-        <$> (   IfStmt
-            <$> (reserved RIf *> expr)
-            <*> block
-            <*> (reserved RElse *> stmt)
-            )
+ifStmt = do
+    reserved RIf
+    cond          <- expr
+    ifBody        <- block
+    maybeElseBody <- optional (reserved RElse *> stmt)
+
+    case maybeElseBody of
+        Just elseBody -> return (If (IfStmt cond ifBody elseBody))
+        Nothing       -> return (SimpleIf cond ifBody)
 
 -- Expressions
 

@@ -85,6 +85,9 @@ statementTests =
             ExprStmt $ Call (IdentifierE "print") [IdentifierE "name2"]
         ]
         ))
+    , ("if True { print(name1); } ", SimpleIf
+          (LiteralE $ BoolExpr True)
+          (Block [ExprStmt $ Call (IdentifierE "print") [IdentifierE "name1"]]))
     ]
 
 typeTests :: [(String, ParsedTypeExpr)]

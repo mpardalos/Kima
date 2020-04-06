@@ -36,6 +36,9 @@ desugarTopLevel (OperationDef name args rt) = OperationDef
 desugarTopLevel (EffectSynonymDef name ops) = EffectSynonymDef name ops
 
 desugarStmt :: Stmt Parsed -> Stmt Desugared
+desugarStmt (SimpleIf cond body) =
+    If (IfStmt (desugarExpr cond) (desugarStmt body) (Block []))
+
 desugarStmt (ExprStmt expr     ) = ExprStmt (desugarExpr expr)
 desugarStmt (Block    stmts    ) = Block (desugarStmt <$> stmts)
 desugarStmt (Assign target expr) = Assign target (desugarExpr expr)
