@@ -86,14 +86,17 @@ infer (IdentifierE name) = (lookupName name <&> types) <&> Set.toList >>= \case
     [t]   -> pure (IdentifierE (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
 infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
+    let KEffect _ ops = eff
     (typedBody, rt) <- case maybeRt of
-        Just rt -> (, rt) <$> withState (addArgs args) (checkReturns rt body)
+        Just rt -> (, rt) <$> withState
+            (setActiveOperations ops . addArgs args)
+            (checkReturns rt body)
         Nothing -> withState (addArgs args) (inferReturns body)
 
     let functionType  = KFunc (snd <$> args) eff rt
     let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
-infer FuncExpr{}         = throwError MissingArgumentTypes
+infer FuncExpr{} = throwError MissingArgumentTypes
 infer (Call callee args) = do
     calleeTypes     <- Set.toList <$> enumerateTypes callee
     availableEffect <- gets activeEffect
