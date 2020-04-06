@@ -117,7 +117,7 @@ infer (Call callee args) = do
                    (UnavailableEffect availableEffect calleeEffect)
             return result
         results@(_ : _) -> throwError (AmbiguousCall (snd . snd <$> results))
-        []              -> throwError NoMatchingFunction
+        []              -> throwError (NoMatchingFunction calleeTypes)
 infer (Handle expr handlers) = do
     (typedHandlers, availableOps) <- unzip <$> traverse inferHandler handlers
     (typedExpr, exprType) <- withState (addActiveOperations availableOps) $ infer expr
@@ -375,5 +375,6 @@ cartesianProduct (xs : xss) = [ x : ys | x <- xs, ys <- yss ]
 
 checkArgList :: MonadTC m => [KType] -> [Expr TypeAnnotated] -> m [Expr Typed]
 checkArgList argTypes args = do
-    assert (length argTypes == length args) NoMatchingFunction
+    assert (length argTypes == length args) (WrongArgumentCount (length argTypes) (length args))
     zipWithM check argTypes args
+        `catchError` const (throwError (WrongArgumentTypes argTypes))

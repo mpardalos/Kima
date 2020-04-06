@@ -10,7 +10,6 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | UnboundName (Identifier 'NoAnnotation)
                        | NoSuchField KType Name
                        | AmbiguousCall [KType]
-                       | NoMatchingFunction
                        | UnexpectedType KType KType
                        | UnavailableType [KType] KType
                        | MismatchedIf KType KType
@@ -20,6 +19,9 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | UnavailableEffect KEffect KEffect
                        | NonExistentEffect Name
                        | NonExistentOperation KOperation
+                       | NoMatchingFunction [KType]
+                       | WrongArgumentTypes [KType]
+                       | WrongArgumentCount Int Int
     deriving (Eq, Show)
 
 instance Pretty TypecheckingError where
@@ -42,7 +44,15 @@ instance Pretty TypecheckingError where
     pretty (AmbiguousCall calleeTypes) = "Ambiguous call. Possible callee types are:"
         <> line
         <> indent 4 (bulletList calleeTypes)
-    pretty NoMatchingFunction          = "No matching function for given args"
+    pretty (NoMatchingFunction []) = "No matching function for given args."
+    pretty (NoMatchingFunction [calleeType]) =
+        "Called function of type:" <> line
+        <> indent 4 (pretty calleeType) <> line
+        <> "But the arguments given did not match the expected argument types"
+    pretty (NoMatchingFunction calleeTypes) =
+        "Called function has the following overloads:" <> line
+        <> indent 4 (bulletList calleeTypes) <> line
+        <> "The arguments given did not match any of the possible argument types"
     pretty (AssignToConst accessor) =
         "Assigned to constant" <+> pretty accessor
     pretty (NameShadowed        name) = "Illegal shadowing of" <+> pretty name
@@ -72,6 +82,11 @@ instance Pretty TypecheckingError where
                     <> indent 4 (bulletList availableOps)
     pretty (NonExistentEffect name) = "This effect does not exist:" <> line <> indent 4 (pretty name)
     pretty (NonExistentOperation op) = "This operation does not exist:" <> line <> indent 4 (pretty op)
+    pretty (WrongArgumentTypes argTypes) =
+        "Given arguments don't match the expected types:" <> line
+        <> indent 4 (tupled (pretty <$> argTypes))
+    pretty (WrongArgumentCount expected received) =
+        "Expected" <+> pretty expected <+> "arguments, but got" <+> pretty received
 
 bulletList :: Pretty a => [a] -> Doc ann
 bulletList = vsep . fmap (("•" <+>) . pretty)
