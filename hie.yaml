@@ -1,0 +1,8 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "Kima:lib"
+    - path: "./test"
+      component: "Kima:test:spec"
+    - path: "./app"
+      component: "Kima:exe:kima"
