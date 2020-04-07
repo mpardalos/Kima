@@ -10,7 +10,7 @@ import GHC.Generics
 import Kima.AST.Kinds
 import Kima.AST.Names
 
-data Module tag = Program [TopLevel tag]
+newtype Module tag = Module [TopLevel tag]
 
 data TopLevel tag
     = FuncDef Name [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
@@ -19,24 +19,24 @@ data TopLevel tag
     | EffectSynonymDef Name [Name]
 
 data Expr tag
-    = LiteralE Literal
-    | IdentifierE (Identifier (NameAnnotation tag))
+    = LiteralExpr Literal
+    | IdentifierExpr (Identifier (NameAnnotation tag))
     | FuncExpr [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
-    | Call (Expr tag) [Expr tag]
-    | Handle (Expr tag) [HandlerClause tag]
-    | (HasSugar tag) => AccessE (Expr tag) Name
-    | (HasSugar tag) => BinE BinaryOp (Expr tag) (Expr tag)
-    | (HasSugar tag) => UnaryE UnaryOp (Expr tag)
+    | CallExpr (Expr tag) [Expr tag]
+    | HandleExpr (Expr tag) [HandlerClause tag]
+    | (HasSugar tag) => AccessExpr (Expr tag) Name
+    | (HasSugar tag) => BinExpr BinaryOp (Expr tag) (Expr tag)
+    | (HasSugar tag) => UnaryExpr UnaryOp (Expr tag)
 
 data Stmt tag
     = ExprStmt (Expr tag)
-    | Block [Stmt tag]
-    | While (WhileStmt (Expr tag) (Stmt tag))
-    | If (IfStmt (Expr tag) (Stmt tag))
-    | HasSugar tag => SimpleIf (Expr tag) (Stmt tag)
-    | Assign (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
-    | Var Name (FreeAnnotation tag) (Expr tag)
-    | Let Name (FreeAnnotation tag) (Expr tag)
+    | BlockStmt [Stmt tag]
+    | WhileStmt (While (Expr tag) (Stmt tag))
+    | IfStmt (If (Expr tag) (Stmt tag))
+    | AssignStmt (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
+    | VarStmt Name (FreeAnnotation tag) (Expr tag)
+    | LetStmt Name (FreeAnnotation tag) (Expr tag)
+    | HasSugar tag => SimpleIfStmt (Expr tag) (Stmt tag)
 
 data HandlerClause tag = HandlerClause
     { opName :: Name
@@ -48,16 +48,19 @@ data HandlerClause tag = HandlerClause
 ---------------- Factored out parts of the AST ------------------------------
 
 data Literal
-    = IntExpr Integer | FloatExpr Double | BoolExpr Bool | StringExpr String
+    = IntLit Integer
+    | FloatLit Double
+    | BoolLit Bool
+    | StringLit String
     deriving (Eq, Generic)
 
-data IfStmt cond body = IfStmt {
+data If cond body = If {
     cond :: cond,
     ifBlk :: body,
     elseBlk :: body
 } deriving (Eq, Generic)
 
-data WhileStmt cond body = WhileStmt {
+data While cond body = While {
     cond :: cond,
     body :: body
 } deriving (Eq, Generic)
@@ -72,26 +75,26 @@ data WriteAccess ident = WriteAccess ident [ident]
 prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann
 prettyArgList = tupled . fmap (\(name, t) -> pretty name <> ": " <> pretty t)
 
-instance (Pretty cond, Pretty stmt) => Pretty (IfStmt cond stmt) where
-    pretty IfStmt { cond, ifBlk, elseBlk } =
+instance (Pretty cond, Pretty stmt) => Pretty (If cond stmt) where
+    pretty If { cond, ifBlk, elseBlk } =
         "if"
             <+> parens (pretty cond)
             <+> pretty ifBlk
             <+> "else"
             <+> pretty elseBlk
 
-instance (Pretty cond, Pretty stmt) => Pretty (WhileStmt cond stmt) where
-    pretty WhileStmt { cond, body } =
+instance (Pretty cond, Pretty stmt) => Pretty (While cond stmt) where
+    pretty While { cond, body } =
         "while (" <+> pretty cond <+> ") " <+> pretty body
 
 instance Show Literal where
     show = show . pretty
 
 instance Pretty Literal where
-    pretty (IntExpr    n) = "i" <> pretty n
-    pretty (FloatExpr  f) = "f" <> pretty f
-    pretty (BoolExpr   b) = pretty b
-    pretty (StringExpr s) = "s" <> "\"" <> pretty s <> "\""
+    pretty (IntLit    n) = "i" <> pretty n
+    pretty (FloatLit  f) = "f" <> pretty f
+    pretty (BoolLit   b) = pretty b
+    pretty (StringLit s) = "s" <> "\"" <> pretty s <> "\""
 
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
@@ -128,7 +131,7 @@ instance
     , Pretty (EffectType stage)
     , Pretty (FreeAnnotation stage)
     ) => Pretty (Module stage) where
-    pretty (Program ast) = vcat (pretty <$> ast)
+    pretty (Module ast) = vcat (pretty <$> ast)
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
     , Pretty (AnnotatedName (NameAnnotation stage))
@@ -173,16 +176,16 @@ instance
     , Pretty (FreeAnnotation stage)
     ) => Pretty (Stmt stage) where
     pretty (ExprStmt expr) = pretty expr
-    pretty (Var name t expr) =
+    pretty (VarStmt name t expr) =
         "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
-    pretty (Let name t expr) =
+    pretty (LetStmt name t expr) =
         "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
-    pretty (Block stmts) =
+    pretty (BlockStmt stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"
-    pretty (Assign name expr  ) = pretty name <+> "=" <+> pretty expr
-    pretty (While stmt        ) = pretty stmt
-    pretty (SimpleIf cond body) = "if" <+> parens (pretty cond) <+> pretty body
-    pretty (If stmt           ) = pretty stmt
+    pretty (AssignStmt name expr  ) = pretty name <+> "=" <+> pretty expr
+    pretty (WhileStmt stmt        ) = pretty stmt
+    pretty (SimpleIfStmt cond body) = "if" <+> parens (pretty cond) <+> pretty body
+    pretty (IfStmt stmt           ) = pretty stmt
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
     , Pretty (AnnotatedName (NameAnnotation stage))
@@ -197,10 +200,10 @@ instance
             <+> "->"
             <+> pretty rt
             <+> pretty body
-    pretty (LiteralE    lit ) = pretty lit
-    pretty (IdentifierE name) = pretty name
-    pretty (Call callee args) = pretty callee <> tupled (pretty <$> args)
-    pretty (Handle expr handlers) =
+    pretty (LiteralExpr    lit ) = pretty lit
+    pretty (IdentifierExpr name) = pretty name
+    pretty (CallExpr callee args) = pretty callee <> tupled (pretty <$> args)
+    pretty (HandleExpr expr handlers) =
         "handle"
             <+> pretty expr
             <+> "{"
@@ -208,9 +211,9 @@ instance
             <>  indent 4 (vcat (pretty <$> handlers))
             <>  line
             <>  "}"
-    pretty (BinE op l r      ) = pretty l <+> pretty op <+> pretty r
-    pretty (UnaryE  op   e   ) = pretty op <> pretty e
-    pretty (AccessE expr name) = parens (pretty expr) <> "." <> pretty name
+    pretty (BinExpr op l r      ) = pretty l <+> pretty op <+> pretty r
+    pretty (UnaryExpr  op   e   ) = pretty op <> pretty e
+    pretty (AccessExpr expr name) = parens (pretty expr) <> "." <> pretty name
 
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
@@ -230,28 +233,28 @@ instance Pretty ident => Show (WriteAccess ident) where
 
 --------------- Boring instances ---------------------
 
-instance Bifunctor IfStmt where
-    bimap f g IfStmt { cond, ifBlk, elseBlk } =
-        IfStmt (f cond) (g ifBlk) (g elseBlk)
+instance Bifunctor If where
+    bimap f g If { cond, ifBlk, elseBlk } =
+        If (f cond) (g ifBlk) (g elseBlk)
 
-instance Bifoldable IfStmt where
-    bifoldMap f g IfStmt { cond, ifBlk, elseBlk } =
+instance Bifoldable If where
+    bifoldMap f g If { cond, ifBlk, elseBlk } =
         f cond <> g ifBlk <> g elseBlk
 
-instance Bitraversable IfStmt where
-    bitraverse f g IfStmt { cond, ifBlk, elseBlk } =
-        (\(a, b, c) -> IfStmt a b c)
+instance Bitraversable If where
+    bitraverse f g If { cond, ifBlk, elseBlk } =
+        (\(a, b, c) -> If a b c)
             <$> ((,,) <$> f cond <*> g ifBlk <*> g elseBlk)
 
-instance Bifunctor WhileStmt where
-    bimap f g WhileStmt { cond, body } = WhileStmt (f cond) (g body)
+instance Bifunctor While where
+    bimap f g While { cond, body } = While (f cond) (g body)
 
-instance Bifoldable WhileStmt where
-    bifoldMap f g WhileStmt { cond, body } = f cond <> g body
+instance Bifoldable While where
+    bifoldMap f g While { cond, body } = f cond <> g body
 
-instance Bitraversable WhileStmt where
-    bitraverse f g WhileStmt { cond, body } =
-        uncurry WhileStmt <$> bitraverse f g (cond, body)
+instance Bitraversable While where
+    bitraverse f g While { cond, body } =
+        uncurry While <$> bitraverse f g (cond, body)
 
 deriving instance
     ( AnnotationConstraint Eq (NameAnnotation stage)

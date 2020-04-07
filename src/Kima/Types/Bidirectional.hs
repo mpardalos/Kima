@@ -74,16 +74,16 @@ subsumedBy _ _ = False
 -- well as its type. Throws an error if a type can't be assigned to the
 -- expression *or* if there are multiple possible types
 infer :: forall m. MonadTC m => Expr TypeAnnotated -> m (Expr Typed, KType)
-infer (LiteralE    lit@(IntExpr    _)) = pure (LiteralE lit, KInt)
-infer (LiteralE    lit@(FloatExpr  _)) = pure (LiteralE lit, KFloat)
-infer (LiteralE    lit@(BoolExpr   _)) = pure (LiteralE lit, KBool)
-infer (LiteralE    lit@(StringExpr _)) = pure (LiteralE lit, KString)
-infer (IdentifierE name) = (lookupName name <&> types) <&> Set.toList >>= \case
+infer (LiteralExpr    lit@(IntLit    _)) = pure (LiteralExpr lit, KInt)
+infer (LiteralExpr    lit@(FloatLit  _)) = pure (LiteralExpr lit, KFloat)
+infer (LiteralExpr    lit@(BoolLit   _)) = pure (LiteralExpr lit, KBool)
+infer (LiteralExpr    lit@(StringLit _)) = pure (LiteralExpr lit, KString)
+infer (IdentifierExpr name) = (lookupName name <&> types) <&> Set.toList >>= \case
     -- There needs to be only a single possibility for the type. Otherwise we
     -- have an ambiguity
     -- Also. No need to check for empty case since that would have thrown an
     -- error in lookupName
-    [t]   -> pure (IdentifierE (typeAnnotate t name), t)
+    [t]   -> pure (IdentifierExpr (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
 infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
     let KEffect _ ops = eff
@@ -97,7 +97,7 @@ infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
     let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
 infer FuncExpr{} = throwError MissingArgumentTypes
-infer (Call callee args) = do
+infer (CallExpr callee args) = do
     calleeTypes     <- Set.toList <$> enumerateTypes callee
     availableEffect <- gets activeEffect
 
@@ -109,7 +109,7 @@ infer (Call callee args) = do
                     return
                         $ Just
                               ( calleeEff
-                              , (Call typedCallee typedArgs, returnType)
+                              , (CallExpr typedCallee typedArgs, returnType)
                               )
                 `catchError` const (pure Nothing)
         _ -> pure Nothing
@@ -121,10 +121,10 @@ infer (Call callee args) = do
             return result
         results@(_ : _) -> throwError (AmbiguousCall (snd . snd <$> results))
         []              -> throwError (NoMatchingFunction calleeTypes)
-infer (Handle expr handlers) = do
+infer (HandleExpr expr handlers) = do
     (typedHandlers, availableOps) <- unzip <$> traverse inferHandler handlers
     (typedExpr, exprType) <- withState (addActiveOperations availableOps) $ infer expr
-    return (Handle typedExpr typedHandlers, exprType)
+    return (HandleExpr typedExpr typedHandlers, exprType)
 
 inferHandler :: MonadTC m => HandlerClause TypeAnnotated -> m (HandlerClause Typed, KOperation)
 inferHandler (HandlerClause name (ensureTypedArgs -> Just args) (Just rt) body) = do
@@ -141,17 +141,17 @@ inferHandler HandlerClause{ returnType = Nothing } = throwError MissingReturnTyp
 
 -- | List all possible types for an expression
 enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
-enumerateTypes (LiteralE    IntExpr{}   ) = pure [KInt]
-enumerateTypes (LiteralE    FloatExpr{} ) = pure [KFloat]
-enumerateTypes (LiteralE    BoolExpr{}  ) = pure [KBool]
-enumerateTypes (LiteralE    StringExpr{}) = pure [KString]
-enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
+enumerateTypes (LiteralExpr    IntLit{}   ) = pure [KInt]
+enumerateTypes (LiteralExpr    FloatLit{} ) = pure [KFloat]
+enumerateTypes (LiteralExpr    BoolLit{}  ) = pure [KBool]
+enumerateTypes (LiteralExpr    StringLit{}) = pure [KString]
+enumerateTypes (IdentifierExpr ident       ) = types <$> lookupName ident
 enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]
 enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
 -- TODO: When enumerating the types of a handler expr, take the handlers into account
-enumerateTypes (Handle expr _) = enumerateTypes expr
-enumerateTypes (Call callee args) = do
+enumerateTypes (HandleExpr expr _) = enumerateTypes expr
+enumerateTypes (CallExpr callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args
 
@@ -172,23 +172,23 @@ enumerateTypes (Call callee args) = do
 -- | Check that an expression has a certain type. If it applies, return the
 -- expression with the type applied. If not, throw an appropriate error.
 check :: MonadTC m => KType -> Expr TypeAnnotated -> m (Expr Typed)
-check expectedType (IdentifierE ident) = do
+check expectedType (IdentifierExpr ident) = do
     Binding _ availableTypes <- lookupName ident
 
     let possibleTypes = Set.filter (`subsumedBy` expectedType) availableTypes
 
     case Set.toList possibleTypes of
-        [        result] -> return (IdentifierE (typeAnnotate result ident))
+        [        result] -> return (IdentifierExpr (typeAnnotate result ident))
         results@(_ : _ ) -> throwError (AmbiguousCall results)
         []               -> throwError
             (UnavailableType (Set.toList availableTypes) expectedType)
-check expectedType (Call callee args) = do
+check expectedType (CallExpr callee args) = do
     (typedArgs, argTypes) <- unzip <$> mapM infer args
     callEffect            <- gets activeEffect
 
     typedCallee <- check (KFunc argTypes callEffect expectedType) callee
 
-    return (Call typedCallee typedArgs)
+    return (CallExpr typedCallee typedArgs)
 check expectedType expr = do
     (typedExpr, inferedType) <- infer expr
     assert (inferedType `subsumedBy` expectedType)
@@ -204,24 +204,24 @@ check expectedType expr = do
 -- error
 inferReturns :: MonadTC m => Stmt TypeAnnotated -> m (Stmt Typed, KType)
 inferReturns (ExprStmt expr ) = first ExprStmt <$> infer expr
-inferReturns (Block    stmts) = withState id $ do
+inferReturns (BlockStmt    stmts) = withState id $ do
     (typedStatements, statementReturnTypes) <- unzip <$> mapM inferReturns stmts
-    return (Block typedStatements, lastDef KUnit statementReturnTypes)
-inferReturns (While (WhileStmt cond blk)) = do
+    return (BlockStmt typedStatements, lastDef KUnit statementReturnTypes)
+inferReturns (WhileStmt (While cond blk)) = do
     typedCond     <- check KBool cond
     (typedBlk, _) <- inferReturns blk
 
-    let typedWhile = While (WhileStmt typedCond typedBlk)
+    let typedWhile = WhileStmt (While typedCond typedBlk)
     return (typedWhile, KUnit)
-inferReturns (If (IfStmt cond thenBlk elseBlk)) = do
+inferReturns (IfStmt (If cond thenBlk elseBlk)) = do
     typedCond                   <- check KBool cond
     (typedThenBlk, thenBlkType) <- inferReturns thenBlk
     (typedElseBlk, elseBlkType) <- inferReturns elseBlk
     assert (thenBlkType == elseBlkType) (MismatchedIf thenBlkType elseBlkType)
 
-    let typedIf = If (IfStmt typedCond typedThenBlk typedElseBlk)
+    let typedIf = IfStmt (If typedCond typedThenBlk typedElseBlk)
     return (typedIf, thenBlkType)
-inferReturns (Assign accessor expr) = do
+inferReturns (AssignStmt accessor expr) = do
     (typedExpr    , inferedType                     ) <- infer expr
     (typedAccessor, Binding nameMutability nameTypes) <- inferAccessor accessor
 
@@ -229,43 +229,43 @@ inferReturns (Assign accessor expr) = do
     assert (inferedType `Set.member` nameTypes)
            (UnavailableType (Set.toList nameTypes) inferedType)
 
-    let typedAssign = Assign typedAccessor typedExpr
+    let typedAssign = AssignStmt typedAccessor typedExpr
     return (typedAssign, KUnit)
-inferReturns (Var name (Just declaredType) expr) = do
+inferReturns (VarStmt name (Just declaredType) expr) = do
     typedExpr       <- check declaredType expr
 
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Variable [declaredType]))
 
-    let typedVar = Var name declaredType typedExpr
+    let typedVar = VarStmt name declaredType typedExpr
     return (typedVar, KUnit)
-inferReturns (Var name Nothing expr) = do
+inferReturns (VarStmt name Nothing expr) = do
     (typedExpr, exprType) <- infer expr
 
     existingBinding       <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Variable [exprType]))
 
-    let typedVar = Var name exprType typedExpr
+    let typedVar = VarStmt name exprType typedExpr
     return (typedVar, KUnit)
-inferReturns (Let name (Just declaredType) expr) = do
+inferReturns (LetStmt name (Just declaredType) expr) = do
     typedExpr       <- check declaredType expr
 
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Constant [declaredType]))
 
-    let typedLet = Let name declaredType typedExpr
+    let typedLet = LetStmt name declaredType typedExpr
     return (typedLet, KUnit)
-inferReturns (Let name Nothing expr) = do
+inferReturns (LetStmt name Nothing expr) = do
     (typedExpr, exprType) <- infer expr
 
     existingBinding       <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Constant [exprType]))
 
-    let typedLet = Let name exprType typedExpr
+    let typedLet = LetStmt name exprType typedExpr
     return (typedLet, KUnit)
 
 -- | Try to infer the binding an accessor refers to.
@@ -321,7 +321,7 @@ checkReturns expectedType stmt            = do
 
 -- | Try to typecheck a module
 checkProgram :: MonadTC m => Module TypeAnnotated -> m (Module Typed)
-checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
+checkProgram (Module decls) = Module <$> mapM checkTopLevel decls
 
 -- | Try to typecheck a top-level declaration
 checkTopLevel :: MonadTC m => TopLevel TypeAnnotated -> m (TopLevel Typed)

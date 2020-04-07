@@ -12,7 +12,7 @@ import           Data.Bifunctor
 import           Kima.AST
 
 desugarModule :: Module Parsed -> Module Desugared
-desugarModule (Program ast) = Program (desugarTopLevel <$> ast)
+desugarModule (Module ast) = Module (desugarTopLevel <$> ast)
 
 desugarTopLevel :: TopLevel Parsed -> TopLevel Desugared
 desugarTopLevel (DataDef name members) =
@@ -36,23 +36,23 @@ desugarTopLevel (OperationDef name args rt) = OperationDef
 desugarTopLevel (EffectSynonymDef name ops) = EffectSynonymDef name ops
 
 desugarStmt :: Stmt Parsed -> Stmt Desugared
-desugarStmt (SimpleIf cond body) =
-    If (IfStmt (desugarExpr cond) (desugarStmt body) (Block []))
+desugarStmt (SimpleIfStmt cond body) =
+    IfStmt (If (desugarExpr cond) (desugarStmt body) (BlockStmt []))
 
 desugarStmt (ExprStmt expr     ) = ExprStmt (desugarExpr expr)
-desugarStmt (Block    stmts    ) = Block (desugarStmt <$> stmts)
-desugarStmt (Assign target expr) = Assign target (desugarExpr expr)
-desugarStmt (Let name t expr   ) = Let name (desugarTypeExpr <$> t) (desugarExpr expr)
-desugarStmt (Var name t expr   ) = Var name (desugarTypeExpr <$> t) (desugarExpr expr)
-desugarStmt (While stmt        ) = While (bimap desugarExpr desugarStmt stmt)
-desugarStmt (If    stmt        ) = If (bimap desugarExpr desugarStmt stmt)
+desugarStmt (BlockStmt    stmts    ) = BlockStmt (desugarStmt <$> stmts)
+desugarStmt (AssignStmt target expr) = AssignStmt target (desugarExpr expr)
+desugarStmt (LetStmt name t expr   ) = LetStmt name (desugarTypeExpr <$> t) (desugarExpr expr)
+desugarStmt (VarStmt name t expr   ) = VarStmt name (desugarTypeExpr <$> t) (desugarExpr expr)
+desugarStmt (WhileStmt stmt        ) = WhileStmt (bimap desugarExpr desugarStmt stmt)
+desugarStmt (IfStmt    stmt        ) = IfStmt (bimap desugarExpr desugarStmt stmt)
 
 desugarExpr :: Expr Parsed -> Expr Desugared
-desugarExpr (BinE    op l r  )  = Call (IdentifierE $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]
-desugarExpr (UnaryE  op e    )  = Call (IdentifierE $ Builtin (UnaryOp op)) [desugarExpr e]
-desugarExpr (AccessE expr field) = Call (IdentifierE (Accessor field)) [desugarExpr expr]
-desugarExpr (LiteralE    lit                 ) = LiteralE lit
-desugarExpr (IdentifierE name) = IdentifierE name
+desugarExpr (BinExpr    op l r  )  = CallExpr (IdentifierExpr $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]
+desugarExpr (UnaryExpr  op e    )  = CallExpr (IdentifierExpr $ Builtin (UnaryOp op)) [desugarExpr e]
+desugarExpr (AccessExpr expr field) = CallExpr (IdentifierExpr (Accessor field)) [desugarExpr expr]
+desugarExpr (LiteralExpr    lit                 ) = LiteralExpr lit
+desugarExpr (IdentifierExpr name) = IdentifierExpr name
 desugarExpr (FuncExpr args (Just eff) rt body) = FuncExpr
     (second (fmap desugarTypeExpr) <$> args)
     eff
@@ -63,8 +63,8 @@ desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     []
     (desugarTypeExpr <$> rt)
     (desugarStmt body)
-desugarExpr (Call callee args  ) = Call (desugarExpr callee) (desugarExpr <$> args)
-desugarExpr (Handle callee handlers) = Handle (desugarExpr callee) (desugarHandler <$> handlers)
+desugarExpr (CallExpr callee args  ) = CallExpr (desugarExpr callee) (desugarExpr <$> args)
+desugarExpr (HandleExpr callee handlers) = HandleExpr (desugarExpr callee) (desugarHandler <$> handlers)
 
 desugarHandler :: HandlerClause Parsed -> HandlerClause Desugared
 desugarHandler (HandlerClause name args rt body) = HandlerClause

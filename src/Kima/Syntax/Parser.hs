@@ -15,7 +15,7 @@ import           GHC.Exts
 import           Text.Megaparsec
 
 program :: Parser (Module Parsed)
-program = Program <$> (whitespace *> some topLevel <* eof)
+program = Module <$> (whitespace *> some topLevel <* eof)
 
 -- Function defintions
 topLevel :: Parser (TopLevel Parsed)
@@ -88,11 +88,11 @@ stmt =
         <?> "statement"
 
 block :: Parser (Stmt Parsed)
-block = Block <$> braces (stmt `sepEndBy` stmtEnd) <?> "Block"
+block = BlockStmt <$> braces (stmt `sepEndBy` stmtEnd) <?> "BlockStmt"
 
 letStmt :: Parser (Stmt Parsed)
 letStmt =
-    Let
+    LetStmt
         <$> (reserved RLet *> identifier)
         <*> optional (symbol Colon *> typeExpr)
         <*> (symbol Equals *> expr)
@@ -100,7 +100,7 @@ letStmt =
 
 varStmt :: Parser (Stmt Parsed)
 varStmt =
-    Var
+    VarStmt
         <$> (reserved RVar *> identifier)
         <*> optional (symbol Colon *> typeExpr)
         <*> (symbol Equals *> expr)
@@ -108,7 +108,7 @@ varStmt =
 
 assignStmt :: Parser (Stmt Parsed)
 assignStmt =
-    try (Assign <$> writeAccess <*> (symbol Equals *> expr)) <?> "assignment"
+    try (AssignStmt <$> writeAccess <*> (symbol Equals *> expr)) <?> "assignment"
 
 writeAccess :: IsString s => Parser (WriteAccess s)
 writeAccess = label "accessor" $ do
@@ -118,8 +118,8 @@ writeAccess = label "accessor" $ do
 
 whileStmt :: Parser (Stmt Parsed)
 whileStmt =
-    While
-        <$> (WhileStmt <$> (reserved RWhile *> expr) <*> block)
+    WhileStmt
+        <$> (While <$> (reserved RWhile *> expr) <*> block)
         <?> "while statement"
 
 exprStmt :: Parser (Stmt Parsed)
@@ -133,8 +133,8 @@ ifStmt = do
     maybeElseBody <- optional (reserved RElse *> stmt)
 
     case maybeElseBody of
-        Just elseBody -> return (If (IfStmt cond ifBody elseBody))
-        Nothing       -> return (SimpleIf cond ifBody)
+        Just elseBody -> return (IfStmt (If cond ifBody elseBody))
+        Nothing       -> return (SimpleIfStmt cond ifBody)
 
 -- Expressions
 
@@ -142,21 +142,21 @@ expr :: Parser (Expr Parsed)
 expr =
     makeExprParser
             term
-            [ [ prefix (symbol Minus) (UnaryE NegateOp)
+            [ [ prefix (symbol Minus) (UnaryExpr NegateOp)
               , prefix (symbol Plus)  id
-              , prefix (symbol Bang)  (UnaryE InvertOp)
+              , prefix (symbol Bang)  (UnaryExpr InvertOp)
               ]
-            , [ binary (symbol Plus)         (BinE AddOp)
-              , binary (symbol Minus)        (BinE SubOp)
-              , binary (symbol StarStar)     (BinE PowOp)
-              , binary (symbol Star)         (BinE MulOp)
-              , binary (symbol Slash)        (BinE DivOp)
-              , binary (symbol T.Mod)        (BinE ModOp)
-              , binary (symbol GreaterThan)  (BinE GTOp)
-              , binary (symbol GreaterEqual) (BinE GTEOp)
-              , binary (symbol LessThan)     (BinE LTOp)
-              , binary (symbol LessEqual)    (BinE LTEOp)
-              , binary (symbol EqualsEquals) (BinE EqualsOp)
+            , [ binary (symbol Plus)         (BinExpr AddOp)
+              , binary (symbol Minus)        (BinExpr SubOp)
+              , binary (symbol StarStar)     (BinExpr PowOp)
+              , binary (symbol Star)         (BinExpr MulOp)
+              , binary (symbol Slash)        (BinExpr DivOp)
+              , binary (symbol T.Mod)        (BinExpr ModOp)
+              , binary (symbol GreaterThan)  (BinExpr GTOp)
+              , binary (symbol GreaterEqual) (BinExpr GTEOp)
+              , binary (symbol LessThan)     (BinExpr LTOp)
+              , binary (symbol LessEqual)    (BinExpr LTEOp)
+              , binary (symbol EqualsEquals) (BinExpr EqualsOp)
               ]
             ]
         <?> "expression"
@@ -180,19 +180,19 @@ funcExpr = do
 baseTerm :: Parser (Expr Parsed)
 baseTerm =
     parens expr
-        <|> LiteralE
-        .   StringExpr
+        <|> LiteralExpr
+        .   StringLit
         <$> try string
-        <|> LiteralE
-        .   FloatExpr
+        <|> LiteralExpr
+        .   FloatLit
         <$> try floatLiteral
-        <|> LiteralE
-        .   IntExpr
+        <|> LiteralExpr
+        .   IntLit
         <$> try intLiteral
-        <|> LiteralE
-        .   BoolExpr
+        <|> LiteralExpr
+        .   BoolLit
         <$> try boolLiteral
-        <|> IdentifierE
+        <|> IdentifierExpr
         .   Identifier
         <$> try identifier
 
@@ -209,15 +209,15 @@ accessCall = do
     callOrAccess = Left <$> (symbol Dot *> identifier) <|> Right <$> argList
         <?> "Call"
 
-    combiner acc (Left  attr) = AccessE acc attr
-    combiner acc (Right args) = Call acc args
+    combiner acc (Left  attr) = AccessExpr acc attr
+    combiner acc (Right args) = CallExpr acc args
 
 handlerExpr :: Parser (Expr Parsed)
 handlerExpr = do
     reserved RHandle
     handledExpr <- expr
     handlers <- braces (many handlerClause)
-    return (Handle handledExpr handlers)
+    return (HandleExpr handledExpr handlers)
 
 handlerClause :: Parser (HandlerClause Parsed)
 handlerClause = HandlerClause

@@ -17,29 +17,29 @@ import qualified Data.Map                      as Map
 
 ---------- Expressions ----------
 evalExpr :: MonadInterpreter m => Expr Runtime -> m Value
-evalExpr (LiteralE    l   ) = return $ evalLiteral l
-evalExpr (IdentifierE name) = getName name
+evalExpr (LiteralExpr    l   ) = return $ evalLiteral l
+evalExpr (IdentifierExpr name) = getName name
 evalExpr (FuncExpr args _eff _rt body) =
     Function (uncurry TIdentifier <$> args) body <$> get
-evalExpr (Call callee args) =
+evalExpr (CallExpr callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
-evalExpr (Handle expr handlers) = do
+evalExpr (HandleExpr expr handlers) = do
     handlerEnv <- mkHandlerEnv handlers
     withState (handlerEnv <>) $ evalExpr expr
 
 evalLiteral :: Literal -> Value
-evalLiteral (IntExpr    i) = Integer i
-evalLiteral (FloatExpr  f) = Float f
-evalLiteral (BoolExpr   b) = Bool b
-evalLiteral (StringExpr s) = String s
+evalLiteral (IntLit    i) = Integer i
+evalLiteral (FloatLit  f) = Float f
+evalLiteral (BoolLit   b) = Bool b
+evalLiteral (StringLit s) = String s
 
 ---------- Statements ----------
 runStmt :: forall m. MonadInterpreter m => Stmt Runtime -> m Value
-runStmt (Block stmts) = do
+runStmt (BlockStmt stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
-runStmt (Assign (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind name)
-runStmt (Assign (WriteAccess name path) expr) = do
+runStmt (AssignStmt (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (AssignStmt (WriteAccess name path) expr) = do
     oldVal <- getName name
     newVal <- evalExpr expr
 
@@ -88,14 +88,14 @@ runStmt (Assign (WriteAccess name path) expr) = do
         update 0 (_:xs) y = y:xs
         update n (x:xs) y = x:update (n-1) xs y
 
-runStmt (Let    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
-runStmt (Var    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
+runStmt (LetStmt    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
+runStmt (VarStmt    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (ExprStmt expr) = evalExpr expr
-runStmt loop@(While WhileStmt { cond, body }) = evalExpr cond >>= \case
+runStmt loop@(WhileStmt While { cond, body }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt body *> runStmt loop
     (Bool False) -> return Unit
     v            -> throwError (WrongConditionType v)
-runStmt (If IfStmt { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
+runStmt (IfStmt If { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt ifBlk
     (Bool False) -> runStmt elseBlk
     v            -> throwError (WrongConditionType v)
@@ -170,7 +170,7 @@ mkHandlerEnv handlers = do
     return (Environment (Map.fromList handlerPairs))
 
 runModule :: MonadInterpreter m => RuntimeIdentifier -> Module Runtime -> m ()
-runModule mainName (Program defs) = do
+runModule mainName (Module defs) = do
     forM_ defs bindTopLevel
     mainFunc <- getName mainName
     _        <- runFunc mainFunc []

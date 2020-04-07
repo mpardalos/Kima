@@ -23,9 +23,9 @@ type MonadTypeResolution m
 --       **not** their function type.
 resolveModuleTypes
     :: MonadTypeResolution m => Module Desugared -> m (Module TypeAnnotated)
-resolveModuleTypes (Program decls) = do
+resolveModuleTypes (Module decls) = do
     processTopLevel decls
-    Program <$> traverse resolveTopLevelTypes decls
+    Module <$> traverse resolveTopLevelTypes decls
 
 resolveTopLevelTypes
     :: MonadTypeResolution m => TopLevel Desugared -> m (TopLevel TypeAnnotated)
@@ -46,16 +46,16 @@ resolveTopLevelTypes (EffectSynonymDef name ops) = pure (EffectSynonymDef name o
 resolveStmtTypes
     :: MonadTypeResolution m => Stmt Desugared -> m (Stmt TypeAnnotated)
 resolveStmtTypes (ExprStmt expr ) = ExprStmt <$> resolveExprTypes expr
-resolveStmtTypes (Block    stmts) = Block <$> traverse resolveStmtTypes stmts
-resolveStmtTypes (While stmt) =
-    While <$> bitraverse resolveExprTypes resolveStmtTypes stmt
-resolveStmtTypes (If stmt) =
-    If <$> bitraverse resolveExprTypes resolveStmtTypes stmt
-resolveStmtTypes (Assign access expr) = Assign access <$> resolveExprTypes expr
-resolveStmtTypes (Var name t expr) =
-    Var name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
-resolveStmtTypes (Let name t expr) =
-    Let name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
+resolveStmtTypes (BlockStmt    stmts) = BlockStmt <$> traverse resolveStmtTypes stmts
+resolveStmtTypes (WhileStmt stmt) =
+    WhileStmt <$> bitraverse resolveExprTypes resolveStmtTypes stmt
+resolveStmtTypes (IfStmt stmt) =
+    IfStmt <$> bitraverse resolveExprTypes resolveStmtTypes stmt
+resolveStmtTypes (AssignStmt access expr) = AssignStmt access <$> resolveExprTypes expr
+resolveStmtTypes (VarStmt name t expr) =
+    VarStmt name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
+resolveStmtTypes (LetStmt name t expr) =
+    LetStmt name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
 
 resolveExprTypes
     :: MonadTypeResolution m => Expr Desugared -> m (Expr TypeAnnotated)
@@ -65,12 +65,12 @@ resolveExprTypes (FuncExpr argExprs effExpr rtExpr body) =
         <*> resolveEffectExpr effExpr
         <*> traverse resolveTypeExpr rtExpr
         <*> resolveStmtTypes body
-resolveExprTypes (Call callee args) =
-    Call <$> resolveExprTypes callee <*> traverse resolveExprTypes args
-resolveExprTypes (LiteralE    lit ) = pure (LiteralE lit)
-resolveExprTypes (IdentifierE name) = pure (IdentifierE name)
-resolveExprTypes (Handle handled handlers) =
-    Handle
+resolveExprTypes (CallExpr callee args) =
+    CallExpr <$> resolveExprTypes callee <*> traverse resolveExprTypes args
+resolveExprTypes (LiteralExpr    lit ) = pure (LiteralExpr lit)
+resolveExprTypes (IdentifierExpr name) = pure (IdentifierExpr name)
+resolveExprTypes (HandleExpr handled handlers) =
+    HandleExpr
     <$> resolveExprTypes handled
     <*> traverse resolveHandlerTypes handlers
 
