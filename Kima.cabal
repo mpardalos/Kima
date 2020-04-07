@@ -30,8 +30,6 @@ library
         Kima.AST.Types
 
         Kima.Builtins
-        Kima.Builtins.Types
-        Kima.Builtins.Values
 
         Kima.Desugar
 
