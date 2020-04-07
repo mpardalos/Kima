@@ -213,13 +213,13 @@ inferReturns (WhileStmt (While cond blk)) = do
 
     let typedWhile = WhileStmt (While typedCond typedBlk)
     return (typedWhile, KUnit)
-inferReturns (If (IfStmt cond thenBlk elseBlk)) = do
+inferReturns (IfStmt (If cond thenBlk elseBlk)) = do
     typedCond                   <- check KBool cond
     (typedThenBlk, thenBlkType) <- inferReturns thenBlk
     (typedElseBlk, elseBlkType) <- inferReturns elseBlk
     assert (thenBlkType == elseBlkType) (MismatchedIf thenBlkType elseBlkType)
 
-    let typedIf = If (IfStmt typedCond typedThenBlk typedElseBlk)
+    let typedIf = IfStmt (If typedCond typedThenBlk typedElseBlk)
     return (typedIf, thenBlkType)
 inferReturns (AssignStmt accessor expr) = do
     (typedExpr    , inferedType                     ) <- infer expr

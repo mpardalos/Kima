@@ -32,7 +32,7 @@ data Stmt tag
     = ExprStmt (Expr tag)
     | BlockStmt [Stmt tag]
     | WhileStmt (While (Expr tag) (Stmt tag))
-    | If (IfStmt (Expr tag) (Stmt tag))
+    | IfStmt (If (Expr tag) (Stmt tag))
     | AssignStmt (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
     | VarStmt Name (FreeAnnotation tag) (Expr tag)
     | LetStmt Name (FreeAnnotation tag) (Expr tag)
@@ -51,7 +51,7 @@ data Literal
     = IntExpr Integer | FloatExpr Double | BoolExpr Bool | StringExpr String
     deriving (Eq, Generic)
 
-data IfStmt cond body = IfStmt {
+data If cond body = If {
     cond :: cond,
     ifBlk :: body,
     elseBlk :: body
@@ -72,8 +72,8 @@ data WriteAccess ident = WriteAccess ident [ident]
 prettyArgList :: (Pretty a, Pretty b) => [(a, b)] -> Doc ann
 prettyArgList = tupled . fmap (\(name, t) -> pretty name <> ": " <> pretty t)
 
-instance (Pretty cond, Pretty stmt) => Pretty (IfStmt cond stmt) where
-    pretty IfStmt { cond, ifBlk, elseBlk } =
+instance (Pretty cond, Pretty stmt) => Pretty (If cond stmt) where
+    pretty If { cond, ifBlk, elseBlk } =
         "if"
             <+> parens (pretty cond)
             <+> pretty ifBlk
@@ -182,7 +182,7 @@ instance
     pretty (AssignStmt name expr  ) = pretty name <+> "=" <+> pretty expr
     pretty (WhileStmt stmt        ) = pretty stmt
     pretty (SimpleIfStmt cond body) = "if" <+> parens (pretty cond) <+> pretty body
-    pretty (If stmt           ) = pretty stmt
+    pretty (IfStmt stmt           ) = pretty stmt
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
     , Pretty (AnnotatedName (NameAnnotation stage))
@@ -230,17 +230,17 @@ instance Pretty ident => Show (WriteAccess ident) where
 
 --------------- Boring instances ---------------------
 
-instance Bifunctor IfStmt where
-    bimap f g IfStmt { cond, ifBlk, elseBlk } =
-        IfStmt (f cond) (g ifBlk) (g elseBlk)
+instance Bifunctor If where
+    bimap f g If { cond, ifBlk, elseBlk } =
+        If (f cond) (g ifBlk) (g elseBlk)
 
-instance Bifoldable IfStmt where
-    bifoldMap f g IfStmt { cond, ifBlk, elseBlk } =
+instance Bifoldable If where
+    bifoldMap f g If { cond, ifBlk, elseBlk } =
         f cond <> g ifBlk <> g elseBlk
 
-instance Bitraversable IfStmt where
-    bitraverse f g IfStmt { cond, ifBlk, elseBlk } =
-        (\(a, b, c) -> IfStmt a b c)
+instance Bitraversable If where
+    bitraverse f g If { cond, ifBlk, elseBlk } =
+        (\(a, b, c) -> If a b c)
             <$> ((,,) <$> f cond <*> g ifBlk <*> g elseBlk)
 
 instance Bifunctor While where

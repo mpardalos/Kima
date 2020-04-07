@@ -133,7 +133,7 @@ ifStmt = do
     maybeElseBody <- optional (reserved RElse *> stmt)
 
     case maybeElseBody of
-        Just elseBody -> return (If (IfStmt cond ifBody elseBody))
+        Just elseBody -> return (IfStmt (If cond ifBody elseBody))
         Nothing       -> return (SimpleIfStmt cond ifBody)
 
 -- Expressions

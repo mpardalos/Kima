@@ -95,7 +95,7 @@ runStmt loop@(WhileStmt While { cond, body }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt body *> runStmt loop
     (Bool False) -> return Unit
     v            -> throwError (WrongConditionType v)
-runStmt (If IfStmt { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
+runStmt (IfStmt If { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt ifBlk
     (Bool False) -> runStmt elseBlk
     v            -> throwError (WrongConditionType v)

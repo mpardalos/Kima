@@ -78,8 +78,8 @@ statementTests =
         While (LiteralExpr $ BoolExpr True) $ BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name"]
         ]))
-    , ("if True { print(name1); } else { print(name2); }", If (
-        IfStmt (LiteralExpr $ BoolExpr True) (BlockStmt [
+    , ("if True { print(name1); } else { print(name2); }", IfStmt (
+        If (LiteralExpr $ BoolExpr True) (BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name1"]
         ]) $ BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name2"]

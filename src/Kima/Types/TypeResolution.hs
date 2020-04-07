@@ -49,8 +49,8 @@ resolveStmtTypes (ExprStmt expr ) = ExprStmt <$> resolveExprTypes expr
 resolveStmtTypes (BlockStmt    stmts) = BlockStmt <$> traverse resolveStmtTypes stmts
 resolveStmtTypes (WhileStmt stmt) =
     WhileStmt <$> bitraverse resolveExprTypes resolveStmtTypes stmt
-resolveStmtTypes (If stmt) =
-    If <$> bitraverse resolveExprTypes resolveStmtTypes stmt
+resolveStmtTypes (IfStmt stmt) =
+    IfStmt <$> bitraverse resolveExprTypes resolveStmtTypes stmt
 resolveStmtTypes (AssignStmt access expr) = AssignStmt access <$> resolveExprTypes expr
 resolveStmtTypes (VarStmt name t expr) =
     VarStmt name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
