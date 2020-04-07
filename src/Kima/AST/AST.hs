@@ -33,10 +33,10 @@ data Stmt tag
     | BlockStmt [Stmt tag]
     | WhileStmt (While (Expr tag) (Stmt tag))
     | If (IfStmt (Expr tag) (Stmt tag))
-    | HasSugar tag => SimpleIf (Expr tag) (Stmt tag)
     | Assign (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
     | Var Name (FreeAnnotation tag) (Expr tag)
     | Let Name (FreeAnnotation tag) (Expr tag)
+    | HasSugar tag => SimpleIf (Expr tag) (Stmt tag)
 
 data HandlerClause tag = HandlerClause
     { opName :: Name
