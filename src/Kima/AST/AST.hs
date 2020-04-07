@@ -25,8 +25,8 @@ data Expr tag
     | Call (Expr tag) [Expr tag]
     | Handle (Expr tag) [HandlerClause tag]
     | (HasSugar tag) => AccessE (Expr tag) Name
-    | (HasSugar tag) => BinE (Binary (Expr tag))
-    | (HasSugar tag) => UnaryE (Unary (Expr tag))
+    | (HasSugar tag) => BinE BinaryOp (Expr tag) (Expr tag)
+    | (HasSugar tag) => UnaryE UnaryOp (Expr tag)
 
 data Stmt tag
     = ExprStmt (Expr tag)
@@ -46,14 +46,6 @@ data HandlerClause tag = HandlerClause
     }
 
 ---------------- Factored out parts of the AST ------------------------------
-
-data Binary e
-    = Add e e | Sub e e | Div e e | Mul e e | Mod e e | Less e e | LessEq e e
-    | Greater e e | GreatEq e e | Eq e e | NotEq e e | Pow e e
-    deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
-
-data Unary e = Negate e | Invert e
-    deriving (Show, Eq, Functor, Foldable, Traversable, Generic)
 
 data Literal
     = IntExpr Integer | FloatExpr Double | BoolExpr Bool | StringExpr String
@@ -100,24 +92,6 @@ instance Pretty Literal where
     pretty (FloatExpr  f) = "f" <> pretty f
     pretty (BoolExpr   b) = pretty b
     pretty (StringExpr s) = "s" <> "\"" <> pretty s <> "\""
-
-instance Pretty a => Pretty (Binary a) where
-    pretty (Add     l r) = pretty l <+> "+" <+> pretty r
-    pretty (Sub     l r) = pretty l <+> "-" <+> pretty r
-    pretty (Div     l r) = pretty l <+> "/" <+> pretty r
-    pretty (Mul     l r) = pretty l <+> "*" <+> pretty r
-    pretty (Mod     l r) = pretty l <+> "%" <+> pretty r
-    pretty (Less    l r) = pretty l <+> "<" <+> pretty r
-    pretty (LessEq  l r) = pretty l <+> "<=" <+> pretty r
-    pretty (Greater l r) = pretty l <+> ">" <+> pretty r
-    pretty (GreatEq l r) = pretty l <+> ">=" <+> pretty r
-    pretty (Eq      l r) = pretty l <+> "==" <+> pretty r
-    pretty (NotEq   l r) = pretty l <+> "!=" <+> pretty r
-    pretty (Pow     l r) = pretty l <+> "**" <+> pretty r
-
-instance Pretty a => Pretty (Unary a) where
-    pretty (Negate e) = "-" <> pretty e
-    pretty (Invert e) = "!" <> pretty e
 
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
@@ -183,15 +157,14 @@ instance
             <>  line
             <>  "}"
     pretty (OperationDef name args rt) =
-        "effect"
-            <+> pretty name
-            <>  prettyArgList args
-            <+> "->"
-            <+> pretty rt
+        "effect" <+> pretty name <> prettyArgList args <+> "->" <+> pretty rt
     pretty (EffectSynonymDef name ops) =
         "effect"
-            <+> pretty name <> "{" <> line
-            <>  vcat (punctuate comma (pretty <$> ops)) <> line
+            <+> pretty name
+            <>  "{"
+            <>  line
+            <>  vcat (punctuate comma (pretty <$> ops))
+            <>  line
             <>  "}"
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
@@ -199,18 +172,17 @@ instance
     , Pretty (EffectType stage)
     , Pretty (FreeAnnotation stage)
     ) => Pretty (Stmt stage) where
-    pretty (ExprStmt expr    ) = pretty expr
+    pretty (ExprStmt expr) = pretty expr
     pretty (Var name t expr) =
         "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (Let name t expr) =
         "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (Block stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"
-    pretty (Assign name expr) = pretty name <+> "=" <+> pretty expr
-    pretty (While stmt      ) = pretty stmt
-    pretty (SimpleIf cond body) =
-        "if" <+> parens (pretty cond) <+> pretty body
-    pretty (If    stmt      ) = pretty stmt
+    pretty (Assign name expr  ) = pretty name <+> "=" <+> pretty expr
+    pretty (While stmt        ) = pretty stmt
+    pretty (SimpleIf cond body) = "if" <+> parens (pretty cond) <+> pretty body
+    pretty (If stmt           ) = pretty stmt
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
     , Pretty (AnnotatedName (NameAnnotation stage))
@@ -236,8 +208,8 @@ instance
             <>  indent 4 (vcat (pretty <$> handlers))
             <>  line
             <>  "}"
-    pretty (BinE   bin       ) = pretty bin
-    pretty (UnaryE unary     ) = pretty unary
+    pretty (BinE op l r      ) = pretty l <+> pretty op <+> pretty r
+    pretty (UnaryE  op   e   ) = pretty op <> pretty e
     pretty (AccessE expr name) = parens (pretty expr) <> "." <> pretty name
 
 instance

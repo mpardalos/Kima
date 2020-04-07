@@ -7,10 +7,15 @@ import GHC.Generics
 
 import Kima.AST.Kinds
 
-data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
-                 | GTOp | GTEOp | LTOp | LTEOp | EqualsOp
-                 | PowOp
-                 | InvertOp | NegateOp -- Unary ops
+data BinaryOp
+    = AddOp | SubOp | MulOp | ModOp | DivOp | GTOp | GTEOp | LTOp | LTEOp
+    | EqualsOp | PowOp
+    deriving (Show, Eq, Ord, Generic)
+
+data UnaryOp = InvertOp | NegateOp
+    deriving (Show, Eq, Ord, Generic)
+
+data Operator = UnaryOp UnaryOp | BinaryOp BinaryOp
     deriving (Show, Eq, Ord, Generic)
 
 type Name = String
@@ -21,8 +26,8 @@ data Identifier :: HasAnnotation -> Type where
     TIdentifier  :: String -> t -> Identifier ('Annotation t)
 
     -- Builtins
-    Builtin     :: BuiltinName -> Identifier 'NoAnnotation
-    TBuiltin    :: BuiltinName -> t -> Identifier ('Annotation t)
+    Builtin     :: Operator -> Identifier 'NoAnnotation
+    TBuiltin    :: Operator -> t -> Identifier ('Annotation t)
 
     -- Accessors
     Accessor    :: String      -> Identifier 'NoAnnotation
@@ -54,20 +59,26 @@ instance (AnnotationConstraint Show t) => Show (AnnotatedName t) where
     show (Name str ) = "{" ++ str ++ "}"
 
 -------------------- Pretty ---------------------------------------------
-instance Pretty BuiltinName where
-    pretty AddOp     = "(+)"
-    pretty SubOp     = "(-)"
-    pretty MulOp     = "(*)"
-    pretty ModOp     = "(%)"
-    pretty DivOp     = "(/)"
-    pretty GTOp      = "(>)"
-    pretty GTEOp     = "(>=)"
-    pretty LTOp      = "(<)"
-    pretty LTEOp     = "(<=)"
-    pretty EqualsOp  = "(==)"
-    pretty InvertOp  = "(-)"
-    pretty NegateOp  = "(!)"
-    pretty PowOp     = "(**)"
+instance Pretty BinaryOp where
+    pretty AddOp     = "+"
+    pretty SubOp     = "-"
+    pretty MulOp     = "*"
+    pretty ModOp     = "%"
+    pretty DivOp     = "/"
+    pretty GTOp      = ">"
+    pretty GTEOp     = ">="
+    pretty LTOp      = "<"
+    pretty LTEOp     = "<="
+    pretty EqualsOp  = "=="
+    pretty PowOp     = "**"
+
+instance Pretty UnaryOp where
+    pretty InvertOp  = "-"
+    pretty NegateOp  = "!"
+
+instance Pretty Operator where
+    pretty (UnaryOp op)  = pretty op
+    pretty (BinaryOp op) = pretty op
 
 -- | Prints a format that doesn't match the source, i.e. it doesn't parse.
 -- | Maybe it should be changed

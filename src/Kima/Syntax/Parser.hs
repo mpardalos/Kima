@@ -142,21 +142,21 @@ expr :: Parser (Expr Parsed)
 expr =
     makeExprParser
             term
-            [ [ prefix (symbol Minus) (UnaryE . Negate)
+            [ [ prefix (symbol Minus) (UnaryE NegateOp)
               , prefix (symbol Plus)  id
-              , prefix (symbol Bang)  (UnaryE . Invert)
+              , prefix (symbol Bang)  (UnaryE InvertOp)
               ]
-            , [ binary (symbol Plus)         ((BinE .) . Add)
-              , binary (symbol Minus)        ((BinE .) . Sub)
-              , binary (symbol StarStar)     ((BinE .) . Pow)
-              , binary (symbol Star)         ((BinE .) . Mul)
-              , binary (symbol Slash)        ((BinE .) . Div)
-              , binary (symbol T.Mod)        ((BinE .) . Mod)
-              , binary (symbol GreaterThan)  ((BinE .) . Greater)
-              , binary (symbol GreaterEqual) ((BinE .) . GreatEq)
-              , binary (symbol LessThan)     ((BinE .) . Less)
-              , binary (symbol LessEqual)    ((BinE .) . LessEq)
-              , binary (symbol EqualsEquals) ((BinE .) . Eq)
+            , [ binary (symbol Plus)         (BinE AddOp)
+              , binary (symbol Minus)        (BinE SubOp)
+              , binary (symbol StarStar)     (BinE PowOp)
+              , binary (symbol Star)         (BinE MulOp)
+              , binary (symbol Slash)        (BinE DivOp)
+              , binary (symbol T.Mod)        (BinE ModOp)
+              , binary (symbol GreaterThan)  (BinE GTOp)
+              , binary (symbol GreaterEqual) (BinE GTEOp)
+              , binary (symbol LessThan)     (BinE LTOp)
+              , binary (symbol LessEqual)    (BinE LTEOp)
+              , binary (symbol EqualsEquals) (BinE EqualsOp)
               ]
             ]
         <?> "expression"

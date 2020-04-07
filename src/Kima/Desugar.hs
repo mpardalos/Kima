@@ -48,8 +48,8 @@ desugarStmt (While stmt        ) = While (bimap desugarExpr desugarStmt stmt)
 desugarStmt (If    stmt        ) = If (bimap desugarExpr desugarStmt stmt)
 
 desugarExpr :: Expr Parsed -> Expr Desugared
-desugarExpr (BinE    bin  )  = desugarBinary (desugarExpr <$> bin)
-desugarExpr (UnaryE  unary)  = desugarUnary (desugarExpr <$> unary)
+desugarExpr (BinE    op l r  )  = Call (IdentifierE $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]
+desugarExpr (UnaryE  op e    )  = Call (IdentifierE $ Builtin (UnaryOp op)) [desugarExpr e]
 desugarExpr (AccessE expr field) = Call (IdentifierE (Accessor field)) [desugarExpr expr]
 desugarExpr (LiteralE    lit                 ) = LiteralE lit
 desugarExpr (IdentifierE name) = IdentifierE name
@@ -65,32 +65,6 @@ desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     (desugarStmt body)
 desugarExpr (Call callee args  ) = Call (desugarExpr callee) (desugarExpr <$> args)
 desugarExpr (Handle callee handlers) = Handle (desugarExpr callee) (desugarHandler <$> handlers)
-
-desugarBinary
-    :: ( TagSugar tag ~ 'NoSugar
-       , NameAnnotation tag ~ 'NoAnnotation)
-    => Binary (Expr tag) -> Expr tag
-desugarBinary (Add     l r) = Call (IdentifierE $ Builtin AddOp) [l, r]
-desugarBinary (Sub     l r) = Call (IdentifierE $ Builtin SubOp) [l, r]
-desugarBinary (Div     l r) = Call (IdentifierE $ Builtin DivOp) [l, r]
-desugarBinary (Mul     l r) = Call (IdentifierE $ Builtin MulOp) [l, r]
-desugarBinary (Pow     l r) = Call (IdentifierE $ Builtin PowOp) [l, r]
-desugarBinary (Mod     l r) = Call (IdentifierE $ Builtin ModOp) [l, r]
-desugarBinary (Less    l r) = Call (IdentifierE $ Builtin LTOp) [l, r]
-desugarBinary (LessEq  l r) = Call (IdentifierE $ Builtin LTEOp) [l, r]
-desugarBinary (Greater l r) = Call (IdentifierE $ Builtin GTOp) [l, r]
-desugarBinary (GreatEq l r) = Call (IdentifierE $ Builtin GTEOp) [l, r]
-desugarBinary (Eq      l r) = Call (IdentifierE $ Builtin EqualsOp) [l, r]
-desugarBinary (NotEq   l r) = Call
-    (IdentifierE $ Builtin NegateOp)
-    [Call (IdentifierE $ Builtin EqualsOp) [l, r]]
-
-desugarUnary
-    :: ( TagSugar tag ~ 'NoSugar
-       , NameAnnotation tag ~ 'NoAnnotation)
-    => Unary (Expr tag) -> Expr tag
-desugarUnary (Negate e) = Call (IdentifierE $ Builtin NegateOp) [e]
-desugarUnary (Invert e) = Call (IdentifierE $ Builtin InvertOp) [e]
 
 desugarHandler :: HandlerClause Parsed -> HandlerClause Desugared
 desugarHandler (HandlerClause name args rt body) = HandlerClause

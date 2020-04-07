@@ -44,14 +44,14 @@ termTests =
 
 expressionTests :: [(String, Expr Parsed)]
 expressionTests =
-    [ ("5 + 5", BinE (LiteralE (IntExpr 5) `Add` LiteralE (IntExpr 5)))
-    , ("5 * 5", BinE (LiteralE (IntExpr 5) `Mul` LiteralE (IntExpr 5)))
-    , ("5 - 5", BinE (LiteralE (IntExpr 5) `Sub` LiteralE (IntExpr 5)))
-    , ("5 / 5", BinE (LiteralE (IntExpr 5) `Div` LiteralE (IntExpr 5)))
-    , ("5 % 5", BinE (LiteralE (IntExpr 5) `Mod` LiteralE (IntExpr 5)))
-    , ("-5"   , UnaryE (Negate (LiteralE (IntExpr 5))))
+    [ ("5 + 5", BinE AddOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
+    , ("5 * 5", BinE MulOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
+    , ("5 - 5", BinE SubOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
+    , ("5 / 5", BinE DivOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
+    , ("5 % 5", BinE ModOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
+    , ("-5"   , UnaryE NegateOp (LiteralE (IntExpr 5)))
     , ( "\"a\" + \"b\""
-      , BinE (LiteralE (StringExpr "a") `Add` LiteralE (StringExpr "b"))
+      , BinE AddOp (LiteralE (StringExpr "a")) (LiteralE (StringExpr "b"))
       )
     , ("10(5)", Call (LiteralE (IntExpr 10)) [LiteralE (IntExpr 5)])
     , ("func(5)", Call (IdentifierE "func") [LiteralE (IntExpr 5)])
@@ -62,7 +62,7 @@ expressionTests =
       )
     , ( "a.b",     IdentifierE "a" `AccessE` "b")
     , ( "a().b",   Call (IdentifierE "a") [] `AccessE` "b")
-    , ( "(1+4).b", BinE (LiteralE (IntExpr 1) `Add` LiteralE (IntExpr 4)) `AccessE` "b")
+    , ( "(1+4).b", BinE AddOp (LiteralE (IntExpr 1)) (LiteralE (IntExpr 4)) `AccessE` "b")
     , ( "a.b.c",   (IdentifierE "a" `AccessE` "b") `AccessE` "c")
     , ( "fun () -> Unit {}", FuncExpr [] Nothing "Unit" (Block []))
     , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] Nothing "Unit" (Block []))
