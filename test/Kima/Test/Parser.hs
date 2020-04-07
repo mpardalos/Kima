@@ -85,7 +85,7 @@ statementTests =
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name2"]
         ]
         ))
-    , ("if True { print(name1); } ", SimpleIf
+    , ("if True { print(name1); } ", SimpleIfStmt
           (LiteralExpr $ BoolExpr True)
           (BlockStmt [ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name1"]]))
     ]

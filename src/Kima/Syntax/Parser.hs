@@ -134,7 +134,7 @@ ifStmt = do
 
     case maybeElseBody of
         Just elseBody -> return (If (IfStmt cond ifBody elseBody))
-        Nothing       -> return (SimpleIf cond ifBody)
+        Nothing       -> return (SimpleIfStmt cond ifBody)
 
 -- Expressions
 
