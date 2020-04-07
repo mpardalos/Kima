@@ -48,7 +48,10 @@ data HandlerClause tag = HandlerClause
 ---------------- Factored out parts of the AST ------------------------------
 
 data Literal
-    = IntExpr Integer | FloatExpr Double | BoolExpr Bool | StringExpr String
+    = IntLit Integer
+    | FloatLit Double
+    | BoolLit Bool
+    | StringLit String
     deriving (Eq, Generic)
 
 data If cond body = If {
@@ -88,10 +91,10 @@ instance Show Literal where
     show = show . pretty
 
 instance Pretty Literal where
-    pretty (IntExpr    n) = "i" <> pretty n
-    pretty (FloatExpr  f) = "f" <> pretty f
-    pretty (BoolExpr   b) = pretty b
-    pretty (StringExpr s) = "s" <> "\"" <> pretty s <> "\""
+    pretty (IntLit    n) = "i" <> pretty n
+    pretty (FloatLit  f) = "f" <> pretty f
+    pretty (BoolLit   b) = pretty b
+    pretty (StringLit s) = "s" <> "\"" <> pretty s <> "\""
 
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)

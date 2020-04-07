@@ -74,10 +74,10 @@ subsumedBy _ _ = False
 -- well as its type. Throws an error if a type can't be assigned to the
 -- expression *or* if there are multiple possible types
 infer :: forall m. MonadTC m => Expr TypeAnnotated -> m (Expr Typed, KType)
-infer (LiteralExpr    lit@(IntExpr    _)) = pure (LiteralExpr lit, KInt)
-infer (LiteralExpr    lit@(FloatExpr  _)) = pure (LiteralExpr lit, KFloat)
-infer (LiteralExpr    lit@(BoolExpr   _)) = pure (LiteralExpr lit, KBool)
-infer (LiteralExpr    lit@(StringExpr _)) = pure (LiteralExpr lit, KString)
+infer (LiteralExpr    lit@(IntLit    _)) = pure (LiteralExpr lit, KInt)
+infer (LiteralExpr    lit@(FloatLit  _)) = pure (LiteralExpr lit, KFloat)
+infer (LiteralExpr    lit@(BoolLit   _)) = pure (LiteralExpr lit, KBool)
+infer (LiteralExpr    lit@(StringLit _)) = pure (LiteralExpr lit, KString)
 infer (IdentifierExpr name) = (lookupName name <&> types) <&> Set.toList >>= \case
     -- There needs to be only a single possibility for the type. Otherwise we
     -- have an ambiguity
@@ -141,10 +141,10 @@ inferHandler HandlerClause{ returnType = Nothing } = throwError MissingReturnTyp
 
 -- | List all possible types for an expression
 enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
-enumerateTypes (LiteralExpr    IntExpr{}   ) = pure [KInt]
-enumerateTypes (LiteralExpr    FloatExpr{} ) = pure [KFloat]
-enumerateTypes (LiteralExpr    BoolExpr{}  ) = pure [KBool]
-enumerateTypes (LiteralExpr    StringExpr{}) = pure [KString]
+enumerateTypes (LiteralExpr    IntLit{}   ) = pure [KInt]
+enumerateTypes (LiteralExpr    FloatLit{} ) = pure [KFloat]
+enumerateTypes (LiteralExpr    BoolLit{}  ) = pure [KBool]
+enumerateTypes (LiteralExpr    StringLit{}) = pure [KString]
 enumerateTypes (IdentifierExpr ident       ) = types <$> lookupName ident
 enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]

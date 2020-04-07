@@ -28,10 +28,10 @@ evalExpr (HandleExpr expr handlers) = do
     withState (handlerEnv <>) $ evalExpr expr
 
 evalLiteral :: Literal -> Value
-evalLiteral (IntExpr    i) = Integer i
-evalLiteral (FloatExpr  f) = Float f
-evalLiteral (BoolExpr   b) = Bool b
-evalLiteral (StringExpr s) = String s
+evalLiteral (IntLit    i) = Integer i
+evalLiteral (FloatLit  f) = Float f
+evalLiteral (BoolLit   b) = Bool b
+evalLiteral (StringLit s) = String s
 
 ---------- Statements ----------
 runStmt :: forall m. MonadInterpreter m => Stmt Runtime -> m Value

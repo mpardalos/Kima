@@ -34,35 +34,35 @@ spec = parallel $ describe "Parser" $ do
 termTests :: [(String, Expr Parsed)]
 termTests =
     [ ("name"   , IdentifierExpr "name")
-    , ("1.23"   , LiteralExpr    (FloatExpr 1.23))
-    , ("5"      , LiteralExpr    (IntExpr 5))
-    , ("\"hi\"" , LiteralExpr    (StringExpr "hi"))
-    , ("\"123\"", LiteralExpr    (StringExpr "123"))
-    , ("False"  , LiteralExpr    (BoolExpr False))
-    , ("True"   , LiteralExpr    (BoolExpr True))
+    , ("1.23"   , LiteralExpr    (FloatLit 1.23))
+    , ("5"      , LiteralExpr    (IntLit 5))
+    , ("\"hi\"" , LiteralExpr    (StringLit "hi"))
+    , ("\"123\"", LiteralExpr    (StringLit "123"))
+    , ("False"  , LiteralExpr    (BoolLit False))
+    , ("True"   , LiteralExpr    (BoolLit True))
     ]
 
 expressionTests :: [(String, Expr Parsed)]
 expressionTests =
-    [ ("5 + 5", BinExpr AddOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
-    , ("5 * 5", BinExpr MulOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
-    , ("5 - 5", BinExpr SubOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
-    , ("5 / 5", BinExpr DivOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
-    , ("5 % 5", BinExpr ModOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
-    , ("-5"   , UnaryExpr NegateOp (LiteralExpr (IntExpr 5)))
+    [ ("5 + 5", BinExpr AddOp (LiteralExpr (IntLit 5)) (LiteralExpr (IntLit 5)))
+    , ("5 * 5", BinExpr MulOp (LiteralExpr (IntLit 5)) (LiteralExpr (IntLit 5)))
+    , ("5 - 5", BinExpr SubOp (LiteralExpr (IntLit 5)) (LiteralExpr (IntLit 5)))
+    , ("5 / 5", BinExpr DivOp (LiteralExpr (IntLit 5)) (LiteralExpr (IntLit 5)))
+    , ("5 % 5", BinExpr ModOp (LiteralExpr (IntLit 5)) (LiteralExpr (IntLit 5)))
+    , ("-5"   , UnaryExpr NegateOp (LiteralExpr (IntLit 5)))
     , ( "\"a\" + \"b\""
-      , BinExpr AddOp (LiteralExpr (StringExpr "a")) (LiteralExpr (StringExpr "b"))
+      , BinExpr AddOp (LiteralExpr (StringLit "a")) (LiteralExpr (StringLit "b"))
       )
-    , ("10(5)", CallExpr (LiteralExpr (IntExpr 10)) [LiteralExpr (IntExpr 5)])
-    , ("func(5)", CallExpr (IdentifierExpr "func") [LiteralExpr (IntExpr 5)])
+    , ("10(5)", CallExpr (LiteralExpr (IntLit 10)) [LiteralExpr (IntLit 5)])
+    , ("func(5)", CallExpr (IdentifierExpr "func") [LiteralExpr (IntLit 5)])
     , ("func(5)(\"hi\")"
       , CallExpr
-            (CallExpr (IdentifierExpr "func") [LiteralExpr (IntExpr 5)])
-            [LiteralExpr (StringExpr "hi")]
+            (CallExpr (IdentifierExpr "func") [LiteralExpr (IntLit 5)])
+            [LiteralExpr (StringLit "hi")]
       )
     , ( "a.b",     IdentifierExpr "a" `AccessExpr` "b")
     , ( "a().b",   CallExpr (IdentifierExpr "a") [] `AccessExpr` "b")
-    , ( "(1+4).b", BinExpr AddOp (LiteralExpr (IntExpr 1)) (LiteralExpr (IntExpr 4)) `AccessExpr` "b")
+    , ( "(1+4).b", BinExpr AddOp (LiteralExpr (IntLit 1)) (LiteralExpr (IntLit 4)) `AccessExpr` "b")
     , ( "a.b.c",   (IdentifierExpr "a" `AccessExpr` "b") `AccessExpr` "c")
     , ( "fun () -> Unit {}", FuncExpr [] Nothing "Unit" (BlockStmt []))
     , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] Nothing "Unit" (BlockStmt []))
@@ -75,18 +75,18 @@ expressionTests =
 statementTests :: [(String, Stmt Parsed)]
 statementTests =
     [ ("while True { print(name); }", WhileStmt (
-        While (LiteralExpr $ BoolExpr True) $ BlockStmt [
+        While (LiteralExpr $ BoolLit True) $ BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name"]
         ]))
     , ("if True { print(name1); } else { print(name2); }", IfStmt (
-        If (LiteralExpr $ BoolExpr True) (BlockStmt [
+        If (LiteralExpr $ BoolLit True) (BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name1"]
         ]) $ BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name2"]
         ]
         ))
     , ("if True { print(name1); } ", SimpleIfStmt
-          (LiteralExpr $ BoolExpr True)
+          (LiteralExpr $ BoolLit True)
           (BlockStmt [ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name1"]]))
     ]
 

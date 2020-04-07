@@ -181,16 +181,16 @@ baseTerm :: Parser (Expr Parsed)
 baseTerm =
     parens expr
         <|> LiteralExpr
-        .   StringExpr
+        .   StringLit
         <$> try string
         <|> LiteralExpr
-        .   FloatExpr
+        .   FloatLit
         <$> try floatLiteral
         <|> LiteralExpr
-        .   IntExpr
+        .   IntLit
         <$> try intLiteral
         <|> LiteralExpr
-        .   BoolExpr
+        .   BoolLit
         <$> try boolLiteral
         <|> IdentifierExpr
         .   Identifier
