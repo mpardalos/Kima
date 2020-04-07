@@ -11,7 +11,6 @@ data BuiltinName = AddOp | SubOp | MulOp | ModOp | DivOp  -- Binary ops
                  | GTOp | GTEOp | LTOp | LTEOp | EqualsOp
                  | PowOp
                  | InvertOp | NegateOp -- Unary ops
-                 | PrintFunc | InputFunc -- Builtin functions
     deriving (Show, Eq, Ord, Generic)
 
 type Name = String
@@ -69,8 +68,6 @@ instance Pretty BuiltinName where
     pretty InvertOp  = "(-)"
     pretty NegateOp  = "(!)"
     pretty PowOp     = "(**)"
-    pretty PrintFunc = "b'print"
-    pretty InputFunc = "b'input"
 
 -- | Prints a format that doesn't match the source, i.e. it doesn't parse.
 -- | Maybe it should be changed

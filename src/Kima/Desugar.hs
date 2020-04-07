@@ -52,7 +52,7 @@ desugarExpr (BinE    bin  )  = desugarBinary (desugarExpr <$> bin)
 desugarExpr (UnaryE  unary)  = desugarUnary (desugarExpr <$> unary)
 desugarExpr (AccessE expr field) = Call (IdentifierE (Accessor field)) [desugarExpr expr]
 desugarExpr (LiteralE    lit                 ) = LiteralE lit
-desugarExpr (IdentifierE name) = IdentifierE (desugarIdentifier name)
+desugarExpr (IdentifierE name) = IdentifierE name
 desugarExpr (FuncExpr args (Just eff) rt body) = FuncExpr
     (second (fmap desugarTypeExpr) <$> args)
     eff
@@ -65,11 +65,6 @@ desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     (desugarStmt body)
 desugarExpr (Call callee args  ) = Call (desugarExpr callee) (desugarExpr <$> args)
 desugarExpr (Handle callee handlers) = Handle (desugarExpr callee) (desugarHandler <$> handlers)
-
-desugarIdentifier :: Identifier t -> Identifier t
-desugarIdentifier (Identifier "print") = Builtin PrintFunc
-desugarIdentifier (Identifier "input") = Builtin InputFunc
-desugarIdentifier name = name
 
 desugarBinary
     :: ( TagSugar tag ~ 'NoSugar

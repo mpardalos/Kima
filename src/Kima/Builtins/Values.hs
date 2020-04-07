@@ -156,31 +156,33 @@ baseEnv =
     , ( TBuiltin InvertOp (KFunc [KBool] PureEffect KBool)
       , BuiltinFunction kimaInvert
       )
-    , ( TBuiltin
-          PrintFunc
+    , ( TIdentifier
+          "print"
           (KFunc [KString] (AnonymousEffect [printStringOperation]) KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TBuiltin PrintFunc
-                 (KFunc [KInt] (AnonymousEffect [printIntOperation]) KUnit)
+    , ( TIdentifier
+          "print"
+          (KFunc [KInt] (AnonymousEffect [printIntOperation]) KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TBuiltin
-          PrintFunc
+    , ( TIdentifier
+          "print"
           (KFunc [KFloat] (AnonymousEffect [printFloatOperation]) KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TBuiltin
-          PrintFunc
+    , ( TIdentifier
+          "print"
           (KFunc [KBool] (AnonymousEffect [printBoolOperation]) KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TBuiltin
-          PrintFunc
+    , ( TIdentifier
+          "print"
           (KFunc [KUnit] (AnonymousEffect [printUnitOperation]) KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TBuiltin InputFunc (KFunc [] (AnonymousEffect [inputOperation]) KString)
+    , ( TIdentifier "input"
+                    (KFunc [] (AnonymousEffect [inputOperation]) KString)
       , BuiltinFunction (\_ -> String <$> consoleRead)
       )
     , ( TIdentifier "at" (KFunc [KInt, KString] PureEffect KString)
@@ -293,7 +295,7 @@ liftComparison _ _ = throwError
 
 stringEquality :: MonadRE m => [Value] -> m Value
 stringEquality [String l, String r] = return $ Bool (l == r)
-stringEquality [l        , r        ] = throwError
+stringEquality [l       , r       ] = throwError
     (BuiltinFunctionError
         ("Can't apply operation to " <> show l <> " and " <> show r)
     )
