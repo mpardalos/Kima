@@ -33,7 +33,7 @@ data Stmt tag
     | BlockStmt [Stmt tag]
     | WhileStmt (While (Expr tag) (Stmt tag))
     | If (IfStmt (Expr tag) (Stmt tag))
-    | Assign (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
+    | AssignStmt (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
     | Var Name (FreeAnnotation tag) (Expr tag)
     | Let Name (FreeAnnotation tag) (Expr tag)
     | HasSugar tag => SimpleIf (Expr tag) (Stmt tag)
@@ -179,7 +179,7 @@ instance
         "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (BlockStmt stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"
-    pretty (Assign name expr  ) = pretty name <+> "=" <+> pretty expr
+    pretty (AssignStmt name expr  ) = pretty name <+> "=" <+> pretty expr
     pretty (WhileStmt stmt        ) = pretty stmt
     pretty (SimpleIf cond body) = "if" <+> parens (pretty cond) <+> pretty body
     pretty (If stmt           ) = pretty stmt

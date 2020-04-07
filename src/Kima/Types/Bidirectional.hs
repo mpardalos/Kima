@@ -221,7 +221,7 @@ inferReturns (If (IfStmt cond thenBlk elseBlk)) = do
 
     let typedIf = If (IfStmt typedCond typedThenBlk typedElseBlk)
     return (typedIf, thenBlkType)
-inferReturns (Assign accessor expr) = do
+inferReturns (AssignStmt accessor expr) = do
     (typedExpr    , inferedType                     ) <- infer expr
     (typedAccessor, Binding nameMutability nameTypes) <- inferAccessor accessor
 
@@ -229,7 +229,7 @@ inferReturns (Assign accessor expr) = do
     assert (inferedType `Set.member` nameTypes)
            (UnavailableType (Set.toList nameTypes) inferedType)
 
-    let typedAssign = Assign typedAccessor typedExpr
+    let typedAssign = AssignStmt typedAccessor typedExpr
     return (typedAssign, KUnit)
 inferReturns (Var name (Just declaredType) expr) = do
     typedExpr       <- check declaredType expr

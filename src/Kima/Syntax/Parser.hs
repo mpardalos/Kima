@@ -108,7 +108,7 @@ varStmt =
 
 assignStmt :: Parser (Stmt Parsed)
 assignStmt =
-    try (Assign <$> writeAccess <*> (symbol Equals *> expr)) <?> "assignment"
+    try (AssignStmt <$> writeAccess <*> (symbol Equals *> expr)) <?> "assignment"
 
 writeAccess :: IsString s => Parser (WriteAccess s)
 writeAccess = label "accessor" $ do

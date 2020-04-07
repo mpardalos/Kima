@@ -38,8 +38,8 @@ runStmt :: forall m. MonadInterpreter m => Stmt Runtime -> m Value
 runStmt (BlockStmt stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
-runStmt (Assign (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind name)
-runStmt (Assign (WriteAccess name path) expr) = do
+runStmt (AssignStmt (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind name)
+runStmt (AssignStmt (WriteAccess name path) expr) = do
     oldVal <- getName name
     newVal <- evalExpr expr
 
