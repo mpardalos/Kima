@@ -180,19 +180,19 @@ funcExpr = do
 baseTerm :: Parser (Expr Parsed)
 baseTerm =
     parens expr
-        <|> LiteralE
+        <|> LiteralExpr
         .   StringExpr
         <$> try string
-        <|> LiteralE
+        <|> LiteralExpr
         .   FloatExpr
         <$> try floatLiteral
-        <|> LiteralE
+        <|> LiteralExpr
         .   IntExpr
         <$> try intLiteral
-        <|> LiteralE
+        <|> LiteralExpr
         .   BoolExpr
         <$> try boolLiteral
-        <|> IdentifierE
+        <|> IdentifierExpr
         .   Identifier
         <$> try identifier
 

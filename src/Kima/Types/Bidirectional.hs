@@ -74,16 +74,16 @@ subsumedBy _ _ = False
 -- well as its type. Throws an error if a type can't be assigned to the
 -- expression *or* if there are multiple possible types
 infer :: forall m. MonadTC m => Expr TypeAnnotated -> m (Expr Typed, KType)
-infer (LiteralE    lit@(IntExpr    _)) = pure (LiteralE lit, KInt)
-infer (LiteralE    lit@(FloatExpr  _)) = pure (LiteralE lit, KFloat)
-infer (LiteralE    lit@(BoolExpr   _)) = pure (LiteralE lit, KBool)
-infer (LiteralE    lit@(StringExpr _)) = pure (LiteralE lit, KString)
-infer (IdentifierE name) = (lookupName name <&> types) <&> Set.toList >>= \case
+infer (LiteralExpr    lit@(IntExpr    _)) = pure (LiteralExpr lit, KInt)
+infer (LiteralExpr    lit@(FloatExpr  _)) = pure (LiteralExpr lit, KFloat)
+infer (LiteralExpr    lit@(BoolExpr   _)) = pure (LiteralExpr lit, KBool)
+infer (LiteralExpr    lit@(StringExpr _)) = pure (LiteralExpr lit, KString)
+infer (IdentifierExpr name) = (lookupName name <&> types) <&> Set.toList >>= \case
     -- There needs to be only a single possibility for the type. Otherwise we
     -- have an ambiguity
     -- Also. No need to check for empty case since that would have thrown an
     -- error in lookupName
-    [t]   -> pure (IdentifierE (typeAnnotate t name), t)
+    [t]   -> pure (IdentifierExpr (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
 infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
     let KEffect _ ops = eff
@@ -141,11 +141,11 @@ inferHandler HandlerClause{ returnType = Nothing } = throwError MissingReturnTyp
 
 -- | List all possible types for an expression
 enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
-enumerateTypes (LiteralE    IntExpr{}   ) = pure [KInt]
-enumerateTypes (LiteralE    FloatExpr{} ) = pure [KFloat]
-enumerateTypes (LiteralE    BoolExpr{}  ) = pure [KBool]
-enumerateTypes (LiteralE    StringExpr{}) = pure [KString]
-enumerateTypes (IdentifierE ident       ) = types <$> lookupName ident
+enumerateTypes (LiteralExpr    IntExpr{}   ) = pure [KInt]
+enumerateTypes (LiteralExpr    FloatExpr{} ) = pure [KFloat]
+enumerateTypes (LiteralExpr    BoolExpr{}  ) = pure [KBool]
+enumerateTypes (LiteralExpr    StringExpr{}) = pure [KString]
+enumerateTypes (IdentifierExpr ident       ) = types <$> lookupName ident
 enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]
 enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
@@ -172,13 +172,13 @@ enumerateTypes (Call callee args) = do
 -- | Check that an expression has a certain type. If it applies, return the
 -- expression with the type applied. If not, throw an appropriate error.
 check :: MonadTC m => KType -> Expr TypeAnnotated -> m (Expr Typed)
-check expectedType (IdentifierE ident) = do
+check expectedType (IdentifierExpr ident) = do
     Binding _ availableTypes <- lookupName ident
 
     let possibleTypes = Set.filter (`subsumedBy` expectedType) availableTypes
 
     case Set.toList possibleTypes of
-        [        result] -> return (IdentifierE (typeAnnotate result ident))
+        [        result] -> return (IdentifierExpr (typeAnnotate result ident))
         results@(_ : _ ) -> throwError (AmbiguousCall results)
         []               -> throwError
             (UnavailableType (Set.toList availableTypes) expectedType)

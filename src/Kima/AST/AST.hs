@@ -19,8 +19,8 @@ data TopLevel tag
     | EffectSynonymDef Name [Name]
 
 data Expr tag
-    = LiteralE Literal
-    | IdentifierE (Identifier (NameAnnotation tag))
+    = LiteralExpr Literal
+    | IdentifierExpr (Identifier (NameAnnotation tag))
     | FuncExpr [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | Call (Expr tag) [Expr tag]
     | Handle (Expr tag) [HandlerClause tag]
@@ -197,8 +197,8 @@ instance
             <+> "->"
             <+> pretty rt
             <+> pretty body
-    pretty (LiteralE    lit ) = pretty lit
-    pretty (IdentifierE name) = pretty name
+    pretty (LiteralExpr    lit ) = pretty lit
+    pretty (IdentifierExpr name) = pretty name
     pretty (Call callee args) = pretty callee <> tupled (pretty <$> args)
     pretty (Handle expr handlers) =
         "handle"

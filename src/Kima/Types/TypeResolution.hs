@@ -67,8 +67,8 @@ resolveExprTypes (FuncExpr argExprs effExpr rtExpr body) =
         <*> resolveStmtTypes body
 resolveExprTypes (Call callee args) =
     Call <$> resolveExprTypes callee <*> traverse resolveExprTypes args
-resolveExprTypes (LiteralE    lit ) = pure (LiteralE lit)
-resolveExprTypes (IdentifierE name) = pure (IdentifierE name)
+resolveExprTypes (LiteralExpr    lit ) = pure (LiteralExpr lit)
+resolveExprTypes (IdentifierExpr name) = pure (IdentifierExpr name)
 resolveExprTypes (Handle handled handlers) =
     Handle
     <$> resolveExprTypes handled

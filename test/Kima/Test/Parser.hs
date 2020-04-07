@@ -33,37 +33,37 @@ spec = parallel $ describe "Parser" $ do
 
 termTests :: [(String, Expr Parsed)]
 termTests =
-    [ ("name"   , IdentifierE "name")
-    , ("1.23"   , LiteralE    (FloatExpr 1.23))
-    , ("5"      , LiteralE    (IntExpr 5))
-    , ("\"hi\"" , LiteralE    (StringExpr "hi"))
-    , ("\"123\"", LiteralE    (StringExpr "123"))
-    , ("False"  , LiteralE    (BoolExpr False))
-    , ("True"   , LiteralE    (BoolExpr True))
+    [ ("name"   , IdentifierExpr "name")
+    , ("1.23"   , LiteralExpr    (FloatExpr 1.23))
+    , ("5"      , LiteralExpr    (IntExpr 5))
+    , ("\"hi\"" , LiteralExpr    (StringExpr "hi"))
+    , ("\"123\"", LiteralExpr    (StringExpr "123"))
+    , ("False"  , LiteralExpr    (BoolExpr False))
+    , ("True"   , LiteralExpr    (BoolExpr True))
     ]
 
 expressionTests :: [(String, Expr Parsed)]
 expressionTests =
-    [ ("5 + 5", BinE AddOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
-    , ("5 * 5", BinE MulOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
-    , ("5 - 5", BinE SubOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
-    , ("5 / 5", BinE DivOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
-    , ("5 % 5", BinE ModOp (LiteralE (IntExpr 5)) (LiteralE (IntExpr 5)))
-    , ("-5"   , UnaryE NegateOp (LiteralE (IntExpr 5)))
+    [ ("5 + 5", BinE AddOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
+    , ("5 * 5", BinE MulOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
+    , ("5 - 5", BinE SubOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
+    , ("5 / 5", BinE DivOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
+    , ("5 % 5", BinE ModOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
+    , ("-5"   , UnaryE NegateOp (LiteralExpr (IntExpr 5)))
     , ( "\"a\" + \"b\""
-      , BinE AddOp (LiteralE (StringExpr "a")) (LiteralE (StringExpr "b"))
+      , BinE AddOp (LiteralExpr (StringExpr "a")) (LiteralExpr (StringExpr "b"))
       )
-    , ("10(5)", Call (LiteralE (IntExpr 10)) [LiteralE (IntExpr 5)])
-    , ("func(5)", Call (IdentifierE "func") [LiteralE (IntExpr 5)])
+    , ("10(5)", Call (LiteralExpr (IntExpr 10)) [LiteralExpr (IntExpr 5)])
+    , ("func(5)", Call (IdentifierExpr "func") [LiteralExpr (IntExpr 5)])
     , ("func(5)(\"hi\")"
       , Call
-            (Call (IdentifierE "func") [LiteralE (IntExpr 5)])
-            [LiteralE (StringExpr "hi")]
+            (Call (IdentifierExpr "func") [LiteralExpr (IntExpr 5)])
+            [LiteralExpr (StringExpr "hi")]
       )
-    , ( "a.b",     IdentifierE "a" `AccessE` "b")
-    , ( "a().b",   Call (IdentifierE "a") [] `AccessE` "b")
-    , ( "(1+4).b", BinE AddOp (LiteralE (IntExpr 1)) (LiteralE (IntExpr 4)) `AccessE` "b")
-    , ( "a.b.c",   (IdentifierE "a" `AccessE` "b") `AccessE` "c")
+    , ( "a.b",     IdentifierExpr "a" `AccessE` "b")
+    , ( "a().b",   Call (IdentifierExpr "a") [] `AccessE` "b")
+    , ( "(1+4).b", BinE AddOp (LiteralExpr (IntExpr 1)) (LiteralExpr (IntExpr 4)) `AccessE` "b")
+    , ( "a.b.c",   (IdentifierExpr "a" `AccessE` "b") `AccessE` "c")
     , ( "fun () -> Unit {}", FuncExpr [] Nothing "Unit" (Block []))
     , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] Nothing "Unit" (Block []))
     , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] Nothing "Unit" (Block []))
@@ -75,19 +75,19 @@ expressionTests =
 statementTests :: [(String, Stmt Parsed)]
 statementTests =
     [ ("while True { print(name); }", While (
-        WhileStmt (LiteralE $ BoolExpr True) $ Block [
-            ExprStmt $ Call (IdentifierE "print") [IdentifierE "name"]
+        WhileStmt (LiteralExpr $ BoolExpr True) $ Block [
+            ExprStmt $ Call (IdentifierExpr "print") [IdentifierExpr "name"]
         ]))
     , ("if True { print(name1); } else { print(name2); }", If (
-        IfStmt (LiteralE $ BoolExpr True) (Block [
-            ExprStmt $ Call (IdentifierE "print") [IdentifierE "name1"]
+        IfStmt (LiteralExpr $ BoolExpr True) (Block [
+            ExprStmt $ Call (IdentifierExpr "print") [IdentifierExpr "name1"]
         ]) $ Block [
-            ExprStmt $ Call (IdentifierE "print") [IdentifierE "name2"]
+            ExprStmt $ Call (IdentifierExpr "print") [IdentifierExpr "name2"]
         ]
         ))
     , ("if True { print(name1); } ", SimpleIf
-          (LiteralE $ BoolExpr True)
-          (Block [ExprStmt $ Call (IdentifierE "print") [IdentifierE "name1"]]))
+          (LiteralExpr $ BoolExpr True)
+          (Block [ExprStmt $ Call (IdentifierExpr "print") [IdentifierExpr "name1"]]))
     ]
 
 typeTests :: [(String, ParsedTypeExpr)]

@@ -48,11 +48,11 @@ desugarStmt (While stmt        ) = While (bimap desugarExpr desugarStmt stmt)
 desugarStmt (If    stmt        ) = If (bimap desugarExpr desugarStmt stmt)
 
 desugarExpr :: Expr Parsed -> Expr Desugared
-desugarExpr (BinE    op l r  )  = Call (IdentifierE $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]
-desugarExpr (UnaryE  op e    )  = Call (IdentifierE $ Builtin (UnaryOp op)) [desugarExpr e]
-desugarExpr (AccessE expr field) = Call (IdentifierE (Accessor field)) [desugarExpr expr]
-desugarExpr (LiteralE    lit                 ) = LiteralE lit
-desugarExpr (IdentifierE name) = IdentifierE name
+desugarExpr (BinE    op l r  )  = Call (IdentifierExpr $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]
+desugarExpr (UnaryE  op e    )  = Call (IdentifierExpr $ Builtin (UnaryOp op)) [desugarExpr e]
+desugarExpr (AccessE expr field) = Call (IdentifierExpr (Accessor field)) [desugarExpr expr]
+desugarExpr (LiteralExpr    lit                 ) = LiteralExpr lit
+desugarExpr (IdentifierExpr name) = IdentifierExpr name
 desugarExpr (FuncExpr args (Just eff) rt body) = FuncExpr
     (second (fmap desugarTypeExpr) <$> args)
     eff

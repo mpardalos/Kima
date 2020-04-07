@@ -17,8 +17,8 @@ import qualified Data.Map                      as Map
 
 ---------- Expressions ----------
 evalExpr :: MonadInterpreter m => Expr Runtime -> m Value
-evalExpr (LiteralE    l   ) = return $ evalLiteral l
-evalExpr (IdentifierE name) = getName name
+evalExpr (LiteralExpr    l   ) = return $ evalLiteral l
+evalExpr (IdentifierExpr name) = getName name
 evalExpr (FuncExpr args _eff _rt body) =
     Function (uncurry TIdentifier <$> args) body <$> get
 evalExpr (Call callee args) =
