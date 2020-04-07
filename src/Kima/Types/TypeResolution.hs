@@ -69,8 +69,8 @@ resolveExprTypes (CallExpr callee args) =
     CallExpr <$> resolveExprTypes callee <*> traverse resolveExprTypes args
 resolveExprTypes (LiteralExpr    lit ) = pure (LiteralExpr lit)
 resolveExprTypes (IdentifierExpr name) = pure (IdentifierExpr name)
-resolveExprTypes (Handle handled handlers) =
-    Handle
+resolveExprTypes (HandleExpr handled handlers) =
+    HandleExpr
     <$> resolveExprTypes handled
     <*> traverse resolveHandlerTypes handlers
 

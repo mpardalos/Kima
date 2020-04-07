@@ -121,10 +121,10 @@ infer (CallExpr callee args) = do
             return result
         results@(_ : _) -> throwError (AmbiguousCall (snd . snd <$> results))
         []              -> throwError (NoMatchingFunction calleeTypes)
-infer (Handle expr handlers) = do
+infer (HandleExpr expr handlers) = do
     (typedHandlers, availableOps) <- unzip <$> traverse inferHandler handlers
     (typedExpr, exprType) <- withState (addActiveOperations availableOps) $ infer expr
-    return (Handle typedExpr typedHandlers, exprType)
+    return (HandleExpr typedExpr typedHandlers, exprType)
 
 inferHandler :: MonadTC m => HandlerClause TypeAnnotated -> m (HandlerClause Typed, KOperation)
 inferHandler (HandlerClause name (ensureTypedArgs -> Just args) (Just rt) body) = do
@@ -150,7 +150,7 @@ enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) ef
     = pure [KFunc argTypes eff rt]
 enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
 -- TODO: When enumerating the types of a handler expr, take the handlers into account
-enumerateTypes (Handle expr _) = enumerateTypes expr
+enumerateTypes (HandleExpr expr _) = enumerateTypes expr
 enumerateTypes (CallExpr callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args

@@ -64,7 +64,7 @@ desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     (desugarTypeExpr <$> rt)
     (desugarStmt body)
 desugarExpr (CallExpr callee args  ) = CallExpr (desugarExpr callee) (desugarExpr <$> args)
-desugarExpr (Handle callee handlers) = Handle (desugarExpr callee) (desugarHandler <$> handlers)
+desugarExpr (HandleExpr callee handlers) = HandleExpr (desugarExpr callee) (desugarHandler <$> handlers)
 
 desugarHandler :: HandlerClause Parsed -> HandlerClause Desugared
 desugarHandler (HandlerClause name args rt body) = HandlerClause

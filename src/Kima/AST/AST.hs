@@ -23,7 +23,7 @@ data Expr tag
     | IdentifierExpr (Identifier (NameAnnotation tag))
     | FuncExpr [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | CallExpr (Expr tag) [Expr tag]
-    | Handle (Expr tag) [HandlerClause tag]
+    | HandleExpr (Expr tag) [HandlerClause tag]
     | (HasSugar tag) => AccessE (Expr tag) Name
     | (HasSugar tag) => BinE BinaryOp (Expr tag) (Expr tag)
     | (HasSugar tag) => UnaryE UnaryOp (Expr tag)
@@ -200,7 +200,7 @@ instance
     pretty (LiteralExpr    lit ) = pretty lit
     pretty (IdentifierExpr name) = pretty name
     pretty (CallExpr callee args) = pretty callee <> tupled (pretty <$> args)
-    pretty (Handle expr handlers) =
+    pretty (HandleExpr expr handlers) =
         "handle"
             <+> pretty expr
             <+> "{"

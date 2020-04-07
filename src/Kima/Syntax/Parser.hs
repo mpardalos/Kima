@@ -217,7 +217,7 @@ handlerExpr = do
     reserved RHandle
     handledExpr <- expr
     handlers <- braces (many handlerClause)
-    return (Handle handledExpr handlers)
+    return (HandleExpr handledExpr handlers)
 
 handlerClause :: Parser (HandlerClause Parsed)
 handlerClause = HandlerClause
