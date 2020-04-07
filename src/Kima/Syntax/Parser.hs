@@ -146,17 +146,17 @@ expr =
               , prefix (symbol Plus)  id
               , prefix (symbol Bang)  (UnaryE InvertOp)
               ]
-            , [ binary (symbol Plus)         (BinE AddOp)
-              , binary (symbol Minus)        (BinE SubOp)
-              , binary (symbol StarStar)     (BinE PowOp)
-              , binary (symbol Star)         (BinE MulOp)
-              , binary (symbol Slash)        (BinE DivOp)
-              , binary (symbol T.Mod)        (BinE ModOp)
-              , binary (symbol GreaterThan)  (BinE GTOp)
-              , binary (symbol GreaterEqual) (BinE GTEOp)
-              , binary (symbol LessThan)     (BinE LTOp)
-              , binary (symbol LessEqual)    (BinE LTEOp)
-              , binary (symbol EqualsEquals) (BinE EqualsOp)
+            , [ binary (symbol Plus)         (BinExpr AddOp)
+              , binary (symbol Minus)        (BinExpr SubOp)
+              , binary (symbol StarStar)     (BinExpr PowOp)
+              , binary (symbol Star)         (BinExpr MulOp)
+              , binary (symbol Slash)        (BinExpr DivOp)
+              , binary (symbol T.Mod)        (BinExpr ModOp)
+              , binary (symbol GreaterThan)  (BinExpr GTOp)
+              , binary (symbol GreaterEqual) (BinExpr GTEOp)
+              , binary (symbol LessThan)     (BinExpr LTOp)
+              , binary (symbol LessEqual)    (BinExpr LTEOp)
+              , binary (symbol EqualsEquals) (BinExpr EqualsOp)
               ]
             ]
         <?> "expression"
