@@ -10,7 +10,7 @@ import GHC.Generics
 import Kima.AST.Kinds
 import Kima.AST.Names
 
-data Module tag = Module [TopLevel tag]
+newtype Module tag = Module [TopLevel tag]
 
 data TopLevel tag
     = FuncDef Name [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
