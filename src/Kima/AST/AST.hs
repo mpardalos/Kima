@@ -26,7 +26,7 @@ data Expr tag
     | HandleExpr (Expr tag) [HandlerClause tag]
     | (HasSugar tag) => AccessExpr (Expr tag) Name
     | (HasSugar tag) => BinExpr BinaryOp (Expr tag) (Expr tag)
-    | (HasSugar tag) => UnaryE UnaryOp (Expr tag)
+    | (HasSugar tag) => UnaryExpr UnaryOp (Expr tag)
 
 data Stmt tag
     = ExprStmt (Expr tag)
@@ -209,7 +209,7 @@ instance
             <>  line
             <>  "}"
     pretty (BinExpr op l r      ) = pretty l <+> pretty op <+> pretty r
-    pretty (UnaryE  op   e   ) = pretty op <> pretty e
+    pretty (UnaryExpr  op   e   ) = pretty op <> pretty e
     pretty (AccessExpr expr name) = parens (pretty expr) <> "." <> pretty name
 
 instance

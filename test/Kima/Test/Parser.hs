@@ -49,7 +49,7 @@ expressionTests =
     , ("5 - 5", BinExpr SubOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
     , ("5 / 5", BinExpr DivOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
     , ("5 % 5", BinExpr ModOp (LiteralExpr (IntExpr 5)) (LiteralExpr (IntExpr 5)))
-    , ("-5"   , UnaryE NegateOp (LiteralExpr (IntExpr 5)))
+    , ("-5"   , UnaryExpr NegateOp (LiteralExpr (IntExpr 5)))
     , ( "\"a\" + \"b\""
       , BinExpr AddOp (LiteralExpr (StringExpr "a")) (LiteralExpr (StringExpr "b"))
       )

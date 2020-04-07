@@ -49,7 +49,7 @@ desugarStmt (If    stmt        ) = If (bimap desugarExpr desugarStmt stmt)
 
 desugarExpr :: Expr Parsed -> Expr Desugared
 desugarExpr (BinExpr    op l r  )  = CallExpr (IdentifierExpr $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]
-desugarExpr (UnaryE  op e    )  = CallExpr (IdentifierExpr $ Builtin (UnaryOp op)) [desugarExpr e]
+desugarExpr (UnaryExpr  op e    )  = CallExpr (IdentifierExpr $ Builtin (UnaryOp op)) [desugarExpr e]
 desugarExpr (AccessExpr expr field) = CallExpr (IdentifierExpr (Accessor field)) [desugarExpr expr]
 desugarExpr (LiteralExpr    lit                 ) = LiteralExpr lit
 desugarExpr (IdentifierExpr name) = IdentifierExpr name

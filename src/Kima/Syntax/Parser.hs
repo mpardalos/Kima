@@ -142,9 +142,9 @@ expr :: Parser (Expr Parsed)
 expr =
     makeExprParser
             term
-            [ [ prefix (symbol Minus) (UnaryE NegateOp)
+            [ [ prefix (symbol Minus) (UnaryExpr NegateOp)
               , prefix (symbol Plus)  id
-              , prefix (symbol Bang)  (UnaryE InvertOp)
+              , prefix (symbol Bang)  (UnaryExpr InvertOp)
               ]
             , [ binary (symbol Plus)         (BinExpr AddOp)
               , binary (symbol Minus)        (BinExpr SubOp)
