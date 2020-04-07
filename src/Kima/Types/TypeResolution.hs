@@ -23,9 +23,9 @@ type MonadTypeResolution m
 --       **not** their function type.
 resolveModuleTypes
     :: MonadTypeResolution m => Module Desugared -> m (Module TypeAnnotated)
-resolveModuleTypes (Program decls) = do
+resolveModuleTypes (Module decls) = do
     processTopLevel decls
-    Program <$> traverse resolveTopLevelTypes decls
+    Module <$> traverse resolveTopLevelTypes decls
 
 resolveTopLevelTypes
     :: MonadTypeResolution m => TopLevel Desugared -> m (TopLevel TypeAnnotated)

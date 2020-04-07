@@ -321,7 +321,7 @@ checkReturns expectedType stmt            = do
 
 -- | Try to typecheck a module
 checkProgram :: MonadTC m => Module TypeAnnotated -> m (Module Typed)
-checkProgram (Program decls) = Program <$> mapM checkTopLevel decls
+checkProgram (Module decls) = Module <$> mapM checkTopLevel decls
 
 -- | Try to typecheck a top-level declaration
 checkTopLevel :: MonadTC m => TopLevel TypeAnnotated -> m (TopLevel Typed)

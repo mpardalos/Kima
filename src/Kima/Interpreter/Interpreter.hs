@@ -170,7 +170,7 @@ mkHandlerEnv handlers = do
     return (Environment (Map.fromList handlerPairs))
 
 runModule :: MonadInterpreter m => RuntimeIdentifier -> Module Runtime -> m ()
-runModule mainName (Program defs) = do
+runModule mainName (Module defs) = do
     forM_ defs bindTopLevel
     mainFunc <- getName mainName
     _        <- runFunc mainFunc []

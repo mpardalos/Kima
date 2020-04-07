@@ -15,7 +15,7 @@ import           GHC.Exts
 import           Text.Megaparsec
 
 program :: Parser (Module Parsed)
-program = Program <$> (whitespace *> some topLevel <* eof)
+program = Module <$> (whitespace *> some topLevel <* eof)
 
 -- Function defintions
 topLevel :: Parser (TopLevel Parsed)
