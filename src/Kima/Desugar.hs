@@ -43,7 +43,7 @@ desugarStmt (ExprStmt expr     ) = ExprStmt (desugarExpr expr)
 desugarStmt (BlockStmt    stmts    ) = BlockStmt (desugarStmt <$> stmts)
 desugarStmt (AssignStmt target expr) = AssignStmt target (desugarExpr expr)
 desugarStmt (Let name t expr   ) = Let name (desugarTypeExpr <$> t) (desugarExpr expr)
-desugarStmt (Var name t expr   ) = Var name (desugarTypeExpr <$> t) (desugarExpr expr)
+desugarStmt (VarStmt name t expr   ) = VarStmt name (desugarTypeExpr <$> t) (desugarExpr expr)
 desugarStmt (WhileStmt stmt        ) = WhileStmt (bimap desugarExpr desugarStmt stmt)
 desugarStmt (If    stmt        ) = If (bimap desugarExpr desugarStmt stmt)
 

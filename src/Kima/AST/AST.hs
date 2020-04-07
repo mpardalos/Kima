@@ -34,7 +34,7 @@ data Stmt tag
     | WhileStmt (While (Expr tag) (Stmt tag))
     | If (IfStmt (Expr tag) (Stmt tag))
     | AssignStmt (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
-    | Var Name (FreeAnnotation tag) (Expr tag)
+    | VarStmt Name (FreeAnnotation tag) (Expr tag)
     | Let Name (FreeAnnotation tag) (Expr tag)
     | HasSugar tag => SimpleIf (Expr tag) (Stmt tag)
 
@@ -173,7 +173,7 @@ instance
     , Pretty (FreeAnnotation stage)
     ) => Pretty (Stmt stage) where
     pretty (ExprStmt expr) = pretty expr
-    pretty (Var name t expr) =
+    pretty (VarStmt name t expr) =
         "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (Let name t expr) =
         "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr

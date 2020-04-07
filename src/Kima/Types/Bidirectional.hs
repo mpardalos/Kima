@@ -231,23 +231,23 @@ inferReturns (AssignStmt accessor expr) = do
 
     let typedAssign = AssignStmt typedAccessor typedExpr
     return (typedAssign, KUnit)
-inferReturns (Var name (Just declaredType) expr) = do
+inferReturns (VarStmt name (Just declaredType) expr) = do
     typedExpr       <- check declaredType expr
 
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Variable [declaredType]))
 
-    let typedVar = Var name declaredType typedExpr
+    let typedVar = VarStmt name declaredType typedExpr
     return (typedVar, KUnit)
-inferReturns (Var name Nothing expr) = do
+inferReturns (VarStmt name Nothing expr) = do
     (typedExpr, exprType) <- infer expr
 
     existingBinding       <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Variable [exprType]))
 
-    let typedVar = Var name exprType typedExpr
+    let typedVar = VarStmt name exprType typedExpr
     return (typedVar, KUnit)
 inferReturns (Let name (Just declaredType) expr) = do
     typedExpr       <- check declaredType expr

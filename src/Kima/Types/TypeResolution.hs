@@ -52,8 +52,8 @@ resolveStmtTypes (WhileStmt stmt) =
 resolveStmtTypes (If stmt) =
     If <$> bitraverse resolveExprTypes resolveStmtTypes stmt
 resolveStmtTypes (AssignStmt access expr) = AssignStmt access <$> resolveExprTypes expr
-resolveStmtTypes (Var name t expr) =
-    Var name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
+resolveStmtTypes (VarStmt name t expr) =
+    VarStmt name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
 resolveStmtTypes (Let name t expr) =
     Let name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
 

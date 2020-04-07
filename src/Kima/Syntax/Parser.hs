@@ -100,7 +100,7 @@ letStmt =
 
 varStmt :: Parser (Stmt Parsed)
 varStmt =
-    Var
+    VarStmt
         <$> (reserved RVar *> identifier)
         <*> optional (symbol Colon *> typeExpr)
         <*> (symbol Equals *> expr)
