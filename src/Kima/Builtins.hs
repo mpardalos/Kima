@@ -12,21 +12,6 @@ import           Kima.AST
 import           Kima.Interpreter.Types
 import           Kima.Types.TypeCtx
 
-baseBindings :: Map (Identifier 'NoAnnotation) [KType]
-baseBindings = Map.foldlWithKey combine Map.empty baseEnv
-  where
-    combine typeCtx name _ =
-        Map.insertWith (<>) (deTypeAnnotate name) [nameType name] typeCtx
-
-baseTypeBindings :: Map String KType
-baseTypeBindings =
-    [ ("String", KString)
-    , ("Unit"  , KUnit)
-    , ("Int"   , KInt)
-    , ("Float" , KFloat)
-    , ("Bool"  , KBool)
-    ]
-
 ioEffect :: KEffect
 ioEffect = KEffect
     (Just "IO")
@@ -53,14 +38,28 @@ inputEffect = KEffect (Just "input") [inputOperation]
 
 baseTypeCtx :: TypeCtx
 baseTypeCtx = TypeCtx
-    { typeBindings   = baseTypeBindings
+    { typeBindings   = [ ("String", KString)
+                       , ("Unit"  , KUnit)
+                       , ("Int"   , KInt)
+                       , ("Float" , KFloat)
+                       , ("Bool"  , KBool)
+                       ]
     , effectBindings = [ ("IO"   , ioEffect)
                        , ("Print", printEffect)
                        , ("Input", inputEffect)
                        ]
-    , bindings       = Binding Constant . Set.fromList <$> baseBindings
+    , bindings
     , activeEffect   = PureEffect
     }
+  where
+    bindings =
+        Binding Constant
+            .   Set.fromList
+            <$> Map.foldlWithKey combine Map.empty baseEnv
+
+    combine typeCtx name _ =
+        Map.insertWith (<>) (deTypeAnnotate name) [nameType name] typeCtx
+
 
 printStringOperation = KOperation "print" [KString] KUnit
 printIntOperation = KOperation "print" [KInt] KUnit
