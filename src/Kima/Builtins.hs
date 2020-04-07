@@ -4,9 +4,9 @@ module Kima.Builtins where
 import           Safe
 import           Control.Monad.Except
 import           Data.Functor
-import qualified Data.Map as Map
+import qualified Data.Map                      as Map
 import           Data.Map                       ( Map )
-import qualified Data.Set as Set
+import qualified Data.Set                      as Set
 
 import           Kima.AST
 import           Kima.Interpreter.Types
@@ -19,16 +19,17 @@ baseBindings = Map.foldlWithKey combine Map.empty baseEnv
         Map.insertWith (<>) (deTypeAnnotate name) [nameType name] typeCtx
 
 baseTypeBindings :: Map String KType
-baseTypeBindings=
+baseTypeBindings =
     [ ("String", KString)
-    , ("Unit", KUnit)
-    , ("Int", KInt)
-    , ("Float", KFloat)
-    , ("Bool", KBool)
+    , ("Unit"  , KUnit)
+    , ("Int"   , KInt)
+    , ("Float" , KFloat)
+    , ("Bool"  , KBool)
     ]
 
 ioEffect :: KEffect
-ioEffect = KEffect (Just "IO")
+ioEffect = KEffect
+    (Just "IO")
     [ printStringOperation
     , printIntOperation
     , printFloatOperation
@@ -37,12 +38,28 @@ ioEffect = KEffect (Just "IO")
     , inputOperation
     ]
 
+printEffect :: KEffect
+printEffect = KEffect
+    (Just "print")
+    [ printStringOperation
+    , printIntOperation
+    , printFloatOperation
+    , printBoolOperation
+    , printUnitOperation
+    ]
+
+inputEffect :: KEffect
+inputEffect = KEffect (Just "input") [inputOperation]
+
 baseTypeCtx :: TypeCtx
 baseTypeCtx = TypeCtx
-    { typeBindings = baseTypeBindings
-    , effectBindings = [("IO", ioEffect)]
-    , bindings = Binding Constant . Set.fromList <$> baseBindings
-    , activeEffect = PureEffect
+    { typeBindings   = baseTypeBindings
+    , effectBindings = [ ("IO"   , ioEffect)
+                       , ("Print", printEffect)
+                       , ("Input", inputEffect)
+                       ]
+    , bindings       = Binding Constant . Set.fromList <$> baseBindings
+    , activeEffect   = PureEffect
     }
 
 printStringOperation = KOperation "print" [KString] KUnit
@@ -192,33 +209,22 @@ baseEnv =
     , ( TBuiltin InvertOp (KFunc [KBool] PureEffect KBool)
       , BuiltinFunction kimaInvert
       )
-    , ( TIdentifier
-          "print"
-          (KFunc [KString] (AnonymousEffect [printStringOperation]) KUnit)
+    , ( TIdentifier "print" (KFunc [KString] printEffect KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TIdentifier
-          "print"
-          (KFunc [KInt] (AnonymousEffect [printIntOperation]) KUnit)
+    , ( TIdentifier "print" (KFunc [KInt] printEffect KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TIdentifier
-          "print"
-          (KFunc [KFloat] (AnonymousEffect [printFloatOperation]) KUnit)
+    , ( TIdentifier "print" (KFunc [KFloat] printEffect KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TIdentifier
-          "print"
-          (KFunc [KBool] (AnonymousEffect [printBoolOperation]) KUnit)
+    , ( TIdentifier "print" (KFunc [KBool] printEffect KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TIdentifier
-          "print"
-          (KFunc [KUnit] (AnonymousEffect [printUnitOperation]) KUnit)
+    , ( TIdentifier "print" (KFunc [KUnit] printEffect KUnit)
       , BuiltinFunction kimaPrint
       )
-    , ( TIdentifier "input"
-                    (KFunc [] (AnonymousEffect [inputOperation]) KString)
+    , ( TIdentifier "input" (KFunc [] inputEffect KString)
       , BuiltinFunction (\_ -> String <$> consoleRead)
       )
     , ( TIdentifier "at" (KFunc [KInt, KString] PureEffect KString)
