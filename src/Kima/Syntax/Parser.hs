@@ -210,7 +210,7 @@ accessCall = do
         <?> "Call"
 
     combiner acc (Left  attr) = AccessE acc attr
-    combiner acc (Right args) = Call acc args
+    combiner acc (Right args) = CallExpr acc args
 
 handlerExpr :: Parser (Expr Parsed)
 handlerExpr = do

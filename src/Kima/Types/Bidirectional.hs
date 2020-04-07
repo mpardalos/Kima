@@ -97,7 +97,7 @@ infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
     let typedFuncExpr = FuncExpr args eff rt typedBody
     return (typedFuncExpr, functionType)
 infer FuncExpr{} = throwError MissingArgumentTypes
-infer (Call callee args) = do
+infer (CallExpr callee args) = do
     calleeTypes     <- Set.toList <$> enumerateTypes callee
     availableEffect <- gets activeEffect
 
@@ -109,7 +109,7 @@ infer (Call callee args) = do
                     return
                         $ Just
                               ( calleeEff
-                              , (Call typedCallee typedArgs, returnType)
+                              , (CallExpr typedCallee typedArgs, returnType)
                               )
                 `catchError` const (pure Nothing)
         _ -> pure Nothing
@@ -151,7 +151,7 @@ enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) ef
 enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
 -- TODO: When enumerating the types of a handler expr, take the handlers into account
 enumerateTypes (Handle expr _) = enumerateTypes expr
-enumerateTypes (Call callee args) = do
+enumerateTypes (CallExpr callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args
 
@@ -182,13 +182,13 @@ check expectedType (IdentifierExpr ident) = do
         results@(_ : _ ) -> throwError (AmbiguousCall results)
         []               -> throwError
             (UnavailableType (Set.toList availableTypes) expectedType)
-check expectedType (Call callee args) = do
+check expectedType (CallExpr callee args) = do
     (typedArgs, argTypes) <- unzip <$> mapM infer args
     callEffect            <- gets activeEffect
 
     typedCallee <- check (KFunc argTypes callEffect expectedType) callee
 
-    return (Call typedCallee typedArgs)
+    return (CallExpr typedCallee typedArgs)
 check expectedType expr = do
     (typedExpr, inferedType) <- infer expr
     assert (inferedType `subsumedBy` expectedType)

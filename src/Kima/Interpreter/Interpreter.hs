@@ -21,7 +21,7 @@ evalExpr (LiteralExpr    l   ) = return $ evalLiteral l
 evalExpr (IdentifierExpr name) = getName name
 evalExpr (FuncExpr args _eff _rt body) =
     Function (uncurry TIdentifier <$> args) body <$> get
-evalExpr (Call callee args) =
+evalExpr (CallExpr callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 evalExpr (Handle expr handlers) = do
     handlerEnv <- mkHandlerEnv handlers

@@ -48,9 +48,9 @@ desugarStmt (While stmt        ) = While (bimap desugarExpr desugarStmt stmt)
 desugarStmt (If    stmt        ) = If (bimap desugarExpr desugarStmt stmt)
 
 desugarExpr :: Expr Parsed -> Expr Desugared
-desugarExpr (BinE    op l r  )  = Call (IdentifierExpr $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]
-desugarExpr (UnaryE  op e    )  = Call (IdentifierExpr $ Builtin (UnaryOp op)) [desugarExpr e]
-desugarExpr (AccessE expr field) = Call (IdentifierExpr (Accessor field)) [desugarExpr expr]
+desugarExpr (BinE    op l r  )  = CallExpr (IdentifierExpr $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]
+desugarExpr (UnaryE  op e    )  = CallExpr (IdentifierExpr $ Builtin (UnaryOp op)) [desugarExpr e]
+desugarExpr (AccessE expr field) = CallExpr (IdentifierExpr (Accessor field)) [desugarExpr expr]
 desugarExpr (LiteralExpr    lit                 ) = LiteralExpr lit
 desugarExpr (IdentifierExpr name) = IdentifierExpr name
 desugarExpr (FuncExpr args (Just eff) rt body) = FuncExpr
@@ -63,7 +63,7 @@ desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     []
     (desugarTypeExpr <$> rt)
     (desugarStmt body)
-desugarExpr (Call callee args  ) = Call (desugarExpr callee) (desugarExpr <$> args)
+desugarExpr (CallExpr callee args  ) = CallExpr (desugarExpr callee) (desugarExpr <$> args)
 desugarExpr (Handle callee handlers) = Handle (desugarExpr callee) (desugarHandler <$> handlers)
 
 desugarHandler :: HandlerClause Parsed -> HandlerClause Desugared
