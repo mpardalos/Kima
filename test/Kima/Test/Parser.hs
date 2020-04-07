@@ -74,8 +74,8 @@ expressionTests =
 
 statementTests :: [(String, Stmt Parsed)]
 statementTests =
-    [ ("while True { print(name); }", While (
-        WhileStmt (LiteralExpr $ BoolExpr True) $ BlockStmt [
+    [ ("while True { print(name); }", WhileStmt (
+        While (LiteralExpr $ BoolExpr True) $ BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name"]
         ]))
     , ("if True { print(name1); } else { print(name2); }", If (

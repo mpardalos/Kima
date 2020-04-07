@@ -47,8 +47,8 @@ resolveStmtTypes
     :: MonadTypeResolution m => Stmt Desugared -> m (Stmt TypeAnnotated)
 resolveStmtTypes (ExprStmt expr ) = ExprStmt <$> resolveExprTypes expr
 resolveStmtTypes (BlockStmt    stmts) = BlockStmt <$> traverse resolveStmtTypes stmts
-resolveStmtTypes (While stmt) =
-    While <$> bitraverse resolveExprTypes resolveStmtTypes stmt
+resolveStmtTypes (WhileStmt stmt) =
+    WhileStmt <$> bitraverse resolveExprTypes resolveStmtTypes stmt
 resolveStmtTypes (If stmt) =
     If <$> bitraverse resolveExprTypes resolveStmtTypes stmt
 resolveStmtTypes (Assign access expr) = Assign access <$> resolveExprTypes expr

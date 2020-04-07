@@ -31,7 +31,7 @@ data Expr tag
 data Stmt tag
     = ExprStmt (Expr tag)
     | BlockStmt [Stmt tag]
-    | While (WhileStmt (Expr tag) (Stmt tag))
+    | WhileStmt (While (Expr tag) (Stmt tag))
     | If (IfStmt (Expr tag) (Stmt tag))
     | HasSugar tag => SimpleIf (Expr tag) (Stmt tag)
     | Assign (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
@@ -57,7 +57,7 @@ data IfStmt cond body = IfStmt {
     elseBlk :: body
 } deriving (Eq, Generic)
 
-data WhileStmt cond body = WhileStmt {
+data While cond body = While {
     cond :: cond,
     body :: body
 } deriving (Eq, Generic)
@@ -80,8 +80,8 @@ instance (Pretty cond, Pretty stmt) => Pretty (IfStmt cond stmt) where
             <+> "else"
             <+> pretty elseBlk
 
-instance (Pretty cond, Pretty stmt) => Pretty (WhileStmt cond stmt) where
-    pretty WhileStmt { cond, body } =
+instance (Pretty cond, Pretty stmt) => Pretty (While cond stmt) where
+    pretty While { cond, body } =
         "while (" <+> pretty cond <+> ") " <+> pretty body
 
 instance Show Literal where
@@ -180,7 +180,7 @@ instance
     pretty (BlockStmt stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"
     pretty (Assign name expr  ) = pretty name <+> "=" <+> pretty expr
-    pretty (While stmt        ) = pretty stmt
+    pretty (WhileStmt stmt        ) = pretty stmt
     pretty (SimpleIf cond body) = "if" <+> parens (pretty cond) <+> pretty body
     pretty (If stmt           ) = pretty stmt
 instance
@@ -243,15 +243,15 @@ instance Bitraversable IfStmt where
         (\(a, b, c) -> IfStmt a b c)
             <$> ((,,) <$> f cond <*> g ifBlk <*> g elseBlk)
 
-instance Bifunctor WhileStmt where
-    bimap f g WhileStmt { cond, body } = WhileStmt (f cond) (g body)
+instance Bifunctor While where
+    bimap f g While { cond, body } = While (f cond) (g body)
 
-instance Bifoldable WhileStmt where
-    bifoldMap f g WhileStmt { cond, body } = f cond <> g body
+instance Bifoldable While where
+    bifoldMap f g While { cond, body } = f cond <> g body
 
-instance Bitraversable WhileStmt where
-    bitraverse f g WhileStmt { cond, body } =
-        uncurry WhileStmt <$> bitraverse f g (cond, body)
+instance Bitraversable While where
+    bitraverse f g While { cond, body } =
+        uncurry While <$> bitraverse f g (cond, body)
 
 deriving instance
     ( AnnotationConstraint Eq (NameAnnotation stage)

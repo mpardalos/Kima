@@ -118,8 +118,8 @@ writeAccess = label "accessor" $ do
 
 whileStmt :: Parser (Stmt Parsed)
 whileStmt =
-    While
-        <$> (WhileStmt <$> (reserved RWhile *> expr) <*> block)
+    WhileStmt
+        <$> (While <$> (reserved RWhile *> expr) <*> block)
         <?> "while statement"
 
 exprStmt :: Parser (Stmt Parsed)

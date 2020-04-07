@@ -91,7 +91,7 @@ runStmt (Assign (WriteAccess name path) expr) = do
 runStmt (Let    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (Var    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (ExprStmt expr) = evalExpr expr
-runStmt loop@(While WhileStmt { cond, body }) = evalExpr cond >>= \case
+runStmt loop@(WhileStmt While { cond, body }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt body *> runStmt loop
     (Bool False) -> return Unit
     v            -> throwError (WrongConditionType v)

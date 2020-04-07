@@ -207,11 +207,11 @@ inferReturns (ExprStmt expr ) = first ExprStmt <$> infer expr
 inferReturns (BlockStmt    stmts) = withState id $ do
     (typedStatements, statementReturnTypes) <- unzip <$> mapM inferReturns stmts
     return (BlockStmt typedStatements, lastDef KUnit statementReturnTypes)
-inferReturns (While (WhileStmt cond blk)) = do
+inferReturns (WhileStmt (While cond blk)) = do
     typedCond     <- check KBool cond
     (typedBlk, _) <- inferReturns blk
 
-    let typedWhile = While (WhileStmt typedCond typedBlk)
+    let typedWhile = WhileStmt (While typedCond typedBlk)
     return (typedWhile, KUnit)
 inferReturns (If (IfStmt cond thenBlk elseBlk)) = do
     typedCond                   <- check KBool cond
