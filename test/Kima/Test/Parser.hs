@@ -64,30 +64,30 @@ expressionTests =
     , ( "a().b",   CallExpr (IdentifierExpr "a") [] `AccessExpr` "b")
     , ( "(1+4).b", BinExpr AddOp (LiteralExpr (IntExpr 1)) (LiteralExpr (IntExpr 4)) `AccessExpr` "b")
     , ( "a.b.c",   (IdentifierExpr "a" `AccessExpr` "b") `AccessExpr` "c")
-    , ( "fun () -> Unit {}", FuncExpr [] Nothing "Unit" (Block []))
-    , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] Nothing "Unit" (Block []))
-    , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] Nothing "Unit" (Block []))
-    , ( "fun () : eff -> Unit {}", FuncExpr [] (Just $ fromList ["eff"]) "Unit" (Block []))
-    , ( "fun (a: Int) : eff -> Unit {}", FuncExpr [("a", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
-    , ( "fun (a: Int, b: Int) : eff -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] (Just $ fromList ["eff"]) "Unit" (Block []))
+    , ( "fun () -> Unit {}", FuncExpr [] Nothing "Unit" (BlockStmt []))
+    , ( "fun (a: Int) -> Unit {}", FuncExpr [("a", "Int")] Nothing "Unit" (BlockStmt []))
+    , ( "fun (a: Int, b: Int) -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] Nothing "Unit" (BlockStmt []))
+    , ( "fun () : eff -> Unit {}", FuncExpr [] (Just $ fromList ["eff"]) "Unit" (BlockStmt []))
+    , ( "fun (a: Int) : eff -> Unit {}", FuncExpr [("a", "Int")] (Just $ fromList ["eff"]) "Unit" (BlockStmt []))
+    , ( "fun (a: Int, b: Int) : eff -> Unit {}", FuncExpr [("a", "Int"), ("b", "Int")] (Just $ fromList ["eff"]) "Unit" (BlockStmt []))
     ]
 
 statementTests :: [(String, Stmt Parsed)]
 statementTests =
     [ ("while True { print(name); }", While (
-        WhileStmt (LiteralExpr $ BoolExpr True) $ Block [
+        WhileStmt (LiteralExpr $ BoolExpr True) $ BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name"]
         ]))
     , ("if True { print(name1); } else { print(name2); }", If (
-        IfStmt (LiteralExpr $ BoolExpr True) (Block [
+        IfStmt (LiteralExpr $ BoolExpr True) (BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name1"]
-        ]) $ Block [
+        ]) $ BlockStmt [
             ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name2"]
         ]
         ))
     , ("if True { print(name1); } ", SimpleIf
           (LiteralExpr $ BoolExpr True)
-          (Block [ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name1"]]))
+          (BlockStmt [ExprStmt $ CallExpr (IdentifierExpr "print") [IdentifierExpr "name1"]]))
     ]
 
 typeTests :: [(String, ParsedTypeExpr)]

@@ -204,9 +204,9 @@ check expectedType expr = do
 -- error
 inferReturns :: MonadTC m => Stmt TypeAnnotated -> m (Stmt Typed, KType)
 inferReturns (ExprStmt expr ) = first ExprStmt <$> infer expr
-inferReturns (Block    stmts) = withState id $ do
+inferReturns (BlockStmt    stmts) = withState id $ do
     (typedStatements, statementReturnTypes) <- unzip <$> mapM inferReturns stmts
-    return (Block typedStatements, lastDef KUnit statementReturnTypes)
+    return (BlockStmt typedStatements, lastDef KUnit statementReturnTypes)
 inferReturns (While (WhileStmt cond blk)) = do
     typedCond     <- check KBool cond
     (typedBlk, _) <- inferReturns blk

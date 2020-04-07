@@ -35,7 +35,7 @@ evalLiteral (StringExpr s) = String s
 
 ---------- Statements ----------
 runStmt :: forall m. MonadInterpreter m => Stmt Runtime -> m Value
-runStmt (Block stmts) = do
+runStmt (BlockStmt stmts) = do
     vals <- runStmt `mapM` stmts
     return (lastDef Unit vals)
 runStmt (Assign (WriteAccess name []) expr) = Unit <$ (evalExpr expr >>= bind name)

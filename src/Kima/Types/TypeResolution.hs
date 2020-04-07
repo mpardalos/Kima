@@ -46,7 +46,7 @@ resolveTopLevelTypes (EffectSynonymDef name ops) = pure (EffectSynonymDef name o
 resolveStmtTypes
     :: MonadTypeResolution m => Stmt Desugared -> m (Stmt TypeAnnotated)
 resolveStmtTypes (ExprStmt expr ) = ExprStmt <$> resolveExprTypes expr
-resolveStmtTypes (Block    stmts) = Block <$> traverse resolveStmtTypes stmts
+resolveStmtTypes (BlockStmt    stmts) = BlockStmt <$> traverse resolveStmtTypes stmts
 resolveStmtTypes (While stmt) =
     While <$> bitraverse resolveExprTypes resolveStmtTypes stmt
 resolveStmtTypes (If stmt) =

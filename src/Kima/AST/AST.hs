@@ -30,7 +30,7 @@ data Expr tag
 
 data Stmt tag
     = ExprStmt (Expr tag)
-    | Block [Stmt tag]
+    | BlockStmt [Stmt tag]
     | While (WhileStmt (Expr tag) (Stmt tag))
     | If (IfStmt (Expr tag) (Stmt tag))
     | HasSugar tag => SimpleIf (Expr tag) (Stmt tag)
@@ -177,7 +177,7 @@ instance
         "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (Let name t expr) =
         "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
-    pretty (Block stmts) =
+    pretty (BlockStmt stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"
     pretty (Assign name expr  ) = pretty name <+> "=" <+> pretty expr
     pretty (While stmt        ) = pretty stmt

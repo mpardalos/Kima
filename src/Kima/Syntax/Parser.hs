@@ -88,7 +88,7 @@ stmt =
         <?> "statement"
 
 block :: Parser (Stmt Parsed)
-block = Block <$> braces (stmt `sepEndBy` stmtEnd) <?> "Block"
+block = BlockStmt <$> braces (stmt `sepEndBy` stmtEnd) <?> "BlockStmt"
 
 letStmt :: Parser (Stmt Parsed)
 letStmt =
