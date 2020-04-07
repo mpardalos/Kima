@@ -24,7 +24,7 @@ data Expr tag
     | FuncExpr [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | CallExpr (Expr tag) [Expr tag]
     | HandleExpr (Expr tag) [HandlerClause tag]
-    | (HasSugar tag) => AccessE (Expr tag) Name
+    | (HasSugar tag) => AccessExpr (Expr tag) Name
     | (HasSugar tag) => BinE BinaryOp (Expr tag) (Expr tag)
     | (HasSugar tag) => UnaryE UnaryOp (Expr tag)
 
@@ -210,7 +210,7 @@ instance
             <>  "}"
     pretty (BinE op l r      ) = pretty l <+> pretty op <+> pretty r
     pretty (UnaryE  op   e   ) = pretty op <> pretty e
-    pretty (AccessE expr name) = parens (pretty expr) <> "." <> pretty name
+    pretty (AccessExpr expr name) = parens (pretty expr) <> "." <> pretty name
 
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)

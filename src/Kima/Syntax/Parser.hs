@@ -209,7 +209,7 @@ accessCall = do
     callOrAccess = Left <$> (symbol Dot *> identifier) <|> Right <$> argList
         <?> "Call"
 
-    combiner acc (Left  attr) = AccessE acc attr
+    combiner acc (Left  attr) = AccessExpr acc attr
     combiner acc (Right args) = CallExpr acc args
 
 handlerExpr :: Parser (Expr Parsed)
