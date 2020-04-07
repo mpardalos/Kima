@@ -35,7 +35,7 @@ data Stmt tag
     | If (IfStmt (Expr tag) (Stmt tag))
     | AssignStmt (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
     | VarStmt Name (FreeAnnotation tag) (Expr tag)
-    | Let Name (FreeAnnotation tag) (Expr tag)
+    | LetStmt Name (FreeAnnotation tag) (Expr tag)
     | HasSugar tag => SimpleIf (Expr tag) (Stmt tag)
 
 data HandlerClause tag = HandlerClause
@@ -175,7 +175,7 @@ instance
     pretty (ExprStmt expr) = pretty expr
     pretty (VarStmt name t expr) =
         "var" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
-    pretty (Let name t expr) =
+    pretty (LetStmt name t expr) =
         "let" <+> pretty name <> ":" <+> pretty t <+> "=" <+> pretty expr
     pretty (BlockStmt stmts) =
         "{" <> line <> indent 4 (vcat (pretty <$> stmts)) <> line <> "}"

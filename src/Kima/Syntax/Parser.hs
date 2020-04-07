@@ -92,7 +92,7 @@ block = BlockStmt <$> braces (stmt `sepEndBy` stmtEnd) <?> "BlockStmt"
 
 letStmt :: Parser (Stmt Parsed)
 letStmt =
-    Let
+    LetStmt
         <$> (reserved RLet *> identifier)
         <*> optional (symbol Colon *> typeExpr)
         <*> (symbol Equals *> expr)

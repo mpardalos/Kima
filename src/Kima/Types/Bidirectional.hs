@@ -249,23 +249,23 @@ inferReturns (VarStmt name Nothing expr) = do
 
     let typedVar = VarStmt name exprType typedExpr
     return (typedVar, KUnit)
-inferReturns (Let name (Just declaredType) expr) = do
+inferReturns (LetStmt name (Just declaredType) expr) = do
     typedExpr       <- check declaredType expr
 
     existingBinding <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Constant [declaredType]))
 
-    let typedLet = Let name declaredType typedExpr
+    let typedLet = LetStmt name declaredType typedExpr
     return (typedLet, KUnit)
-inferReturns (Let name Nothing expr) = do
+inferReturns (LetStmt name Nothing expr) = do
     (typedExpr, exprType) <- infer expr
 
     existingBinding       <- gets (Map.lookup (Identifier name) . bindings)
     assert (isNothing existingBinding) (NameShadowed name)
     modify (addBinding (Identifier name) (Binding Constant [exprType]))
 
-    let typedLet = Let name exprType typedExpr
+    let typedLet = LetStmt name exprType typedExpr
     return (typedLet, KUnit)
 
 -- | Try to infer the binding an accessor refers to.

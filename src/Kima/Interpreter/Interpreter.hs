@@ -88,7 +88,7 @@ runStmt (AssignStmt (WriteAccess name path) expr) = do
         update 0 (_:xs) y = y:xs
         update n (x:xs) y = x:update (n-1) xs y
 
-runStmt (Let    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
+runStmt (LetStmt    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (VarStmt    name t expr) = Unit <$ (evalExpr expr >>= bind (TIdentifier name t))
 runStmt (ExprStmt expr) = evalExpr expr
 runStmt loop@(WhileStmt While { cond, body }) = evalExpr cond >>= \case
