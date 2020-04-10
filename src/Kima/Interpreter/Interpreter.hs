@@ -32,6 +32,7 @@ evalLiteral (IntLit    i) = Integer i
 evalLiteral (FloatLit  f) = Float f
 evalLiteral (BoolLit   b) = Bool b
 evalLiteral (StringLit s) = String s
+evalLiteral UnitLit       = Unit
 
 ---------- Statements ----------
 runStmt :: forall m. MonadInterpreter m => Stmt Runtime -> m Value

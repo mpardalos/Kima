@@ -78,6 +78,7 @@ infer (LiteralExpr    lit@(IntLit    _)) = pure (LiteralExpr lit, KInt)
 infer (LiteralExpr    lit@(FloatLit  _)) = pure (LiteralExpr lit, KFloat)
 infer (LiteralExpr    lit@(BoolLit   _)) = pure (LiteralExpr lit, KBool)
 infer (LiteralExpr    lit@(StringLit _)) = pure (LiteralExpr lit, KString)
+infer (LiteralExpr    lit@UnitLit      ) = pure (LiteralExpr lit, KUnit)
 infer (IdentifierExpr name) = (lookupName name <&> types) <&> Set.toList >>= \case
     -- There needs to be only a single possibility for the type. Otherwise we
     -- have an ambiguity
@@ -145,6 +146,7 @@ enumerateTypes (LiteralExpr    IntLit{}   ) = pure [KInt]
 enumerateTypes (LiteralExpr    FloatLit{} ) = pure [KFloat]
 enumerateTypes (LiteralExpr    BoolLit{}  ) = pure [KBool]
 enumerateTypes (LiteralExpr    StringLit{}) = pure [KString]
+enumerateTypes (LiteralExpr    UnitLit    ) = pure [KUnit]
 enumerateTypes (IdentifierExpr ident       ) = types <$> lookupName ident
 enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]

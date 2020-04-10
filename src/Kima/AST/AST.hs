@@ -52,6 +52,7 @@ data Literal
     | FloatLit Double
     | BoolLit Bool
     | StringLit String
+    | UnitLit
     deriving (Eq, Generic)
 
 data If cond body = If {
@@ -95,6 +96,7 @@ instance Pretty Literal where
     pretty (FloatLit  f) = "f" <> pretty f
     pretty (BoolLit   b) = pretty b
     pretty (StringLit s) = "s" <> "\"" <> pretty s <> "\""
+    pretty UnitLit       = "()"
 
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)

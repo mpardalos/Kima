@@ -40,6 +40,7 @@ termTests =
     , ("\"123\"", LiteralExpr    (StringLit "123"))
     , ("False"  , LiteralExpr    (BoolLit False))
     , ("True"   , LiteralExpr    (BoolLit True))
+    , ("()"     , LiteralExpr    UnitLit)
     ]
 
 expressionTests :: [(String, Expr Parsed)]

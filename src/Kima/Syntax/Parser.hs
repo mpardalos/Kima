@@ -179,11 +179,12 @@ funcExpr = do
 -- | A term without calls (Useful for parsing calls)
 baseTerm :: Parser (Expr Parsed)
 baseTerm =
-    parens expr
+    try (parens expr)
         <|> (LiteralExpr . StringLit <$> try string)
         <|> (LiteralExpr . FloatLit <$> try floatLiteral)
         <|> (LiteralExpr . IntLit <$> try intLiteral)
         <|> (LiteralExpr . BoolLit <$> try boolLiteral)
+        <|> (LiteralExpr UnitLit <$ try unitLiteral)
         <|> (IdentifierExpr . Identifier <$> try identifier)
 
 argList :: Parser [Expr Parsed]

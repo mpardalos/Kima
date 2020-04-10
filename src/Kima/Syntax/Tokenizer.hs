@@ -50,6 +50,9 @@ floatLiteral = lexeme $ L.signed inlineWhitespace L.float
 boolLiteral :: Parser Bool
 boolLiteral = lexeme $ (reserved RTrue $> True) <|> (reserved RFalse $> False)
 
+unitLiteral :: Parser ()
+unitLiteral = lexeme $ C.string "()" $> ()
+
 identifier :: IsString s => Parser s
 identifier = do
     idName <- lexeme
