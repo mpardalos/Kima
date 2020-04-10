@@ -180,21 +180,11 @@ funcExpr = do
 baseTerm :: Parser (Expr Parsed)
 baseTerm =
     parens expr
-        <|> LiteralExpr
-        .   StringLit
-        <$> try string
-        <|> LiteralExpr
-        .   FloatLit
-        <$> try floatLiteral
-        <|> LiteralExpr
-        .   IntLit
-        <$> try intLiteral
-        <|> LiteralExpr
-        .   BoolLit
-        <$> try boolLiteral
-        <|> IdentifierExpr
-        .   Identifier
-        <$> try identifier
+        <|> (LiteralExpr . StringLit <$> try string)
+        <|> (LiteralExpr . FloatLit <$> try floatLiteral)
+        <|> (LiteralExpr . IntLit <$> try intLiteral)
+        <|> (LiteralExpr . BoolLit <$> try boolLiteral)
+        <|> (IdentifierExpr . Identifier <$> try identifier)
 
 argList :: Parser [Expr Parsed]
 argList = parens (expr `sepBy` symbol Comma)
