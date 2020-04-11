@@ -36,6 +36,8 @@ data Stmt tag
     | AssignStmt (WriteAccess (AnnotatedName (NameAnnotation tag))) (Expr tag)
     | VarStmt Name (FreeAnnotation tag) (Expr tag)
     | LetStmt Name (FreeAnnotation tag) (Expr tag)
+    | BreakStmt (Expr tag)
+    | HasSugar tag => SimpleBreakStmt
     | HasSugar tag => SimpleIfStmt (Expr tag) (Stmt tag)
 
 data HandlerClause tag = HandlerClause
@@ -188,6 +190,8 @@ instance
     pretty (WhileStmt stmt        ) = pretty stmt
     pretty (SimpleIfStmt cond body) = "if" <+> parens (pretty cond) <+> pretty body
     pretty (IfStmt stmt           ) = pretty stmt
+    pretty SimpleBreakStmt          = "break"
+    pretty (BreakStmt expr        ) = "break" <+> pretty expr
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
     , Pretty (AnnotatedName (NameAnnotation stage))
