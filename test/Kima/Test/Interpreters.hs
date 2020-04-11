@@ -22,9 +22,9 @@ import           Data.Functor
 
 newtype TestInterpreter a = MockInterpreter {
         runInterpreter
-                :: StateT (Environment (IORef Value)) (
-                   ReaderT String (
+                :: ReaderT String (
                    WriterT String (
+                   StateT (Environment (IORef Value)) (
                    ExceptT RuntimeError
                    IO))) a
 }
@@ -84,9 +84,9 @@ runModuleWithInput input inAST = do
     inAST
         & Kima.Interpreter.runModule (TIdentifier "main" (KFunc [] ioEffect KUnit))
         & Kima.Test.Interpreters.runInterpreter
-        & (`evalStateT` refEnv)
         & (`runReaderT` input)
         & runWriterT
+        & (`evalStateT` refEnv)
         & mapExceptT (fmap (first UserThrowableError))
         & TestInterface
         <&> snd
