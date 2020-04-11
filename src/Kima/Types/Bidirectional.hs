@@ -269,6 +269,9 @@ inferReturns (LetStmt name Nothing expr) = do
 
     let typedLet = LetStmt name exprType typedExpr
     return (typedLet, KUnit)
+inferReturns (BreakStmt expr) = do
+    (typedExpr, _exprType) <- infer expr
+    return (BreakStmt typedExpr, KUnit)
 
 -- | Try to infer the binding an accessor refers to.
 inferAccessor

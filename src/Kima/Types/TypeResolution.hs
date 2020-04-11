@@ -56,6 +56,7 @@ resolveStmtTypes (VarStmt name t expr) =
     VarStmt name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
 resolveStmtTypes (LetStmt name t expr) =
     LetStmt name <$> traverse resolveTypeExpr t <*> resolveExprTypes expr
+resolveStmtTypes (BreakStmt expr) = BreakStmt <$> resolveExprTypes expr
 
 resolveExprTypes
     :: MonadTypeResolution m => Expr Desugared -> m (Expr TypeAnnotated)
