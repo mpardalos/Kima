@@ -1,5 +1,4 @@
 ##output: ABC
-##focused
 
 effect op() -> Unit
 

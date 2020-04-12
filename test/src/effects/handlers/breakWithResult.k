@@ -1,5 +1,4 @@
 ##output: 0
-##focused
 
 effect fail() -> Unit
 

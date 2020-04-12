@@ -1,5 +1,4 @@
 ##shouldNotTypecheck
-##focused
 
 effect fail() -> Unit
 

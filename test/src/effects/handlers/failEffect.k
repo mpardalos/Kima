@@ -1,4 +1,3 @@
-##focused
 ##output: ABCD
 
 effect fail() -> Unit
