@@ -38,6 +38,7 @@ desugarTopLevel (EffectSynonymDef name ops) = EffectSynonymDef name ops
 desugarStmt :: Stmt Parsed -> Stmt Desugared
 desugarStmt (SimpleIfStmt cond body) =
     IfStmt (If (desugarExpr cond) (desugarStmt body) (BlockStmt []))
+desugarStmt SimpleBreakStmt          = BreakStmt (LiteralExpr UnitLit)
 
 desugarStmt (ExprStmt expr     ) = ExprStmt (desugarExpr expr)
 desugarStmt (BlockStmt    stmts    ) = BlockStmt (desugarStmt <$> stmts)
@@ -46,6 +47,7 @@ desugarStmt (LetStmt name t expr   ) = LetStmt name (desugarTypeExpr <$> t) (des
 desugarStmt (VarStmt name t expr   ) = VarStmt name (desugarTypeExpr <$> t) (desugarExpr expr)
 desugarStmt (WhileStmt stmt        ) = WhileStmt (bimap desugarExpr desugarStmt stmt)
 desugarStmt (IfStmt    stmt        ) = IfStmt (bimap desugarExpr desugarStmt stmt)
+desugarStmt (BreakStmt expr        ) = BreakStmt (desugarExpr expr)
 
 desugarExpr :: Expr Parsed -> Expr Desugared
 desugarExpr (BinExpr    op l r  )  = CallExpr (IdentifierExpr $ Builtin (BinaryOp op)) [desugarExpr l, desugarExpr r]

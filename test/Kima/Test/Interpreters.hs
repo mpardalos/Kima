@@ -18,14 +18,13 @@ import           Data.Function
 import           Data.IORef.Class
 import           Test.Hspec
 import           Data.Bifunctor
-import           Data.Functor
 
 newtype TestInterpreter a = MockInterpreter {
         runInterpreter
-                :: StateT (Environment (IORef Value)) (
-                   ReaderT String (
-                   WriterT String (
-                   ExceptT RuntimeError
+                :: ReaderT String (
+                   StateT (Environment (IORef Value)) (
+                   ExceptT RuntimeError (
+                   WriterT String
                    IO))) a
 }
     deriving newtype (
@@ -81,15 +80,20 @@ runModuleWithInput :: String -> Module Runtime -> TestInterface String
 runModuleWithInput input inAST = do
     refEnv <- liftIO $ refify (Environment baseEnv)
 
-    inAST
-        & Kima.Interpreter.runModule (TIdentifier "main" (KFunc [] ioEffect KUnit))
-        & Kima.Test.Interpreters.runInterpreter
-        & (`evalStateT` refEnv)
-        & (`runReaderT` input)
-        & runWriterT
-        & mapExceptT (fmap (first UserThrowableError))
-        & TestInterface
-        <&> snd
+    (hasError, output) <-
+        inAST
+            & Kima.Interpreter.runModule (TIdentifier "main" (KFunc [] ioEffect KUnit))
+            & Kima.Test.Interpreters.runInterpreter
+            & (`runReaderT` input)
+            & (`evalStateT` refEnv)
+            & mapExceptT (fmap (first UserThrowableError))
+            & runExceptT
+            & runWriterT
+            & liftIO
+
+    case hasError of
+        Left err -> throwError err
+        Right () -> return output
 
 instance MonadConsole TestInterpreter where
     consoleRead  = ask

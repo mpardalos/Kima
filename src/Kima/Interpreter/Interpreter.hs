@@ -25,7 +25,10 @@ evalExpr (CallExpr callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 evalExpr (HandleExpr expr handlers) = do
     handlerEnv <- mkHandlerEnv handlers
-    withState (handlerEnv <>) $ evalExpr expr
+
+    withState (handlerEnv <>) (evalExpr expr) `catchError` \case
+        BreakError v -> return v
+        err          -> throwError err
 
 evalLiteral :: Literal -> Value
 evalLiteral (IntLit    i) = Integer i
@@ -100,6 +103,9 @@ runStmt (IfStmt If { cond, ifBlk, elseBlk }) = evalExpr cond >>= \case
     (Bool True ) -> runStmt ifBlk
     (Bool False) -> runStmt elseBlk
     v            -> throwError (WrongConditionType v)
+runStmt (BreakStmt expr) = do
+    val <- evalExpr expr
+    throwError (BreakError val)
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
 runFunc (Function argNames body closure) args = do

@@ -83,6 +83,7 @@ stmt =
         <|> whileStmt
         <|> ifStmt
         <|> assignStmt
+        <|> breakStmt
         <|> block
         <|> exprStmt
         <?> "statement"
@@ -121,6 +122,15 @@ whileStmt =
     WhileStmt
         <$> (While <$> (reserved RWhile *> expr) <*> block)
         <?> "while statement"
+
+breakStmt :: Parser (Stmt Parsed)
+breakStmt = label "break statement" $ do
+    reserved RBreak
+    maybeExpr <- optional expr
+
+    case maybeExpr of
+        Just e  -> return (BreakStmt e)
+        Nothing -> return SimpleBreakStmt
 
 exprStmt :: Parser (Stmt Parsed)
 exprStmt = ExprStmt <$> expr <?> "expression statement"

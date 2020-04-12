@@ -50,6 +50,7 @@ baseTypeCtx = TypeCtx
                        ]
     , bindings
     , activeEffect   = PureEffect
+    , handlerResult  = Nothing
     }
   where
     bindings =

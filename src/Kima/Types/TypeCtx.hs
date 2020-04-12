@@ -7,6 +7,7 @@ module Kima.Types.TypeCtx
     , addEffect
     , addActiveOperations
     , setActiveOperations
+    , setHandlerResult
     , operations
     )
 where
@@ -14,6 +15,7 @@ where
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Set                       ( Set )
+import           Data.Function
 import           GHC.Generics
 
 import           Kima.AST
@@ -22,7 +24,8 @@ data TypeCtx = TypeCtx {
     typeBindings   :: Map TypeName KType,
     effectBindings :: Map EffectName KEffect,
     bindings       :: Map (Identifier 'NoAnnotation) Binding,
-    activeEffect   :: KEffect
+    activeEffect   :: KEffect,
+    handlerResult  :: Maybe KType
 }
 
 data Binding = Binding {
@@ -48,6 +51,9 @@ addActiveOperations ops ctx@TypeCtx { activeEffect } =
 setActiveOperations :: [KOperation] -> TypeCtx -> TypeCtx
 setActiveOperations ops ctx = ctx { activeEffect = KEffect Nothing ops }
 
+setHandlerResult :: KType -> TypeCtx -> TypeCtx
+setHandlerResult t ctx = ctx { handlerResult = Just t }
+
 addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =
     ctx { bindings = Map.insertWith (<>) n b bindings }
@@ -66,11 +72,12 @@ instance Semigroup Binding where
         Binding (mutL <> mutR) (typesL <> typesR)
 
 instance Semigroup TypeCtx where
-    (TypeCtx tBindsLeft effBindsLeft bindsLeft effectLeft) <> (TypeCtx tBindsRight effBindsRight bindsRight effectRight)
-        = TypeCtx { typeBindings   = tBindsLeft <> tBindsRight
-                  , effectBindings = effBindsLeft <> effBindsRight
-                  , bindings       = Map.unionWith (<>) bindsLeft bindsRight
-                  , activeEffect   = effectLeft <> effectRight
+    left <> right
+        = TypeCtx { typeBindings   = (mappend `on` typeBindings) left right
+                  , effectBindings = (mappend `on` effectBindings) left right
+                  , bindings       = (Map.unionWith (<>) `on` bindings) left right
+                  , activeEffect   = (mappend `on` activeEffect) left right
+                  , handlerResult  = handlerResult left
                   }
 
 instance Monoid TypeCtx where
@@ -78,4 +85,5 @@ instance Monoid TypeCtx where
                      , typeBindings = Map.empty
                      , effectBindings = Map.empty
                      , activeEffect = PureEffect
+                     , handlerResult = Nothing
                      }

@@ -67,6 +67,7 @@ data RuntimeError = NotInScope RuntimeIdentifier
                   | WrongConditionType Value
                   | NotAFunction Value
                   | BuiltinFunctionError String
+                  | BreakError Value
     deriving Show
 
 instance Pretty RuntimeError where
@@ -80,6 +81,7 @@ instance Pretty RuntimeError where
     pretty ( NotAFunction v                  ) =
         "Expected a function but got" <+> pretty v
     pretty ( BuiltinFunctionError err        ) = pretty err
+    pretty ( BreakError _ ) = "Uncaught BreakError"
 
 -- | ---------- Execution ----------------
 type MonadRE m = (Monad m, MonadError RuntimeError m)
