@@ -123,22 +123,42 @@ infer (CallExpr callee args) = do
         results@(_ : _) -> throwError (AmbiguousCall (snd . snd <$> results))
         []              -> throwError (NoMatchingFunction calleeTypes)
 infer (HandleExpr expr handlers) = do
-    (typedHandlers, availableOps) <- unzip <$> traverse inferHandler handlers
-    (typedExpr, exprType) <- withState (addActiveOperations availableOps) $ infer expr
+    availableOps          <- traverse getOp handlers
+    (typedExpr, exprType) <- withState (addActiveOperations availableOps)
+        $ infer expr
+    typedHandlers <- withState (setHandlerResult exprType)
+        $ traverse inferHandler handlers
     return (HandleExpr typedExpr typedHandlers, exprType)
+  where
+    getOp :: MonadTC m => HandlerClause TypeAnnotated -> m KOperation
+    getOp (HandlerClause name (ensureTypedArgs -> Just args) (Just rt) body) =
+        do
+            let inferedOp = KOperation name (snd <$> args) rt
+            allOperations <- gets operations
+            assert (inferedOp `elem` allOperations)
+                   (NonExistentOperation inferedOp)
+            return inferedOp
+    getOp HandlerClause { returnType = Just _ } =
+        throwError MissingArgumentTypes
+    getOp HandlerClause { returnType = Nothing } = throwError MissingReturnType
 
-inferHandler :: MonadTC m => HandlerClause TypeAnnotated -> m (HandlerClause Typed, KOperation)
-inferHandler (HandlerClause name (ensureTypedArgs -> Just args) (Just rt) body) = do
-    let inferedOp = KOperation name (snd <$> args) rt
-    allOperations <- gets operations
-    assert (inferedOp `elem` allOperations) (NonExistentOperation inferedOp)
+    inferHandler
+        :: MonadTC m => HandlerClause TypeAnnotated -> m (HandlerClause Typed)
+    inferHandler (HandlerClause name (ensureTypedArgs -> Just args) (Just rt) body)
+        = do
+            let inferedOp = KOperation name (snd <$> args) rt
+            allOperations <- gets operations
+            assert (inferedOp `elem` allOperations)
+                   (NonExistentOperation inferedOp)
 
-    typedBody <- withState (addArgs args) $ checkReturns rt body
-    let typedHandler = HandlerClause name args rt typedBody
+            typedBody <- withState (addArgs args) $ checkReturns rt body
+            let typedHandler = HandlerClause name args rt typedBody
 
-    pure (typedHandler, inferedOp)
-inferHandler HandlerClause{ returnType = Just _ } = throwError MissingArgumentTypes
-inferHandler HandlerClause{ returnType = Nothing } = throwError MissingReturnType
+            return typedHandler
+    inferHandler HandlerClause { returnType = Just _ } =
+        throwError MissingArgumentTypes
+    inferHandler HandlerClause { returnType = Nothing } =
+        throwError MissingReturnType
 
 -- | List all possible types for an expression
 enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
@@ -269,9 +289,11 @@ inferReturns (LetStmt name Nothing expr) = do
 
     let typedLet = LetStmt name exprType typedExpr
     return (typedLet, KUnit)
-inferReturns (BreakStmt expr) = do
-    (typedExpr, _exprType) <- infer expr
-    return (BreakStmt typedExpr, KUnit)
+inferReturns (BreakStmt expr) = gets handlerResult >>= \case
+    Just breakResultType -> do
+        typedExpr <- check breakResultType expr
+        return (BreakStmt typedExpr, KUnit)
+    Nothing -> throwError UnexpectedBreak
 
 -- | Try to infer the binding an accessor refers to.
 inferAccessor
