@@ -86,7 +86,7 @@ infer (IdentifierExpr name) = (lookupName name <&> types) <&> Set.toList >>= \ca
     -- error in lookupName
     [t]   -> pure (IdentifierExpr (typeAnnotate t name), t)
     types -> throwError (AmbiguousName name types)
-infer (FuncExpr (ensureTypedArgs -> Just args) eff maybeRt body) = do
+infer (FuncExpr (TypedArgs args) eff maybeRt body) = do
     let KEffect _ ops = eff
     (typedBody, rt) <- case maybeRt of
         Just rt -> (, rt) <$> withState
@@ -132,7 +132,7 @@ infer (HandleExpr expr handlers) = do
         $ zipWithM checkHandler availableOps handlers
     return (HandleExpr typedExpr typedHandlers, exprType)
   where
-    getOp (HandlerClause name (ensureTypedArgs -> Just args) (Just rt) _) = do
+    getOp (HandlerClause name (TypedArgs args) (Just rt) _) = do
         let inferedOp = KOperation name (snd <$> args) rt
         allOperations <- gets operations
         assert (inferedOp `elem` allOperations) (NonExistentOperation inferedOp)
@@ -154,7 +154,7 @@ enumerateTypes (LiteralExpr    BoolLit{}  ) = pure [KBool]
 enumerateTypes (LiteralExpr    StringLit{}) = pure [KString]
 enumerateTypes (LiteralExpr    UnitLit    ) = pure [KUnit]
 enumerateTypes (IdentifierExpr ident       ) = types <$> lookupName ident
-enumerateTypes (FuncExpr (fmap (fmap snd) . ensureTypedArgs -> Just argTypes) eff (Just rt) _)
+enumerateTypes (FuncExpr (TypedArgs (fmap snd -> argTypes)) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]
 enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
 -- TODO: When enumerating the types of a handler expr, take the handlers into account
@@ -338,21 +338,21 @@ checkProgram (Module decls) = Module <$> mapM checkTopLevel decls
 
 -- | Try to typecheck a top-level declaration
 checkTopLevel :: MonadTC m => TopLevel TypeAnnotated -> m (TopLevel Typed)
-checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff (Just rt) body)
+checkTopLevel (FuncDef name (TypedArgs args) eff (Just rt) body)
     =   FuncDef name args eff rt
     <$> withState (setEffect eff . addArgs args) (checkReturns rt body)
-checkTopLevel (FuncDef name (ensureTypedArgs -> Just args) eff Nothing body) =
+checkTopLevel (FuncDef name (TypedArgs args) eff Nothing body) =
     do
         (typedBody, rt) <- withState (setEffect eff . addArgs args)
                                      (inferReturns body)
         return (FuncDef name args eff rt typedBody)
 checkTopLevel FuncDef{} = throwError MissingArgumentTypes
-checkTopLevel (DataDef name (ensureTypedArgs -> Just typeFields)) =
+checkTopLevel (DataDef name (TypedArgs typeFields)) =
     pure (DataDef name typeFields)
 checkTopLevel DataDef{} = throwError MissingFieldTypes
-checkTopLevel (OperationDef name (ensureTypedArgs -> Just args) (Just rt)) =
+checkTopLevel (OperationDef name (TypedArgs args) (Just rt)) =
     pure (OperationDef name args rt)
-checkTopLevel (OperationDef _ (ensureTypedArgs -> Just _) Nothing) = throwError MissingReturnType
+checkTopLevel (OperationDef _ TypedArgs{} Nothing) = throwError MissingReturnType
 checkTopLevel OperationDef{} = throwError MissingArgumentTypes
 checkTopLevel (EffectSynonymDef name ops) = pure (EffectSynonymDef name ops)
 -----------------------------
@@ -369,6 +369,9 @@ lookupName name = gets (Map.lookup name . bindings) >>= \case
 assert :: MonadError e m => Bool -> e -> m ()
 assert True  _   = pure ()
 assert False err = throwError err
+
+pattern TypedArgs :: [(a, b)] -> [(a, Maybe b)]
+pattern TypedArgs args <- (ensureTypedArgs -> Just args)
 
 ensureTypedArgs :: [(a, Maybe b)] -> Maybe [(a, b)]
 ensureTypedArgs = traverse sequence
