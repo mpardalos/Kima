@@ -128,7 +128,7 @@ infer (HandleExpr expr handlers) = do
     availableOps          <- traverse getOp handlers
     (typedExpr, exprType) <- withState (addActiveOperations availableOps)
         $ infer expr
-    typedHandlers <- withState (setHandlerResult exprType)
+    typedHandlers <- withState (addActiveOperations availableOps . setHandlerResult exprType)
         $ zipWithM checkHandler availableOps handlers
     return (HandleExpr typedExpr typedHandlers, exprType)
   where
