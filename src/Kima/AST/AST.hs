@@ -220,7 +220,7 @@ instance
             <>  "}"
     pretty (HandleExpr stmt handlers) =
         "handle" <+> pretty stmt
-            <+> "{"
+            <+> "with {"
             <>  line
             <>  indent 4 (vcat (pretty <$> handlers))
             <>  line
