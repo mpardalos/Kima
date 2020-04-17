@@ -214,11 +214,20 @@ accessCall = do
     combiner acc (Right args) = CallExpr acc args
 
 handlerExpr :: Parser (Expr Parsed)
-handlerExpr = do
-    reserved RHandle
-    handledExpr <- expr
-    handlers <- braces (many handlerClause)
-    return (HandleExpr handledExpr handlers)
+handlerExpr =
+        reserved RHandle
+        *> (simpleHandlerExpr <|> fullHandlerExpr)
+  where
+    simpleHandlerExpr = do
+        handledExpr <- expr <?> "Handled expression"
+        handlers    <- braces (many handlerClause) <?> "Handler list"
+        return (SimpleHandleExpr handledExpr handlers)
+
+    fullHandlerExpr = do
+        handledBlock <- block <?> "Handle block"
+        reserved RWith
+        handlers <- braces (many handlerClause) <?> "Handler list"
+        return (HandleExpr handledBlock handlers)
 
 handlerClause :: Parser (HandlerClause Parsed)
 handlerClause = HandlerClause
