@@ -129,6 +129,13 @@ instance
     , Pretty (FreeAnnotation stage)
     ) => Show (Expr stage) where
     show = show . pretty
+instance
+    ( AnnotationConstraint Pretty (NameAnnotation stage)
+    , Pretty (AnnotatedName (NameAnnotation stage))
+    , Pretty (EffectType stage)
+    , Pretty (FreeAnnotation stage)
+    ) => Show (HandlerClause stage) where
+    show = show . pretty
 
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
