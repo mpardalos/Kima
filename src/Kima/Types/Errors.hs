@@ -23,6 +23,7 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | WrongArgumentTypes [KType]
                        | WrongArgumentCount Int Int
                        | UnexpectedBreak
+                       | AmbiguousHandler
     deriving (Eq, Show)
 
 instance Pretty TypecheckingError where
@@ -89,6 +90,7 @@ instance Pretty TypecheckingError where
     pretty (WrongArgumentCount expected received) =
         "Expected" <+> pretty expected <+> "arguments, but got" <+> pretty received
     pretty UnexpectedBreak = "Unexpected break statement. It can only be used inside a handler"
+    pretty AmbiguousHandler = "Cannot infer type of handle expression"
 
 bulletList :: Pretty a => [a] -> Doc ann
 bulletList = vsep . fmap (("•" <+>) . pretty)

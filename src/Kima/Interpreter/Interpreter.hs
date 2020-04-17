@@ -23,10 +23,10 @@ evalExpr (FuncExpr args _eff _rt body) =
     Function (uncurry TIdentifier <$> args) body <$> get
 evalExpr (CallExpr callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
-evalExpr (HandleExpr expr handlers) = do
+evalExpr (HandleExpr stmt handlers) = do
     handlerEnv <- mkHandlerEnv handlers
 
-    withState (handlerEnv <>) (evalExpr expr) `catchError` \case
+    withState (handlerEnv <>) (runStmt stmt) `catchError` \case
         BreakError v -> return v
         err          -> throwError err
 

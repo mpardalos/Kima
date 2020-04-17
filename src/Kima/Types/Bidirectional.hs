@@ -122,12 +122,12 @@ infer (CallExpr callee args) = do
             return result
         results@(_ : _) -> throwError (AmbiguousCall (snd . snd <$> results))
         []              -> throwError (NoMatchingFunction calleeTypes)
-infer (HandleExpr expr handlers) = do
+infer (HandleExpr body handlers) = do
     -- We need to infer the type of the expression before we check the handlers.
     -- This is so that we know what break statements should return.
     availableOps          <- traverse getOp handlers
     (typedExpr, exprType) <- withState (addActiveOperations availableOps)
-        $ infer expr
+        $ inferReturns body
     typedHandlers <- withState (addActiveOperations availableOps . setHandlerResult exprType)
         $ zipWithM checkHandler availableOps handlers
     return (HandleExpr typedExpr typedHandlers, exprType)
@@ -141,10 +141,10 @@ infer (HandleExpr expr handlers) = do
         throwError MissingArgumentTypes
     getOp HandlerClause { returnType = Nothing } = throwError MissingReturnType
 
-    checkHandler (KOperation name argTypes rt) (HandlerClause _ (map fst -> argNames) _ body)
+    checkHandler (KOperation name argTypes rt) (HandlerClause _ (map fst -> argNames) _ handlerBody)
         = withState (addArgs (zip argNames argTypes))
             $   HandlerClause name (zip argNames argTypes) rt
-            <$> checkReturns rt body
+            <$> checkReturns rt handlerBody
 
 -- | List all possible types for an expression
 enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
@@ -157,8 +157,8 @@ enumerateTypes (IdentifierExpr ident       ) = types <$> lookupName ident
 enumerateTypes (FuncExpr (TypedArgs (fmap snd -> argTypes)) eff (Just rt) _)
     = pure [KFunc argTypes eff rt]
 enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
--- TODO: When enumerating the types of a handler expr, take the handlers into account
-enumerateTypes (HandleExpr expr _) = enumerateTypes expr
+-- TODO: Find a better way to handle this
+enumerateTypes HandleExpr{} = throwError AmbiguousHandler
 enumerateTypes (CallExpr callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args

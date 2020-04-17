@@ -70,9 +70,9 @@ resolveExprTypes (CallExpr callee args) =
     CallExpr <$> resolveExprTypes callee <*> traverse resolveExprTypes args
 resolveExprTypes (LiteralExpr    lit ) = pure (LiteralExpr lit)
 resolveExprTypes (IdentifierExpr name) = pure (IdentifierExpr name)
-resolveExprTypes (HandleExpr handled handlers) =
+resolveExprTypes (HandleExpr body handlers) =
     HandleExpr
-    <$> resolveExprTypes handled
+    <$> resolveStmtTypes body
     <*> traverse resolveHandlerTypes handlers
 
 resolveHandlerTypes :: MonadTypeResolution m => HandlerClause Desugared -> m (HandlerClause TypeAnnotated)
