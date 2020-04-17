@@ -2,13 +2,11 @@
 
 effect fail() -> Unit
 
-fun proc() : {IO, fail} -> Int {
-    fail();
-    10;
-}
-
 fun main() : IO -> Unit {
-    let result = handle proc() {
+    let result = handle {
+        fail();
+        10;
+    } with {
         fail() -> Unit {
             break 0;
         }
