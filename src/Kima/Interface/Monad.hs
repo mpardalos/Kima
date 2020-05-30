@@ -4,6 +4,7 @@ import System.Exit
 import System.IO
 
 import Control.Monad.Except
+import Control.Monad.Catch
 
 import Data.Void
 
@@ -40,8 +41,8 @@ instance Show UserThrowableError where
     show (UserThrowableError err) = userShow err
 
 newtype UserInterface a = UserInterface { runUserInterface :: IO a }
-    deriving (Functor, Applicative, Monad, MonadIO)
-class MonadIO m => MonadInterface m where
+    deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask)
+class (MonadIO m, MonadMask m) => MonadInterface m where
     userThrow :: UserThrowable e => e -> m a
 
 instance MonadInterface UserInterface where

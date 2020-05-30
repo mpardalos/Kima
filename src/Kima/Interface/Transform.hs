@@ -7,14 +7,16 @@ module Kima.Interface.Transform where
 
 import GHC.TypeLits
 
-import Control.Monad.State
+import           Control.Monad.State
 
-import Kima.AST
-import Kima.Builtins
-import Kima.Desugar
-import Kima.Interface.Monad
-import qualified Kima.Syntax as F
-import qualified Kima.Types as T
+import           Kima.AST
+import           Kima.Builtins
+import           Kima.Desugar
+import           Kima.Interface.Monad
+import qualified Kima.Syntax                   as F
+import qualified Kima.Types                    as T
+
+import           OpenTelemetry.Eventlog
 
 -- | Implements transformations from one AST type to another.
 -- | We should infer/generate transitive instances.
@@ -22,45 +24,52 @@ import qualified Kima.Types as T
 class (ASTTag from, ASTTag to) => TransformAST part from to where
     transformAST :: MonadInterface m => part from -> m (part to)
 
-transitively1 :: forall inter from to part m.
-    ( MonadInterface m
-    , TransformAST part from inter
-    , TransformAST part inter to
-    ) => part from -> m (part to)
+transitively1
+    :: forall inter from to part m
+     . ( MonadInterface m
+       , TransformAST part from inter
+       , TransformAST part inter to
+       )
+    => part from
+    -> m (part to)
 transitively1 ast = do
     intermediate :: part inter <- transformAST ast
     transformAST intermediate
 
-instance ASTTag a => TransformAST Module a a where transformAST = pure
-instance ASTTag a => TransformAST TopLevel a a where transformAST = pure
-instance ASTTag a => TransformAST Stmt a a where transformAST = pure
-instance ASTTag a => TransformAST Expr a a where transformAST = pure
+instance ASTTag a => TransformAST Module a a where
+    transformAST = pure
+instance ASTTag a => TransformAST TopLevel a a where
+    transformAST = pure
+instance ASTTag a => TransformAST Stmt a a where
+    transformAST = pure
+instance ASTTag a => TransformAST Expr a a where
+    transformAST = pure
 
 instance TransformAST Module Parsed Desugared where
-    transformAST = pure . desugarModule
+    transformAST = withSpan_ "desugaring" . pure . desugarModule
 instance TransformAST TopLevel Parsed Desugared where
-    transformAST = pure . desugarTopLevel
+    transformAST = withSpan_ "desugaring" . pure . desugarTopLevel
 instance TransformAST Stmt Parsed Desugared where
-    transformAST = pure . desugarStmt
+    transformAST = withSpan_ "desugaring" . pure . desugarStmt
 instance TransformAST Expr Parsed Desugared where
-    transformAST = pure . desugarExpr
+    transformAST = withSpan_ "desugaring" . pure . desugarExpr
 
 instance TransformAST Module Desugared TypeAnnotated where
-    transformAST = runEither
-        . (`evalStateT` baseTypeCtx)
-        . T.resolveModuleTypes
+    transformAST =
+        withSpan_ "type resolution" .
+        runEither . (`evalStateT` baseTypeCtx) . T.resolveModuleTypes
 instance TransformAST TopLevel Desugared TypeAnnotated where
-    transformAST = runEither
-        . (`evalStateT` baseTypeCtx)
-        . T.resolveTopLevelTypes
+    transformAST =
+        withSpan_ "type resolution" .
+        runEither . (`evalStateT` baseTypeCtx) . T.resolveTopLevelTypes
 instance TransformAST Stmt Desugared TypeAnnotated where
-    transformAST = runEither
-        . (`evalStateT` baseTypeCtx)
-        . T.resolveStmtTypes
+    transformAST =
+        withSpan_ "type resolution" .
+        runEither . (`evalStateT` baseTypeCtx) . T.resolveStmtTypes
 instance TransformAST Expr Desugared TypeAnnotated where
-    transformAST = runEither
-        . (`evalStateT` baseTypeCtx)
-        . T.resolveExprTypes
+    transformAST =
+        withSpan_ "type resolution" .
+        runEither . (`evalStateT` baseTypeCtx) . T.resolveExprTypes
 
 instance
     TypeError ('Text "No instance for TransformAST " ':<>: 'ShowType part ':<>: 'Text " TypeAnnotated Typed" ':$$:
@@ -70,13 +79,13 @@ instance
     transformAST = undefined
 
 instance TransformAST Module Desugared Typed where
-    transformAST = runEither . T.typecheckModule baseTypeCtx
+    transformAST = withSpan_ "typechecking" . runEither . T.typecheckModule baseTypeCtx
 instance TransformAST TopLevel Desugared Typed where
-    transformAST = runEither . T.typecheckTopLevel baseTypeCtx
+    transformAST = withSpan_ "typechecking" . runEither . T.typecheckTopLevel baseTypeCtx
 instance TransformAST Stmt Desugared Typed where
-    transformAST = runEither . T.typecheckStmt baseTypeCtx
+    transformAST = withSpan_ "typechecking" . runEither . T.typecheckStmt baseTypeCtx
 instance TransformAST Expr Desugared Typed where
-    transformAST = runEither . T.typecheckExpr baseTypeCtx
+    transformAST = withSpan_ "typechecking" . runEither . T.typecheckExpr baseTypeCtx
 
 instance TransformAST Module Parsed TypeAnnotated where
     transformAST = transitively1 @Desugared

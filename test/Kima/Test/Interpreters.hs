@@ -14,6 +14,7 @@ import           Control.Monad.State
 import           Control.Monad.Reader
 import           Control.Monad.Except
 import           Control.Monad.Writer
+import          Control.Monad.Catch
 import           Data.Function
 import           Data.IORef.Class
 import           Test.Hspec
@@ -40,7 +41,7 @@ newtype TestInterface a = TestInterface {
     runTestInterface :: ExceptT UserThrowableError IO a
 } deriving newtype (
     Functor, Applicative, Monad,
-    MonadIO)
+    MonadIO, MonadThrow, MonadCatch, MonadMask)
 
 instance MonadError UserThrowableError TestInterface where
     throwError e = TestInterface (ExceptT (pure (Left e)))
