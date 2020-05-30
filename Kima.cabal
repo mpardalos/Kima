@@ -1,4 +1,4 @@
-cabal-version: >=1.10
+cabal-version: 2.2
 name: Kima
 version: 0.1.0.0
 license: MIT
@@ -12,9 +12,30 @@ build-type: Simple
 extra-source-files:
     README.md
 
-library
+common options
     default-language: Haskell2010
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
+    default-extensions: BangPatterns ConstraintKinds DataKinds
+                        DefaultSignatures DeriveFunctor DeriveGeneric DeriveTraversable
+                        DuplicateRecordFields ExistentialQuantification FlexibleContexts
+                        FlexibleInstances FunctionalDependencies GADTs
+                        GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase
+                        LiberalTypeSynonyms MultiParamTypeClasses NamedFieldPuns
+                        OverloadedStrings PartialTypeSignatures PatternSynonyms
+                        ViewPatterns RankNTypes ScopedTypeVariables StandaloneDeriving
+                        TemplateHaskell TypeApplications TypeFamilies TypeInType
+                        TypeOperators UndecidableInstances EmptyCase TupleSections
+    build-depends:
+        base >=4.7 && <5,
+        containers -any,
+        megaparsec == 8.*,
+        mtl -any,
+        parser-combinators == 1.*,
+        prettyprinter == 1.*,
+        safe -any
+
+library
+    import: options
     hs-source-dirs: src
     exposed-modules:
         Control.Monad.State.Extended
@@ -51,27 +72,9 @@ library
         Kima.Interface
         Kima.Interface.Transform
         Kima.Interface.Monad
-    default-extensions: BangPatterns ConstraintKinds DataKinds
-                        DefaultSignatures DeriveFunctor DeriveGeneric DeriveTraversable
-                        DuplicateRecordFields ExistentialQuantification FlexibleContexts
-                        FlexibleInstances FunctionalDependencies GADTs
-                        GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase
-                        LiberalTypeSynonyms MultiParamTypeClasses NamedFieldPuns
-                        OverloadedStrings PartialTypeSignatures PatternSynonyms
-                        ViewPatterns RankNTypes ScopedTypeVariables StandaloneDeriving
-                        TemplateHaskell TypeApplications TypeFamilies TypeInType
-                        TypeOperators UndecidableInstances EmptyCase TupleSections
-    ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
-    build-depends:
-        base >=4.7 && <5,
-        containers -any,
-        megaparsec == 8.*,
-        mtl -any,
-        parser-combinators == 1.*,
-        prettyprinter == 1.*,
-        safe -any
 
 test-suite spec
+    import: options
     type: exitcode-stdio-1.0
     main-is: Main.hs
     other-modules:
@@ -81,31 +84,18 @@ test-suite spec
         Kima.Test.FileTests
         Kima.Test.Parser
     hs-source-dirs: test
-    ghc-options: -Wall -fdefer-typed-holes
-    default-extensions:
-        DeriveFunctor, DeriveGeneric, DerivingStrategies,
-        GeneralizedNewtypeDeriving, ExistentialQuantification, DataKinds,
-        LambdaCase, TypeApplications, BangPatterns, NamedFieldPuns,
-        FlexibleInstances, GADTs, ViewPatterns, NoMonomorphismRestriction,
-        ScopedTypeVariables, FlexibleContexts, DefaultSignatures,
-        UndecidableInstances, TupleSections
     build-depends:
-        base >=4.7 && <5,
-        containers -any,
         directory -any,
         hspec == 2.*,
         hspec-core == 2.*,
         generic-random == 1.* && >= 1.2,
         QuickCheck >= 2,
-        mtl -any,
-        megaparsec == 8.*,
-        prettyprinter == 1.*,
-        safe -any,
         directory-tree == 0.12.*,
         filepath == 1.4.*,
         Kima
 
 executable kima
+    import: options
     default-language: Haskell2010
     main-is: Main.hs
     other-modules:
@@ -113,22 +103,7 @@ executable kima
         ArgumentParser
         Runners
     hs-source-dirs: app
-    default-extensions: BangPatterns ConstraintKinds DataKinds
-                        DefaultSignatures DeriveFunctor DeriveGeneric DeriveTraversable
-                        DuplicateRecordFields ExistentialQuantification FlexibleContexts
-                        FlexibleInstances FunctionalDependencies GADTs
-                        GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase
-                        LiberalTypeSynonyms MultiParamTypeClasses NamedFieldPuns
-                        OverloadedStrings PartialTypeSignatures RankNTypes
-                        ScopedTypeVariables StandaloneDeriving TemplateHaskell
-                        TypeApplications TypeFamilies TypeInType TypeOperators
-                        UndecidableInstances EmptyCase
     build-depends:
-        base >=4.7 && <5,
         Kima -any,
         haskeline == 0.7.*,
-        megaparsec == 8.*,
-        mtl -any,
-        optparse-applicative -any,
-        prettyprinter == 1.*,
-        safe -any
+        optparse-applicative -any
