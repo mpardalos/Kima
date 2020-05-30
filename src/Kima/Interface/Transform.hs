@@ -5,6 +5,8 @@ Running Kima up to a certain stage.
 
 module Kima.Interface.Transform where
 
+import GHC.TypeLits
+
 import Control.Monad.State
 
 import Kima.AST
@@ -17,8 +19,6 @@ import qualified Kima.Types as T
 -- | Implements transformations from one AST type to another.
 -- | We should infer/generate transitive instances.
 -- | I.e. (TransformAST a b, TransformAST b c) => TransformAST a c
--- | TODO Generate transitive instances for TransformAST
--- | Until then, all transitive instances should be written by hand
 class (ASTTag from, ASTTag to) => TransformAST part from to where
     transformAST :: MonadInterface m => part from -> m (part to)
 
@@ -31,14 +31,10 @@ transitively1 ast = do
     intermediate :: part inter <- transformAST ast
     transformAST intermediate
 
-instance ASTTag a => TransformAST Module a a where
-    transformAST = pure
-instance ASTTag a => TransformAST TopLevel a a where
-    transformAST = pure
-instance ASTTag a => TransformAST Stmt a a where
-    transformAST = pure
-instance ASTTag a => TransformAST Expr a a where
-    transformAST = pure
+instance ASTTag a => TransformAST Module a a where transformAST = pure
+instance ASTTag a => TransformAST TopLevel a a where transformAST = pure
+instance ASTTag a => TransformAST Stmt a a where transformAST = pure
+instance ASTTag a => TransformAST Expr a a where transformAST = pure
 
 instance TransformAST Module Parsed Desugared where
     transformAST = pure . desugarModule
@@ -65,6 +61,13 @@ instance TransformAST Expr Desugared TypeAnnotated where
     transformAST = runEither
         . (`evalStateT` baseTypeCtx)
         . T.resolveExprTypes
+
+instance
+    TypeError ('Text "No instance for TransformAST " ':<>: 'ShowType part ':<>: 'Text " TypeAnnotated Typed" ':$$:
+               'Text "You should use another instance like TransformAST " ':<>: 'ShowType part ':<>: 'Text " Parsed Typed" ':<>:
+               'Text " or TransformAST " ':<>: 'ShowType part ':<>: 'Text " Desugared Typed")
+    => TransformAST part TypeAnnotated Typed where
+    transformAST = undefined
 
 instance TransformAST Module Desugared Typed where
     transformAST = runEither . T.typecheckModule baseTypeCtx
