@@ -12,7 +12,7 @@ build-type: Simple
 extra-source-files:
     README.md
 
-common options
+common shared-options
     default-language: Haskell2010
     ghc-options: -Wall -Wno-missing-signatures -fdefer-typed-holes
     default-extensions: BangPatterns ConstraintKinds DataKinds
@@ -35,7 +35,7 @@ common options
         safe -any
 
 library
-    import: options
+    import: shared-options
     hs-source-dirs: src
     exposed-modules:
         Control.Monad.State.Extended
@@ -74,7 +74,7 @@ library
         Kima.Interface.Monad
 
 test-suite spec
-    import: options
+    import: shared-options
     type: exitcode-stdio-1.0
     main-is: Main.hs
     other-modules:
@@ -95,8 +95,7 @@ test-suite spec
         Kima
 
 executable kima
-    import: options
-    default-language: Haskell2010
+    import: shared-options
     main-is: Main.hs
     other-modules:
         Repl
