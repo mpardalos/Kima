@@ -32,7 +32,8 @@ common shared-options
         mtl -any,
         parser-combinators == 1.*,
         prettyprinter == 1.*,
-        safe -any
+        safe -any,
+        opentelemetry == 0.4.*
 
 library
     import: shared-options

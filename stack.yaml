@@ -4,3 +4,4 @@ packages:
   - .
 
 extra-deps:
+  - opentelemetry-0.4.2

@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: opentelemetry-0.4.2@sha256:626f8cf815117b711b50c0b3951f9239d42abb57173efce1eac884ee34fc812a,1323
+    pantry-tree:
+      size: 394
+      sha256: 79a5d7d5fdd33c15b722a3ced49f9e5a9709bf65cf1380879eab680d39324268
+  original:
+    hackage: opentelemetry-0.4.2
 snapshots:
 - completed:
     size: 496111
