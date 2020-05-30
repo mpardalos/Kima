@@ -36,6 +36,7 @@ import qualified Data.Set                      as Set
 import           Kima.AST
 import           Kima.Types.Errors
 import           Kima.Types.TypeCtx
+import           Kima.Util
 
 type MonadTC m = (MonadState TypeCtx m, MonadError TypecheckingError m)
 
@@ -334,27 +335,27 @@ checkReturns expectedType stmt            = do
 
 -- | Try to typecheck a module
 checkProgram :: MonadTC m => Module TypeAnnotated -> m (Module Typed)
-checkProgram (Module decls) = Module <$> mapM checkTopLevel decls
+checkProgram (Module decls) = withSpanM_ "typechecking"
+    (Module <$> mapM checkTopLevel decls)
 
 -- | Try to typecheck a top-level declaration
 checkTopLevel :: MonadTC m => TopLevel TypeAnnotated -> m (TopLevel Typed)
-checkTopLevel (FuncDef name (TypedArgs args) eff (Just rt) body)
-    =   FuncDef name args eff rt
-    <$> withState (setEffect eff . addArgs args) (checkReturns rt body)
+checkTopLevel (FuncDef name (TypedArgs args) eff (Just rt) body) = withSpanM_ name
+    (FuncDef name args eff rt <$> withState (setEffect eff . addArgs args) (checkReturns rt body))
 checkTopLevel (FuncDef name (TypedArgs args) eff Nothing body) =
-    do
+    withSpanM_ name $ do
         (typedBody, rt) <- withState (setEffect eff . addArgs args)
                                      (inferReturns body)
         return (FuncDef name args eff rt typedBody)
 checkTopLevel FuncDef{} = throwError MissingArgumentTypes
-checkTopLevel (DataDef name (TypedArgs typeFields)) =
+checkTopLevel (DataDef name (TypedArgs typeFields)) = withSpanM_ name $
     pure (DataDef name typeFields)
 checkTopLevel DataDef{} = throwError MissingFieldTypes
-checkTopLevel (OperationDef name (TypedArgs args) (Just rt)) =
+checkTopLevel (OperationDef name (TypedArgs args) (Just rt)) = withSpanM_ name $
     pure (OperationDef name args rt)
 checkTopLevel (OperationDef _ TypedArgs{} Nothing) = throwError MissingReturnType
 checkTopLevel OperationDef{} = throwError MissingArgumentTypes
-checkTopLevel (EffectSynonymDef name ops) = pure (EffectSynonymDef name ops)
+checkTopLevel (EffectSynonymDef name ops) = withSpanM_ name $ pure (EffectSynonymDef name ops)
 -----------------------------
 ---------- Helpers ----------
 -----------------------------

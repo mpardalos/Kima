@@ -14,6 +14,7 @@ import qualified Data.Map                      as Map
 import           Kima.AST
 import           Kima.Types.TypeCtx
 import           Kima.Types.Errors
+import           Kima.Util
 
 type MonadTypeResolution m
     = (MonadState TypeCtx m, MonadError TypecheckingError m)
@@ -23,21 +24,22 @@ type MonadTypeResolution m
 --       **not** their function type.
 resolveModuleTypes
     :: MonadTypeResolution m => Module Desugared -> m (Module TypeAnnotated)
-resolveModuleTypes (Module decls) = do
-    processTopLevel decls
+resolveModuleTypes (Module decls) = withSpanM_ "type resolution" $ do
+    withSpanM_ "hoisting" $ processTopLevel decls
     Module <$> traverse resolveTopLevelTypes decls
 
 resolveTopLevelTypes
     :: MonadTypeResolution m => TopLevel Desugared -> m (TopLevel TypeAnnotated)
 resolveTopLevelTypes (FuncDef name argExprs effExpr rtExpr body) =
-    FuncDef name
-        <$> traverse (traverse (traverse resolveTypeExpr)) argExprs
-        <*> resolveEffectExpr effExpr
-        <*> traverse resolveTypeExpr rtExpr
-        <*> resolveStmtTypes body
-resolveTopLevelTypes (DataDef name args) =
+    withSpanM_ name $
+        FuncDef name
+            <$> traverse (traverse (traverse resolveTypeExpr)) argExprs
+            <*> resolveEffectExpr effExpr
+            <*> traverse resolveTypeExpr rtExpr
+            <*> resolveStmtTypes body
+resolveTopLevelTypes (DataDef name args) = withSpanM_ name $
     DataDef name <$> traverse (traverse (traverse resolveTypeExpr)) args
-resolveTopLevelTypes (OperationDef name argExprs rtExpr ) =
+resolveTopLevelTypes (OperationDef name argExprs rtExpr ) = withSpanM_ name $
     OperationDef name
         <$> traverse (traverse (traverse resolveTypeExpr)) argExprs
         <*> traverse resolveTypeExpr rtExpr

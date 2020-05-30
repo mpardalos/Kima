@@ -75,6 +75,8 @@ library
         Kima.Interface.Transform
         Kima.Interface.Monad
 
+        Kima.Util
+
 test-suite spec
     import: shared-options
     type: exitcode-stdio-1.0
