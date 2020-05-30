@@ -2,15 +2,13 @@
 
 effect fail() -> Unit
 
-fun proc() : {IO, fail} -> Unit {
-    print("B");
-    fail();
-    print("~NEVER~");
-}
-
 fun main() : IO -> Unit {
     print("A");
-    handle proc() {
+    handle {
+        print("B");
+        fail();
+        print("~NEVER~");
+    } with {
         fail() -> Unit {
             print("C");
             break;
