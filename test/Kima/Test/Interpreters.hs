@@ -14,7 +14,7 @@ import           Control.Monad.State
 import           Control.Monad.Reader
 import           Control.Monad.Except
 import           Control.Monad.Writer
-import          Control.Monad.Catch
+import           Control.Monad.Catch
 import           Data.Function
 import           Data.IORef.Class
 import           Test.Hspec
@@ -34,7 +34,8 @@ newtype TestInterpreter a = MockInterpreter {
         MonadReader String,
         MonadState (Environment (IORef Value)),
         MonadWriter String,
-        MonadIO)
+        MonadIO,
+        MonadThrow, MonadCatch, MonadMask)
     deriving anyclass MonadIORef
 
 newtype TestInterface a = TestInterface {

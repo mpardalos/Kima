@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Repl (ReplInterpreter, ReplState, repl) where
 
 import           Control.Arrow           hiding ( first
@@ -5,6 +6,7 @@ import           Control.Arrow           hiding ( first
                                                 )
 import           Control.Monad.Except
 import           Control.Monad.State
+import           Control.Monad.Catch
 import           Data.Bifunctor
 import           Data.Functor
 import           Data.IORef.Class
@@ -30,7 +32,8 @@ newtype ReplInterpreter a = ReplInterpreter {
     Monad,
     MonadError RuntimeError,
     MonadState (Environment (IORef Value)),
-    MonadIO)
+    MonadIO,
+    MonadMask, MonadCatch, MonadThrow)
 
 instance MonadConsole ReplInterpreter where
     consoleRead  = liftIO getLine
@@ -58,14 +61,15 @@ repl = do
         Nothing        -> return ()
         Just inputLine -> do
             replState <- lift $ readIORef replStateRef
-            runLine replState inputLine >>= \case
+            result <- liftIO $ runLine replState inputLine
+            case result of
                 Left  err                   -> outputStrLn ("Error: " <> err)
                 Right (value, newReplState) -> do
                     lift $ writeIORef replStateRef newReplState
                     outputStrLn ("> " <> show (pretty value))
             mainloop replStateRef
 
-runLine :: MonadIO m => ReplState -> String -> m (Either String (Value, ReplState))
+runLine :: (MonadIO m, MonadMask m) => ReplState -> String -> m (Either String (Value, ReplState))
 runLine ReplState { typeCtx, interpreterEnv } input = runExceptT $ do
     -- Run up to typechecking, converting errors to strings (the parts after >>>)
     (typedAST, newTypeCtx) <-

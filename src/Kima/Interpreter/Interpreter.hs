@@ -5,7 +5,9 @@ import           Prelude                 hiding ( lookup )
 import           Data.Foldable
 import           Data.Coerce
 import           Data.IORef.Class
+import           Data.List
 import           Control.Monad.Except
+import           OpenTelemetry.Eventlog
 
 import           Kima.AST
 import           Control.Monad.State.Extended
@@ -20,7 +22,7 @@ evalExpr :: MonadInterpreter m => Expr Runtime -> m Value
 evalExpr (LiteralExpr    l   ) = return $ evalLiteral l
 evalExpr (IdentifierExpr name) = getName name
 evalExpr (FuncExpr args _eff _rt body) =
-    Function (uncurry TIdentifier <$> args) body <$> get
+    Function "<anonymous function>" (uncurry TIdentifier <$> args) body <$> get
 evalExpr (CallExpr callee args) =
     join (runFunc <$> evalExpr callee <*> (evalExpr `mapM` args))
 evalExpr (HandleExpr stmt handlers) = do
@@ -108,20 +110,21 @@ runStmt (BreakStmt expr) = do
     throwError (BreakError val)
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
-runFunc (Function argNames body closure) args = do
-    argRefs <- mapM newIORef args
-    let argEnv = fromList (zip argNames argRefs)
-
-    -- Order is IMPORTANT. Data.Map's (<>) prefers the left side. So here
-    -- arguments take precedence over the closure which takes precedence over
-    -- the active environment
-    withState ((argEnv <> closure) <>) (runStmt body)
 runFunc (BuiltinFunction f) args                 = f args
 runFunc (AccessorIdx memberName idx) [ProductData vals] = case vals `atMay` idx of
     Just v -> return v
     Nothing -> throwError (BuiltinFunctionError (show memberName <> " failed"))
 runFunc (AccessorIdx memberName _) args = throwError (BuiltinFunctionError (
     "Can't use accessor " <> show memberName <> " on " <> show args))
+runFunc (Function name argNames body closure) args =
+    withSpan_ (name <> "(" <> intercalate ", " (show <$> args) <> ")") $ do
+        argRefs <- mapM newIORef args
+        let argEnv = fromList (zip argNames argRefs)
+
+        -- Order is IMPORTANT. Data.Map's (<>) prefers the left side. So here
+        -- arguments take precedence over the closure which takes precedence over
+        -- the active environment
+        withState ((argEnv <> closure) <>) (runStmt body)
 runFunc v _ = throwError (NotAFunction v)
 
 bind :: (MonadEnv m, IdentifierLike ident) => ident ('Annotation KType) -> Value -> m ()
@@ -146,7 +149,7 @@ bindTopLevel (FuncDef name args eff rt body) = do
     -- Necessary because the closure will include the function itself
     bind funcIdentifier Unit
     closure <- get
-    let function = Function (uncurry TIdentifier <$> args) body closure
+    let function = Function name (uncurry TIdentifier <$> args) body closure
     -- Then, when we have the function, give the correct binding
     bind funcIdentifier function
 bindTopLevel (DataDef name members)       = do
@@ -171,7 +174,7 @@ mkHandlerEnv handlers = do
         let funcType = KFunc (snd <$> args) handledEffect rt
 
         funcRef <- newIORef
-            $ Function (uncurry TIdentifier <$> args) body handlerClosure
+            $ Function ("<anonymous handler for " <> name <> ">") (uncurry TIdentifier <$> args) body handlerClosure
 
         return (TIdentifier name funcType, funcRef)
     return (Environment (Map.fromList handlerPairs))
