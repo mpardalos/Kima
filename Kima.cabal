@@ -65,10 +65,10 @@ library
     build-depends:
         base >=4.7 && <5,
         containers -any,
-        megaparsec ==7.*,
+        megaparsec == 8.*,
         mtl -any,
-        parser-combinators ==1.*,
-        prettyprinter == 1.2.*,
+        parser-combinators == 1.*,
+        prettyprinter == 1.*,
         safe -any
 
 test-suite spec
@@ -98,8 +98,8 @@ test-suite spec
         generic-random == 1.* && >= 1.2,
         QuickCheck >= 2,
         mtl -any,
-        megaparsec ==7.*,
-        prettyprinter == 1.2.*,
+        megaparsec == 8.*,
+        prettyprinter == 1.*,
         safe -any,
         directory-tree == 0.12.*,
         filepath == 1.4.*,
@@ -127,8 +127,8 @@ executable kima
         base >=4.7 && <5,
         Kima -any,
         haskeline == 0.7.*,
-        megaparsec ==7.*,
+        megaparsec == 8.*,
         mtl -any,
         optparse-applicative -any,
-        prettyprinter == 1.2.*,
+        prettyprinter == 1.*,
         safe -any

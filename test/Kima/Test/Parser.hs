@@ -167,6 +167,7 @@ parsedBy str p = case runParser' p initialState of
                                    , pstateTabWidth   = defaultTabWidth
                                    , pstateLinePrefix = ""
                                    }
+        , stateParseErrors = []
         }
 
 shouldParseTo
