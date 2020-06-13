@@ -224,6 +224,9 @@ baseEnv =
     , ( TIdentifier "print" (KFunc [KUnit] printEffect KUnit)
       , BuiltinFunction kimaPrint
       )
+    , ( TIdentifier "unsafeDebug" (KFunc [KString] PureEffect KUnit)
+      , BuiltinFunction kimaPrint
+      )
     , ( TIdentifier "input" (KFunc [] inputEffect KString)
       , BuiltinFunction (\_ -> String <$> consoleRead)
       )
