@@ -5,6 +5,7 @@ import           Prelude                 hiding ( lookup )
 import           Kima.AST
 
 import           Control.Monad.Except
+import           Control.Monad.Catch
 import           Control.Monad.State
 import           Data.Text.Prettyprint.Doc
 
@@ -26,7 +27,7 @@ data Value = Integer Integer
            | Float Double
            | Bool Bool
            | String String
-           | Function [RuntimeIdentifier] (Stmt Runtime) (Environment (IORef Value))
+           | Function Name [RuntimeIdentifier] (Stmt Runtime) (Environment (IORef Value))
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
            | ProductData [Value]
            | AccessorIdx Name Int -- | Just gives the index of the accessed value
@@ -49,12 +50,7 @@ instance Pretty Value where
     pretty (Bool v)             = pretty v
     pretty (String v)           = pretty v
     pretty (AccessorIdx name _) = "{." <> pretty name <> "}"
-    pretty (Function args body _closure) =
-        "fun" <+> tupled (pretty <$> args) <+> "{"
-        <> line
-            <> indent 4 (pretty body)
-        <> line <> "}"
-
+    pretty (Function name _ _ _) = pretty name
     pretty BuiltinFunction{}   = "Builtin function"
     pretty (ProductData vals)  = "data {" <> line <>
         indent 4 (vcat (pretty <$> vals))
@@ -86,7 +82,7 @@ instance Pretty RuntimeError where
 -- | ---------- Execution ----------------
 type MonadRE m = (Monad m, MonadError RuntimeError m)
 type MonadEnv m = (Monad m, MonadState (Environment (IORef Value)) m, MonadIORef m)
-type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m)
+type MonadInterpreter m = (MonadRE m, MonadEnv m, MonadConsole m, MonadIO m, MonadMask m)
 
 newtype Interpreter a = Interpreter {
     unInterpreter :: StateT (Environment (IORef Value)) (
@@ -98,7 +94,8 @@ newtype Interpreter a = Interpreter {
     Monad,
     MonadError RuntimeError,
     MonadState (Environment (IORef Value)),
-    MonadIO)
+    MonadIO,
+    MonadMask, MonadCatch, MonadThrow)
 
 class Monad m => MonadConsole m where
     consoleWrite :: String -> m ()

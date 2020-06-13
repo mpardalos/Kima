@@ -5,6 +5,7 @@ Running Kima up to a certain stage.
 module Runners(dumpFileAtStage, runFile) where
 
 import Control.Monad.Except
+import OpenTelemetry.Eventlog
 
 import Kima.Interface
 import Kima.AST
@@ -25,8 +26,8 @@ import ArgumentParser
 -- desugared :: AST 'Module Desugared <- fromFileTo "input.k"
 fromFileTo :: forall to m. (MonadInterface m, TransformAST Module Parsed to) => FilePath -> m (Module to)
 fromFileTo fn = do
-    src <- liftIO (readFile fn)
-    parsedAST <- runEither (runParser program fn src)
+    src <- withSpan_ "reading file" $ liftIO (readFile fn)
+    parsedAST <- withSpan_ "parsing" $ runEither (runParser program fn src)
     transformAST parsedAST
 
 runFile :: FilePath -> IO ()
