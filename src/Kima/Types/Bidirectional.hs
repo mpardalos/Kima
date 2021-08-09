@@ -347,9 +347,9 @@ checkTopLevel (FuncDef name (TypedArgs args) eff Nothing body) =
                                      (inferReturns body)
         return (FuncDef name args eff rt typedBody)
 checkTopLevel FuncDef{} = throwError MissingArgumentTypes
-checkTopLevel (DataDef name (TypedArgs typeFields)) =
-    pure (DataDef name typeFields)
-checkTopLevel DataDef{} = throwError MissingFieldTypes
+checkTopLevel (ProductTypeDef name (TypedArgs typeFields)) =
+    pure (ProductTypeDef name typeFields)
+checkTopLevel ProductTypeDef{} = throwError MissingFieldTypes
 checkTopLevel (OperationDef name (TypedArgs args) (Just rt)) =
     pure (OperationDef name args rt)
 checkTopLevel (OperationDef _ TypedArgs{} Nothing) = throwError MissingReturnType

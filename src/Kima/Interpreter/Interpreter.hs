@@ -152,7 +152,7 @@ bindTopLevel (FuncDef name args eff rt body) = do
     let function = Function name (uncurry TIdentifier <$> args) body closure
     -- Then, when we have the function, give the correct binding
     bind funcIdentifier function
-bindTopLevel (DataDef name members)       = do
+bindTopLevel (ProductTypeDef name members)       = do
     let declaredType = KUserType name members
     let memberTypes = snd <$> members
     let constructor = BuiltinFunction (return . ProductData)

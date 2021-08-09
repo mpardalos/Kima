@@ -15,8 +15,8 @@ desugarModule :: Module Parsed -> Module Desugared
 desugarModule (Module ast) = Module (desugarTopLevel <$> ast)
 
 desugarTopLevel :: TopLevel Parsed -> TopLevel Desugared
-desugarTopLevel (DataDef name members) =
-    DataDef name (second (fmap desugarTypeExpr) <$> members)
+desugarTopLevel (ProductTypeDef name members) =
+    ProductTypeDef name (second (fmap desugarTypeExpr) <$> members)
 desugarTopLevel (FuncDef name args (Just eff) rt body) = FuncDef
     name
     (second (fmap desugarTypeExpr) <$> args)

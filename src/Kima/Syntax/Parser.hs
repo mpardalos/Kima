@@ -65,7 +65,7 @@ funcDef = label "Function definition" $ do
 dataDef :: Parser (TopLevel Parsed)
 dataDef =
     reserved RData
-        *>  (DataDef <$> identifier <*> typedArgList)
+        *>  (ProductTypeDef <$> identifier <*> typedArgList)
         <?> "Datatype declaration"
 
 typedArgList :: Parser [(Name, Maybe ParsedTypeExpr)]

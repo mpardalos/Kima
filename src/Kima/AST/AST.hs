@@ -14,7 +14,7 @@ newtype Module tag = Module [TopLevel tag]
 
 data TopLevel tag
     = FuncDef Name [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
-    | DataDef Name [(Name, FreeAnnotation tag)]
+    | ProductTypeDef Name [(Name, FreeAnnotation tag)]
     | OperationDef Name [(Name, FreeAnnotation tag)] (FreeAnnotation tag)
     | EffectSynonymDef Name [Name]
 
@@ -159,7 +159,7 @@ instance
             <+> "->"
             <+> pretty rt
             <+> pretty body
-    pretty (DataDef name members) =
+    pretty (ProductTypeDef name members) =
         "data"
             <+> pretty name
             <+> "{"

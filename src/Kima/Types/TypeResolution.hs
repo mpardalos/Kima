@@ -35,8 +35,8 @@ resolveTopLevelTypes (FuncDef name argExprs effExpr rtExpr body) =
         <*> resolveEffectExpr effExpr
         <*> traverse resolveTypeExpr rtExpr
         <*> resolveStmtTypes body
-resolveTopLevelTypes (DataDef name args) =
-    DataDef name <$> traverse (traverse (traverse resolveTypeExpr)) args
+resolveTopLevelTypes (ProductTypeDef name args) =
+    ProductTypeDef name <$> traverse (traverse (traverse resolveTypeExpr)) args
 resolveTopLevelTypes (OperationDef name argExprs rtExpr ) =
     OperationDef name
         <$> traverse (traverse (traverse resolveTypeExpr)) argExprs
@@ -84,7 +84,7 @@ resolveHandlerTypes (HandlerClause name args rt body) =
 
 processTopLevel :: MonadTypeResolution m => [TopLevel Desugared] -> m ()
 processTopLevel topLevelDecls = forM_ topLevelDecls $ \case
-    DataDef typeName (ensureTypedArgs -> Just members) -> do
+    ProductTypeDef typeName (ensureTypedArgs -> Just members) -> do
         resolvedMembers <- traverse (bitraverse pure resolveTypeExpr) members
 
         let declaredType = KUserType typeName resolvedMembers
@@ -100,7 +100,7 @@ processTopLevel topLevelDecls = forM_ topLevelDecls $ \case
             let accessorType = KFunc [declaredType] PureEffect fieldType
             modify $ addBinding (Accessor fieldName)
                                 (Binding Constant [accessorType])
-    DataDef{} -> throwError MissingFieldTypes
+    ProductTypeDef{} -> throwError MissingFieldTypes
 
     FuncDef name (ensureTypedArgs -> Just args) effExpr (Just rtExpr) _body ->
         do
