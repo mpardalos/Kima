@@ -79,7 +79,7 @@ class StringToken a where
     parserFor t = void (verbatim $ toString t) <?> toString t
 
 data Reserved = RWhile | RFun | RTrue | RFalse | RLet | RVar | RIf | RElse
-              | RData | REffect | RHandle | RBreak | RWith
+              | RData | REffect | RHandle | RBreak | RWith | RMatch
     deriving (Eq, Enum, Bounded)
 
 -- Reserved words
@@ -96,6 +96,7 @@ instance StringToken Reserved where
     toString RElse   = "else"
     toString REffect = "effect"
     toString RHandle = "handle"
+    toString RMatch  = "match"
     toString RBreak  = "break"
     toString RWith   = "with"
 

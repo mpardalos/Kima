@@ -61,9 +61,24 @@ funcDef = label "Function definition" $ do
 
     return (FuncDef pIdentifier pArgs pEffect pReturnType pBody)
 
-
 dataDef :: Parser (TopLevel Parsed)
-dataDef =
+dataDef = try sumDef <|> productDef
+
+sumDef :: Parser (TopLevel Parsed)
+sumDef =
+  reserved RData
+    *> ( SumTypeDef
+           <$> identifier
+           <*> braces (constructor `sepBy` symbol Comma)
+       )
+  where
+    constructorArgs = option [] $ parens ((Just <$> typeExpr) `sepBy` symbol Comma)
+
+    constructor :: Parser (Name, [Maybe ParsedTypeExpr])
+    constructor = (,) <$> identifier <*> constructorArgs
+
+productDef :: Parser (TopLevel Parsed)
+productDef =
     reserved RData
         *>  (ProductTypeDef <$> identifier <*> typedArgList)
         <?> "Datatype declaration"
@@ -176,7 +191,7 @@ prefix p f = Prefix (f <$ p)
 postfix p f = Postfix (f <$ p)
 
 term :: Parser (Expr Parsed)
-term = try handlerExpr <|> try accessCall <|> try funcExpr <|> try baseTerm
+term = matchExpr <|> try handlerExpr <|> try accessCall <|> try funcExpr <|> try baseTerm
 
 funcExpr :: Parser (Expr Parsed)
 funcExpr = do
@@ -212,6 +227,23 @@ accessCall = do
 
     combiner acc (Left  attr) = AccessExpr acc attr
     combiner acc (Right args) = CallExpr acc args
+
+matchExpr :: Parser (Expr Parsed)
+matchExpr =
+  reserved RMatch
+    *> (MatchExpr <$> expr <*> braces (many matchClause))
+    <?> "Match expression"
+  where
+    matchClause = MatchClause <$> matchPattern <*> block
+
+    matchPattern =
+      try constructorPattern
+        <|> (WildcardPattern <$> identifier)
+
+    constructorPattern =
+      ConstructorPattern
+        <$> identifier
+        <*> parens (matchPattern `sepBy` symbol Comma)
 
 handlerExpr :: Parser (Expr Parsed)
 handlerExpr =
