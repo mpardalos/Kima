@@ -141,4 +141,4 @@ instance StringToken Symbol where
     toString EqualsEquals = "=="
     toString BangEquals   = "!="
 
-stmtEnd = parserFor Semicolon <|> parserFor Newline
+stmtEnd = parserFor Semicolon

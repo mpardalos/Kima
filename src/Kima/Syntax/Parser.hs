@@ -19,19 +19,19 @@ program = Module <$> (whitespace *> some topLevel <* eof)
 
 -- Function defintions
 topLevel :: Parser (TopLevel Parsed)
-topLevel = funcDef <|> dataDef <|> try effectSynonymDef <|> operationDef
+topLevel = funcDef <|> dataDef <|> effectDef
 
 effectSpec :: Parser ParsedEffect
-effectSpec = try singleEffect <|> bracedEffects
+effectSpec = singleEffect <|> bracedEffects
   where
     singleEffect  = EffectNames . pure @[] <$> identifier
     bracedEffects = EffectNames <$> braces (identifier `sepBy` symbol Comma)
 
 functionReturn :: Parser (Maybe ParsedEffect, Maybe ParsedTypeExpr)
 functionReturn =
-    try effectAndReturnType
-        <|> try justReturnType
-        <|> try justEffectType
+    effectAndReturnType
+        <|> justReturnType
+        <|> justEffectType
         <|> neither
   where
     effectAndReturnType = label "both effect and return type" $ do
@@ -62,26 +62,20 @@ funcDef = label "Function definition" $ do
     return (FuncDef pIdentifier pArgs pEffect pReturnType pBody)
 
 dataDef :: Parser (TopLevel Parsed)
-dataDef = try sumDef <|> productDef
-
-sumDef :: Parser (TopLevel Parsed)
-sumDef =
+dataDef = do
   reserved RData
-    *> ( SumTypeDef
-           <$> identifier
-           <*> braces (constructor `sepBy` symbol Comma)
-       )
+  name <- identifier
+  sumDef name <|> productDef name
   where
-    constructorArgs = option [] $ parens ((Just <$> typeExpr) `sepBy` symbol Comma)
+    sumDef :: Name -> Parser (TopLevel Parsed)
+    sumDef name = SumTypeDef name <$> braces (constructor `sepBy` symbol Comma)
+      where
+        constructorArgs = option [] $ parens ((Just <$> typeExpr) `sepBy` symbol Comma)
 
-    constructor :: Parser (Name, [Maybe ParsedTypeExpr])
-    constructor = (,) <$> identifier <*> constructorArgs
+        constructor :: Parser (Name, [Maybe ParsedTypeExpr])
+        constructor = (,) <$> identifier <*> constructorArgs
 
-productDef :: Parser (TopLevel Parsed)
-productDef =
-    reserved RData
-        *>  (ProductTypeDef <$> identifier <*> typedArgList)
-        <?> "Datatype declaration"
+    productDef name = ProductTypeDef name <$> typedArgList
 
 typedArgList :: Parser [(Name, Maybe ParsedTypeExpr)]
 typedArgList = parens (typedArg `sepBy` symbol Comma) <?> "Argument list"
@@ -191,7 +185,7 @@ prefix p f = Prefix (f <$ p)
 postfix p f = Postfix (f <$ p)
 
 term :: Parser (Expr Parsed)
-term = matchExpr <|> try handlerExpr <|> try accessCall <|> try funcExpr <|> try baseTerm
+term = matchExpr <|> handlerExpr <|> accessCall <|> funcExpr <|> baseTerm
 
 funcExpr :: Parser (Expr Parsed)
 funcExpr = do
@@ -204,13 +198,13 @@ funcExpr = do
 -- | A term without calls (Useful for parsing calls)
 baseTerm :: Parser (Expr Parsed)
 baseTerm =
-    try (parens expr)
-        <|> (LiteralExpr . StringLit <$> try string)
+    try (LiteralExpr UnitLit <$ unitLiteral)
+        <|> parens expr
+        <|> (LiteralExpr . StringLit <$> string)
+        <|> (LiteralExpr . BoolLit <$> boolLiteral)
         <|> (LiteralExpr . FloatLit <$> try floatLiteral)
         <|> (LiteralExpr . IntLit <$> try intLiteral)
-        <|> (LiteralExpr . BoolLit <$> try boolLiteral)
-        <|> (LiteralExpr UnitLit <$ try unitLiteral)
-        <|> (IdentifierExpr . Identifier <$> try identifier)
+        <|> (IdentifierExpr . Identifier <$> identifier)
 
 argList :: Parser [Expr Parsed]
 argList = parens (expr `sepBy` symbol Comma)
@@ -218,8 +212,10 @@ argList = parens (expr `sepBy` symbol Comma)
 -- | Parse a series of nested calls and accesses (a.b)
 accessCall :: Parser (Expr Parsed)
 accessCall = do
-    callee   <- baseTerm
-    argLists <- some callOrAccess
+    (callee, argLists) <- try $ do
+        callee   <- baseTerm
+        argLists <- some callOrAccess
+        pure (callee, argLists)
     return (foldl combiner callee argLists)
   where
     callOrAccess = Left <$> (symbol Dot *> identifier) <|> Right <$> argList
@@ -281,18 +277,19 @@ typeExpr =
 
         return (ParsedSignatureType arguments effect returnType)
 
-operationDef :: Parser (TopLevel Parsed)
-operationDef =
-    reserved REffect
-        *> (   OperationDef
-           <$> identifier
-           <*> typedArgList
-           <*> (Just <$> (symbol Arrow *> typeExpr))
-           )
 
-effectSynonymDef :: Parser (TopLevel Parsed)
-effectSynonymDef =
+effectDef :: Parser (TopLevel Parsed)
+effectDef = do
     reserved REffect
-        *> (EffectSynonymDef <$> identifier <*> braces
-               (identifier `sepBy` symbol Comma)
-           )
+    name <- identifier
+    operation name <|> effectSynonym name
+    where
+        operation name = do
+            args <- typedArgList
+            symbol Arrow
+            rt <- typeExpr
+            return (OperationDef name args (Just rt))
+
+        effectSynonym name = do
+            ops <- braces (identifier `sepBy` symbol Comma)
+            return (EffectSynonymDef name ops)
