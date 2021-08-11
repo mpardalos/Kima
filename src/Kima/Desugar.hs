@@ -10,6 +10,7 @@ where
 import           Data.Bifunctor
 
 import           Kima.AST
+import Data.Coerce
 
 desugarModule :: Module Parsed -> Module Desugared
 desugarModule (Module ast) = Module (desugarTopLevel <$> ast)
@@ -17,6 +18,8 @@ desugarModule (Module ast) = Module (desugarTopLevel <$> ast)
 desugarTopLevel :: TopLevel Parsed -> TopLevel Desugared
 desugarTopLevel (ProductTypeDef name members) =
     ProductTypeDef name (second (fmap desugarTypeExpr) <$> members)
+desugarTopLevel (SumTypeDef name constructors) =
+    SumTypeDef name (second (fmap (fmap desugarTypeExpr)) <$> constructors)
 desugarTopLevel (FuncDef name args (Just eff) rt body) = FuncDef
     name
     (second (fmap desugarTypeExpr) <$> args)
@@ -69,6 +72,7 @@ desugarExpr (FuncExpr args Nothing rt body) = FuncExpr
     (desugarStmt body)
 desugarExpr (CallExpr callee args  ) = CallExpr (desugarExpr callee) (desugarExpr <$> args)
 desugarExpr (HandleExpr stmt handlers) = HandleExpr (desugarStmt stmt) (desugarHandler <$> handlers)
+desugarExpr (MatchExpr expr clauses) = MatchExpr (desugarExpr expr) (desugarMatchClause <$> clauses)
 
 desugarHandler :: HandlerClause Parsed -> HandlerClause Desugared
 desugarHandler (HandlerClause name args rt body) = HandlerClause
@@ -76,6 +80,12 @@ desugarHandler (HandlerClause name args rt body) = HandlerClause
     (fmap (fmap desugarTypeExpr) <$> args)
     (desugarTypeExpr <$> rt)
     (desugarStmt body)
+
+desugarMatchClause :: MatchClause Parsed -> MatchClause Desugared
+desugarMatchClause (MatchClause pat stmt) = MatchClause (desugarPattern pat) (desugarStmt stmt)
+
+desugarPattern :: Pattern Parsed -> Pattern Desugared
+desugarPattern = coerce
 
 desugarTypeExpr :: ParsedTypeExpr -> TypeExpr
 desugarTypeExpr (ParsedTypeName name) = TypeName name
