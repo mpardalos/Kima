@@ -15,6 +15,7 @@ newtype Module tag = Module [TopLevel tag]
 data TopLevel tag
     = FuncDef Name [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | ProductTypeDef Name [(Name, FreeAnnotation tag)]
+    | SumTypeDef Name [(Name, [FreeAnnotation tag])]
     | OperationDef Name [(Name, FreeAnnotation tag)] (FreeAnnotation tag)
     | EffectSynonymDef Name [Name]
 
@@ -24,6 +25,7 @@ data Expr tag
     | FuncExpr [(Name, FreeAnnotation tag)] (EffectType tag) (FreeAnnotation tag) (Stmt tag)
     | CallExpr (Expr tag) [Expr tag]
     | HandleExpr (Stmt tag) [HandlerClause tag]
+    | MatchExpr (Expr tag) [MatchClause tag]
     | (HasSugar tag) => SimpleHandleExpr (Expr tag) [HandlerClause tag]
     | (HasSugar tag) => AccessExpr (Expr tag) Name
     | (HasSugar tag) => BinExpr BinaryOp (Expr tag) (Expr tag)
@@ -40,6 +42,15 @@ data Stmt tag
     | BreakStmt (Expr tag)
     | HasSugar tag => SimpleBreakStmt
     | HasSugar tag => SimpleIfStmt (Expr tag) (Stmt tag)
+
+data Pattern tag
+    = ConstructorPattern Name [Pattern tag]
+    | WildcardPattern Name
+
+data MatchClause tag = MatchClause
+    { clausePattern :: Pattern tag
+    , clauseBody :: Stmt tag
+    }
 
 data HandlerClause tag = HandlerClause
     { opName :: Name
@@ -135,6 +146,13 @@ instance
     , Pretty (EffectType stage)
     , Pretty (FreeAnnotation stage)
     ) => Show (HandlerClause stage) where
+    show = show . pretty
+instance
+    ( AnnotationConstraint Pretty (NameAnnotation stage)
+    , Pretty (AnnotatedName (NameAnnotation stage))
+    , Pretty (EffectType stage)
+    , Pretty (FreeAnnotation stage)
+    ) => Show (Pattern stage) where
     show = show . pretty
 
 instance
@@ -245,6 +263,15 @@ instance
     pretty (HandlerClause name args rt body) =
         pretty name <> prettyArgList args <+> "->" <+> pretty rt <+> pretty body
 
+instance
+    ( AnnotationConstraint Pretty (NameAnnotation stage)
+    , Pretty (AnnotatedName (NameAnnotation stage))
+    , Pretty (EffectType stage)
+    , Pretty (FreeAnnotation stage)
+    ) => Pretty (Pattern stage) where
+    pretty (WildcardPattern name) = pretty name
+    pretty (ConstructorPattern constructor args) = pretty constructor <+> tupled (pretty <$> args)
+
 instance Pretty ident => Pretty (WriteAccess ident) where
     pretty (WriteAccess ident rest) =
         hcat $ punctuate "." (pretty <$> ident : rest)
@@ -307,3 +334,15 @@ deriving instance
     , Eq (EffectType stage)
     , Eq (FreeAnnotation stage)
     ) => Eq (HandlerClause stage)
+deriving instance
+    ( AnnotationConstraint Eq (NameAnnotation stage)
+    , Eq (AnnotatedName (NameAnnotation stage))
+    , Eq (EffectType stage)
+    , Eq (FreeAnnotation stage)
+    ) => Eq (Pattern stage)
+deriving instance
+    ( AnnotationConstraint Eq (NameAnnotation stage)
+    , Eq (AnnotatedName (NameAnnotation stage))
+    , Eq (EffectType stage)
+    , Eq (FreeAnnotation stage)
+    ) => Eq (MatchClause stage)
