@@ -44,10 +44,12 @@ baseTypeCtx = TypeCtx
                        , ("Float" , KFloat)
                        , ("Bool"  , KBool)
                        ]
+    , fieldBindings = Map.empty
     , effectBindings = [ ("IO"   , ioEffect)
                        , ("Print", printEffect)
                        , ("Input", inputEffect)
                        ]
+    , constructorBindings = Map.empty
     , bindings
     , activeEffect   = PureEffect
     , handlerResult  = Nothing

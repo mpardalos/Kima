@@ -16,6 +16,7 @@ import           Kima.Interpreter.Types
 import           Safe
 import           GHC.Exts
 import qualified Data.Map                      as Map
+import           Data.Map (Map)
 
 ---------- Expressions ----------
 evalExpr :: MonadInterpreter m => Expr Runtime -> m Value
@@ -31,6 +32,38 @@ evalExpr (HandleExpr stmt handlers) = do
     withState (handlerEnv <>) (runStmt stmt) `catchError` \case
         BreakError v -> return v
         err          -> throwError err
+evalExpr (MatchExpr expr clauses) = do
+    matchedVal <- evalExpr expr
+    foldM (foldPattern matchedVal) Nothing clauses >>= \case
+        Nothing -> throwError (PatternMatchFailure matchedVal)
+        Just x -> pure x
+    where
+        foldPattern :: MonadInterpreter m => Value -> Maybe Value -> MatchClause Runtime -> m (Maybe Value)
+        foldPattern _ (Just x) _ = pure (Just x)
+        foldPattern matchedVal Nothing (MatchClause pat stmt) =
+          case matchPattern matchedVal pat of
+            Just patternBinds -> do
+                patternEnv <- Environment <$> traverse newIORef patternBinds
+                withState (patternEnv <>) (Just <$> runStmt stmt)
+            Nothing -> pure Nothing
+
+matchPattern :: Value -> Pattern Runtime -> Maybe (Map RuntimeIdentifier Value)
+matchPattern v                 (WildcardPattern n t) =
+    Just (Map.singleton (TIdentifier n t) v)
+matchPattern (SumData name vs) (ConstructorPattern patName pats)
+    | name == patName = foldM joinPatternMatchResults Map.empty =<< zipWithM matchPattern vs pats
+    | otherwise = Nothing
+  where
+    joinPatternMatchResults l r = if Map.disjoint l r then Just (Map.union l r) else Nothing
+matchPattern Integer{}         ConstructorPattern{} = Nothing
+matchPattern Float{}           ConstructorPattern{} = Nothing
+matchPattern String{}          ConstructorPattern{} = Nothing
+matchPattern Function{}        ConstructorPattern{} = Nothing
+matchPattern BuiltinFunction{} ConstructorPattern{} = Nothing
+matchPattern AccessorIdx{}     ConstructorPattern{} = Nothing
+matchPattern Unit              ConstructorPattern{} = Nothing
+matchPattern Bool{}            ConstructorPattern{} = Nothing
+matchPattern ProductData{}     ConstructorPattern{} = Nothing
 
 evalLiteral :: Literal -> Value
 evalLiteral (IntLit    i) = Integer i
@@ -60,9 +93,9 @@ runStmt (AssignStmt (WriteAccess name path) expr) = do
             -> [Int] -- | Path to the field, as a list of field indices
             -> Value -- | Value to update the field to
             -> Value
-        modifyField (ProductData vals) (field : subFields) newVal = let
+        modifyField (ProductData constructorName vals) (field : subFields) newVal = let
             updatedField = modifyField (vals !! field) subFields newVal
-            in ProductData (update field vals updatedField)
+            in ProductData constructorName (update field vals updatedField)
         modifyField _ [] newVal = newVal
         modifyField _ (n:_) _ = error
             ("Tried to access field " ++ show n ++ " in non-product data")
@@ -111,7 +144,7 @@ runStmt (BreakStmt expr) = do
 
 runFunc :: MonadInterpreter m => Value -> [Value] -> m Value
 runFunc (BuiltinFunction f) args                 = f args
-runFunc (AccessorIdx memberName idx) [ProductData vals] = case vals `atMay` idx of
+runFunc (AccessorIdx memberName idx) [ProductData _ vals] = case vals `atMay` idx of
     Just v -> return v
     Nothing -> throwError (BuiltinFunctionError (show memberName <> " failed"))
 runFunc (AccessorIdx memberName _) args = throwError (BuiltinFunctionError (
@@ -153,15 +186,28 @@ bindTopLevel (FuncDef name args eff rt body) = do
     -- Then, when we have the function, give the correct binding
     bind funcIdentifier function
 bindTopLevel (ProductTypeDef name members)       = do
-    let declaredType = KUserType name members
+    let declaredType = KUserType name
     let memberTypes = snd <$> members
-    let constructor = BuiltinFunction (return . ProductData)
+    let constructor = BuiltinFunction (return . ProductData name)
     let constructorType = KFunc memberTypes PureEffect declaredType
 
     forM_ (zip [0..] members) $ \(i, (memberName, memberType)) ->
         let accessorType = KFunc [declaredType] PureEffect memberType in
         bind (TAccessor memberName accessorType) (AccessorIdx memberName i)
     bind (TIdentifier name constructorType) constructor
+bindTopLevel (SumTypeDef name constructors)       = do
+    let declaredType = KUserType name
+
+    forM_ constructors $ \case
+        (constructorName, []) -> do
+            let constructor = SumData constructorName []
+            let constructorType = declaredType
+            bind (TIdentifier constructorName constructorType) constructor
+        (constructorName, argTypes) -> do
+            let constructor = BuiltinFunction (pure . SumData constructorName)
+            let constructorType = KFunc argTypes PureEffect declaredType
+            bind (TIdentifier constructorName constructorType) constructor
+
 bindTopLevel OperationDef{}     = return ()
 bindTopLevel EffectSynonymDef{} = return ()
 

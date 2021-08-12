@@ -37,6 +37,8 @@ resolveTopLevelTypes (FuncDef name argExprs effExpr rtExpr body) =
         <*> resolveStmtTypes body
 resolveTopLevelTypes (ProductTypeDef name args) =
     ProductTypeDef name <$> traverse (traverse (traverse resolveTypeExpr)) args
+resolveTopLevelTypes (SumTypeDef name args) =
+    SumTypeDef name <$> traverse (traverse (traverse (traverse resolveTypeExpr))) args
 resolveTopLevelTypes (OperationDef name argExprs rtExpr ) =
     OperationDef name
         <$> traverse (traverse (traverse resolveTypeExpr)) argExprs
@@ -74,6 +76,17 @@ resolveExprTypes (HandleExpr body handlers) =
     HandleExpr
     <$> resolveStmtTypes body
     <*> traverse resolveHandlerTypes handlers
+resolveExprTypes (MatchExpr expr clauses) =
+    MatchExpr
+    <$> resolveExprTypes expr
+    <*> traverse resolveMatchClauseTypes clauses
+
+resolveMatchClauseTypes :: MonadTypeResolution m => MatchClause Desugared -> m (MatchClause TypeAnnotated)
+resolveMatchClauseTypes (MatchClause pat stmt) = MatchClause <$> resolvePatternTypes pat <*> resolveStmtTypes stmt
+
+resolvePatternTypes :: MonadTypeResolution m => Pattern Desugared -> m (Pattern TypeAnnotated)
+resolvePatternTypes (ConstructorPattern name argPats) = ConstructorPattern name <$> traverse resolvePatternTypes argPats
+resolvePatternTypes (WildcardPattern name t) = WildcardPattern name <$> traverse resolveTypeExpr t
 
 resolveHandlerTypes :: MonadTypeResolution m => HandlerClause Desugared -> m (HandlerClause TypeAnnotated)
 resolveHandlerTypes (HandlerClause name args rt body) =
@@ -82,25 +95,54 @@ resolveHandlerTypes (HandlerClause name args rt body) =
     <*> traverse resolveTypeExpr rt
     <*> resolveStmtTypes body
 
+
 processTopLevel :: MonadTypeResolution m => [TopLevel Desugared] -> m ()
 processTopLevel topLevelDecls = forM_ topLevelDecls $ \case
     ProductTypeDef typeName (ensureTypedArgs -> Just members) -> do
         resolvedMembers <- traverse (bitraverse pure resolveTypeExpr) members
 
-        let declaredType = KUserType typeName resolvedMembers
+        let declaredType = KUserType typeName
         let memberTypes  = snd <$> resolvedMembers
 
+        -- Type
         modify $ addType typeName declaredType
 
+        -- Constructor
         let constructorType = KFunc memberTypes PureEffect declaredType
         modify $ addBinding (Identifier typeName)
                             (Binding Constant [constructorType])
 
+        -- Fields
+        forM_ resolvedMembers $ \(fieldName, fieldType) -> do
+            modify $ addFieldBinding declaredType fieldName fieldType
+
+        -- Field accessors
         forM_ resolvedMembers $ \(fieldName, fieldType) -> do
             let accessorType = KFunc [declaredType] PureEffect fieldType
             modify $ addBinding (Accessor fieldName)
                                 (Binding Constant [accessorType])
     ProductTypeDef{} -> throwError MissingFieldTypes
+
+    SumTypeDef typeName (ensureTypedConstructors -> Just constructors) -> do
+        let declaredType = KUserType typeName
+
+        -- Type
+        modify $ addType typeName declaredType
+
+        -- Constructor functions
+        forM_ constructors $ \(name, argTypeExprs) -> do
+            argTypes <- traverse resolveTypeExpr argTypeExprs
+            let constructorType = case argTypes of
+                                  [] -> declaredType
+                                  _ -> KFunc argTypes PureEffect declaredType
+
+            modify $ addBinding (Identifier name)
+                                (Binding Constant [constructorType])
+
+            modify $ addConstructorBinding (declaredType, name) argTypes
+
+    SumTypeDef{} -> throwError MissingFieldTypes
+
 
     FuncDef name (ensureTypedArgs -> Just args) effExpr (Just rtExpr) _body ->
         do
@@ -150,5 +192,8 @@ resolveEffectExpr (EffectNames names) = do
 
     return (mconcat resolved)
 
-ensureTypedArgs :: [(a, Maybe TypeExpr)] -> Maybe [(a, TypeExpr)]
+ensureTypedConstructors :: [(name, [Maybe tExpr])] -> Maybe [(name, [tExpr])]
+ensureTypedConstructors = traverse (traverse sequence)
+
+ensureTypedArgs :: [(name, Maybe tExpr)] -> Maybe [(name, tExpr)]
 ensureTypedArgs = traverse sequence

@@ -45,7 +45,7 @@ data Stmt tag
 
 data Pattern tag
     = ConstructorPattern Name [Pattern tag]
-    | WildcardPattern Name
+    | WildcardPattern Name (FreeAnnotation tag)
 
 data MatchClause tag = MatchClause
     { clausePattern :: Pattern tag
@@ -269,7 +269,7 @@ instance
     , Pretty (EffectType stage)
     , Pretty (FreeAnnotation stage)
     ) => Pretty (Pattern stage) where
-    pretty (WildcardPattern name) = pretty name
+    pretty (WildcardPattern name _t) = pretty name
     pretty (ConstructorPattern constructor args) = pretty constructor <+> tupled (pretty <$> args)
 
 instance Pretty ident => Pretty (WriteAccess ident) where

@@ -16,8 +16,10 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | MissingArgumentTypes
                        | MissingReturnType
                        | MissingFieldTypes
+                       | MissingPatternTypes
                        | UnavailableEffect KEffect KEffect
                        | NonExistentEffect Name
+                       | NonExistentConstructor KType Name
                        | NonExistentOperation KOperation
                        | NoMatchingFunction [KType]
                        | WrongArgumentTypes [KType]
@@ -84,6 +86,7 @@ instance Pretty TypecheckingError where
                     <> indent 4 (bulletList availableOps)
     pretty (NonExistentEffect name) = "This effect does not exist:" <> line <> indent 4 (pretty name)
     pretty (NonExistentOperation op) = "This operation does not exist:" <> line <> indent 4 (pretty op)
+    pretty (NonExistentConstructor t cons) = "The type" <+> pretty t <+> "does not have the constructor" <+> pretty cons
     pretty (WrongArgumentTypes argTypes) =
         "Given arguments don't match the expected types:" <> line
         <> indent 4 (tupled (pretty <$> argTypes))

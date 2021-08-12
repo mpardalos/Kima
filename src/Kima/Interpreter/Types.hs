@@ -29,7 +29,8 @@ data Value = Integer Integer
            | String String
            | Function Name [RuntimeIdentifier] (Stmt Runtime) (Environment (IORef Value))
            | BuiltinFunction (forall m. MonadInterpreter m => [Value] -> m Value)
-           | ProductData [Value]
+           | ProductData Name [Value]
+           | SumData Name [Value]
            | AccessorIdx Name Int -- | Just gives the index of the accessed value
            | Unit
 
@@ -52,9 +53,11 @@ instance Pretty Value where
     pretty (AccessorIdx name _) = "{." <> pretty name <> "}"
     pretty (Function name _ _ _) = pretty name
     pretty BuiltinFunction{}   = "Builtin function"
-    pretty (ProductData vals)  = "data {" <> line <>
+    pretty (ProductData name vals)  = pretty name <+> "{" <> line <>
         indent 4 (vcat (pretty <$> vals))
         <> line <> "}"
+    pretty (SumData constructorName vals) =
+        pretty constructorName <> tupled (pretty <$> vals)
     pretty Unit                = "()"
 
 -- | ---------- Errors ----------------
@@ -64,6 +67,7 @@ data RuntimeError = NotInScope RuntimeIdentifier
                   | NotAFunction Value
                   | BuiltinFunctionError String
                   | BreakError Value
+                  | PatternMatchFailure Value
     deriving Show
 
 instance Pretty RuntimeError where
@@ -77,6 +81,8 @@ instance Pretty RuntimeError where
     pretty ( NotAFunction v                  ) =
         "Expected a function but got" <+> pretty v
     pretty ( BuiltinFunctionError err        ) = pretty err
+    pretty ( PatternMatchFailure val         ) =
+        "Pattern matching on" <+> pretty val <+> ": no pattern matched"
     pretty ( BreakError _ ) = "Uncaught BreakError"
 
 -- | ---------- Execution ----------------

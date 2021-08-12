@@ -145,6 +145,31 @@ infer (HandleExpr body handlers) = do
         = withState (addArgs (zip argNames argTypes))
             $   HandlerClause name (zip argNames argTypes) rt
             <$> checkReturns rt handlerBody
+infer (MatchExpr expr clauses) = do
+    (typedExpr, exprType) <- infer expr
+    -- FIXME: Check the pattern types
+    (unzip -> (typedClauses, clauseTypes)) <- forM clauses $ \(MatchClause pat stmt) -> do
+        (typedPattern, addedCtx) <- checkPattern exprType pat
+        (typedStmt, rt) <- withState (addArgs addedCtx) $ inferReturns stmt
+        pure (MatchClause typedPattern typedStmt, rt)
+
+    assert (allEq clauseTypes) _mismatchedClauseTypes
+    assert (not $ null typedClauses) _emptyClauses
+
+    return (MatchExpr typedExpr typedClauses, head clauseTypes)
+
+checkPattern :: MonadTC m => KType -> Pattern TypeAnnotated -> m (Pattern Typed, [(Name, KType)])
+checkPattern t (WildcardPattern n (Just t')) =
+    if t == t'
+    then pure (WildcardPattern n t, [(n, t)])
+    else throwError (UnexpectedType t t')
+checkPattern t (WildcardPattern n Nothing) = pure (WildcardPattern n t, [(n, t)])
+checkPattern t (ConstructorPattern n argPats) =
+    gets (Map.lookup (t, n) . constructorBindings) >>= \case
+        Just (argTypes :: [KType]) -> do
+            (typedArgPats, argPatCtxs) <- unzip <$> zipWithM checkPattern argTypes argPats
+            return (ConstructorPattern n typedArgPats, concat argPatCtxs)
+        Nothing -> throwError (NonExistentConstructor t n)
 
 -- | List all possible types for an expression
 enumerateTypes :: MonadTC m => Expr TypeAnnotated -> m (Set KType)
@@ -303,14 +328,13 @@ inferAccessor (WriteAccess name path) = do
         => KType
         -> [AnnotatedName 'NoAnnotation]
         -> m (KType, [AnnotatedName ( 'Annotation KType)])
-    foldPath baseType@(KUserType _ baseTypeFields) (Name thisField : restPath)
-        = case lookup thisField baseTypeFields of
-            Just fieldType -> do
-                (finalType, restTypedPath) <- foldPath fieldType restPath
-                return (finalType, TName thisField fieldType : restTypedPath)
-            Nothing -> throwError (NoSuchField baseType thisField)
-    foldPath t []                   = pure (t, [])
-    foldPath t (Name thisField : _) = throwError (NoSuchField t thisField)
+    foldPath baseType (Name thisField : restPath) =
+      gets (Map.lookup (baseType, thisField) . fieldBindings) >>= \case
+        Just fieldType -> do
+          (finalType, restTypedPath) <- foldPath fieldType restPath
+          return (finalType, TName thisField fieldType : restTypedPath)
+        Nothing -> throwError (NoSuchField baseType thisField)
+    foldPath t [] = pure (t, [])
 
 -- | Check that a statement returns a given type. If it does, return the typed
 -- statement, otherwise, throw an appropriate error
@@ -350,11 +374,15 @@ checkTopLevel FuncDef{} = throwError MissingArgumentTypes
 checkTopLevel (ProductTypeDef name (TypedArgs typeFields)) =
     pure (ProductTypeDef name typeFields)
 checkTopLevel ProductTypeDef{} = throwError MissingFieldTypes
+checkTopLevel (SumTypeDef name (ensureTypedConstructors -> Just constructors)) =
+    pure (SumTypeDef name constructors)
+checkTopLevel SumTypeDef{} = throwError MissingFieldTypes
 checkTopLevel (OperationDef name (TypedArgs args) (Just rt)) =
     pure (OperationDef name args rt)
 checkTopLevel (OperationDef _ TypedArgs{} Nothing) = throwError MissingReturnType
 checkTopLevel OperationDef{} = throwError MissingArgumentTypes
 checkTopLevel (EffectSynonymDef name ops) = pure (EffectSynonymDef name ops)
+
 -----------------------------
 ---------- Helpers ----------
 -----------------------------
@@ -375,6 +403,9 @@ pattern TypedArgs args <- (ensureTypedArgs -> Just args)
 
 ensureTypedArgs :: [(a, Maybe b)] -> Maybe [(a, b)]
 ensureTypedArgs = traverse sequence
+
+ensureTypedConstructors :: [(name, [Maybe tExpr])] -> Maybe [(name, [tExpr])]
+ensureTypedConstructors = traverse (traverse sequence)
 
 -- | Add a set of function arguments to a TypeCtx.
 addArgs :: [(Name, KType)] -> TypeCtx -> TypeCtx
@@ -397,3 +428,10 @@ checkArgList argTypes args = do
     assert (length argTypes == length args) (WrongArgumentCount (length argTypes) (length args))
     zipWithM check argTypes args
         `catchError` const (throwError (WrongArgumentTypes argTypes))
+
+allEq :: Eq a => [a] -> Bool
+allEq [] = True
+allEq (x : xs) = go xs
+  where
+    go [] = True
+    go (x' : xs') = (x == x') && go xs'

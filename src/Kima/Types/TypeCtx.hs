@@ -4,6 +4,8 @@ module Kima.Types.TypeCtx
     , Mutability(..)
     , addType
     , addBinding
+    , addFieldBinding
+    , addConstructorBinding
     , addEffect
     , addActiveOperations
     , setActiveOperations
@@ -20,8 +22,11 @@ import           GHC.Generics
 
 import           Kima.AST
 
+-- TODO: Use lenses for TypeCtx state
 data TypeCtx = TypeCtx {
     typeBindings   :: Map TypeName KType,
+    fieldBindings  :: Map (KType, Name) KType,
+    constructorBindings :: Map (KType, Name) [KType],
     effectBindings :: Map EffectName KEffect,
     bindings       :: Map (Identifier 'NoAnnotation) Binding,
     activeEffect   :: KEffect,
@@ -58,6 +63,13 @@ addBinding :: Identifier 'NoAnnotation -> Binding -> TypeCtx -> TypeCtx
 addBinding n b ctx@TypeCtx { bindings } =
     ctx { bindings = Map.insertWith (<>) n b bindings }
 
+addFieldBinding :: KType -> Name -> KType -> TypeCtx -> TypeCtx
+addFieldBinding base fieldName fieldType ctx@TypeCtx { fieldBindings } =
+    ctx { fieldBindings = Map.insert (base, fieldName) fieldType fieldBindings }
+
+addConstructorBinding :: (KType, Name) -> [KType] -> TypeCtx -> TypeCtx
+addConstructorBinding k v ctx@TypeCtx{ constructorBindings } = ctx { constructorBindings = Map.insert k v constructorBindings }
+
 operations :: TypeCtx -> [KOperation]
 operations TypeCtx { effectBindings } =
     (\(KEffect _ ops) -> ops) =<< Map.elems effectBindings
@@ -74,7 +86,9 @@ instance Semigroup Binding where
 instance Semigroup TypeCtx where
     left <> right
         = TypeCtx { typeBindings   = (mappend `on` typeBindings) left right
+                  , fieldBindings  = (mappend `on` fieldBindings) left right
                   , effectBindings = (mappend `on` effectBindings) left right
+                  , constructorBindings = (mappend `on` constructorBindings) left right
                   , bindings       = (Map.unionWith (<>) `on` bindings) left right
                   , activeEffect   = (mappend `on` activeEffect) left right
                   , handlerResult  = handlerResult left
@@ -82,8 +96,10 @@ instance Semigroup TypeCtx where
 
 instance Monoid TypeCtx where
     mempty = TypeCtx { bindings = Map.empty
+                     , fieldBindings = Map.empty
                      , typeBindings = Map.empty
                      , effectBindings = Map.empty
+                     , constructorBindings = Map.empty
                      , activeEffect = PureEffect
                      , handlerResult = Nothing
                      }

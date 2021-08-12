@@ -232,14 +232,13 @@ matchExpr =
   where
     matchClause = MatchClause <$> matchPattern <*> block
 
-    matchPattern =
-      try constructorPattern
-        <|> (WildcardPattern <$> identifier)
+    matchPattern = constructorPattern
+                   <|> (WildcardPattern <$> identifier <*> pure Nothing)
 
-    constructorPattern =
-      ConstructorPattern
+    constructorPattern = try
+      ( ConstructorPattern
         <$> identifier
-        <*> parens (matchPattern `sepBy` symbol Comma)
+        <*> parens (matchPattern `sepBy` symbol Comma) )
 
 handlerExpr :: Parser (Expr Parsed)
 handlerExpr =

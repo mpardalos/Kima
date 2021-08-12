@@ -10,7 +10,6 @@ where
 import           Data.Bifunctor
 
 import           Kima.AST
-import Data.Coerce
 
 desugarModule :: Module Parsed -> Module Desugared
 desugarModule (Module ast) = Module (desugarTopLevel <$> ast)
@@ -85,7 +84,8 @@ desugarMatchClause :: MatchClause Parsed -> MatchClause Desugared
 desugarMatchClause (MatchClause pat stmt) = MatchClause (desugarPattern pat) (desugarStmt stmt)
 
 desugarPattern :: Pattern Parsed -> Pattern Desugared
-desugarPattern = coerce
+desugarPattern (ConstructorPattern n pats) = ConstructorPattern n (desugarPattern <$> pats)
+desugarPattern (WildcardPattern n t) = WildcardPattern n (desugarTypeExpr <$> t)
 
 desugarTypeExpr :: ParsedTypeExpr -> TypeExpr
 desugarTypeExpr (ParsedTypeName name) = TypeName name

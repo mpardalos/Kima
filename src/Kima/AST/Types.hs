@@ -32,8 +32,8 @@ data TypeExpr
 -- | The types of the kima programming language
 data KType = KString | KUnit | KBool | KInt | KFloat
            | KFunc [KType] KEffect KType
-           -- | A user defined type is defined by its name and fields
-           | KUserType String [(String, KType)]
+           -- | A user defined type is defined only by its name
+           | KUserType String
   deriving (Eq, Ord, Generic)
 
 -- | Resolved effects
@@ -136,4 +136,4 @@ instance Pretty KType where
             <+> pretty effect
             <+> "->"
             <+> pretty returnType
-    pretty (KUserType n _f) = pretty n
+    pretty (KUserType n) = pretty n
