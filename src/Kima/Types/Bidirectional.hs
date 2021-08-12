@@ -147,7 +147,7 @@ infer (HandleExpr body handlers) = do
             <$> checkReturns rt handlerBody
 infer (MatchExpr expr clauses) = do
     (typedExpr, exprType) <- infer expr
-    -- FIXME: Check the pattern types
+
     (unzip -> (typedClauses, clauseTypes)) <- forM clauses $ \(MatchClause pat stmt) -> do
         (typedPattern, addedCtx) <- checkPattern exprType pat
         (typedStmt, rt) <- withState (addArgs addedCtx) $ inferReturns stmt
@@ -166,7 +166,7 @@ checkPattern t (WildcardPattern n (Just t')) =
 checkPattern t (WildcardPattern n Nothing) = pure (WildcardPattern n t, [(n, t)])
 checkPattern t (ConstructorPattern n argPats) =
     gets (Map.lookup (t, n) . constructorBindings) >>= \case
-        Just (argTypes :: [KType]) -> do
+        Just argTypes -> do
             (typedArgPats, argPatCtxs) <- unzip <$> zipWithM checkPattern argTypes argPats
             return (ConstructorPattern n typedArgPats, concat argPatCtxs)
         Nothing -> throwError (NonExistentConstructor t n)

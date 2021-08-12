@@ -51,10 +51,8 @@ matchPattern :: Value -> Pattern Runtime -> Maybe (Map RuntimeIdentifier Value)
 matchPattern v                 (WildcardPattern n t) =
     Just (Map.singleton (TIdentifier n t) v)
 matchPattern (SumData name vs) (ConstructorPattern patName pats)
-    | name == patName = foldM joinPatternMatchResults Map.empty =<< zipWithM matchPattern vs pats
+    | name == patName = Map.unions <$> zipWithM matchPattern vs pats
     | otherwise = Nothing
-  where
-    joinPatternMatchResults l r = if Map.disjoint l r then Just (Map.union l r) else Nothing
 matchPattern Integer{}         ConstructorPattern{} = Nothing
 matchPattern Float{}           ConstructorPattern{} = Nothing
 matchPattern String{}          ConstructorPattern{} = Nothing
