@@ -253,6 +253,7 @@ showValue Unit              = Just "()"
 showValue Function{}        = Nothing
 showValue BuiltinFunction{} = Nothing
 showValue ProductData{}     = Nothing
+showValue SumData{}         = Nothing
 showValue AccessorIdx{}     = Nothing
 
 kimaPrint :: (MonadRE m, MonadConsole m) => [Value] -> m Value

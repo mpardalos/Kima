@@ -146,6 +146,8 @@ infer (HandleExpr body handlers) = do
             $   HandlerClause name (zip argNames argTypes) rt
             <$> checkReturns rt handlerBody
 infer (MatchExpr expr clauses) = do
+    assert (not $ null clauses) EmptyClauses
+
     (typedExpr, exprType) <- infer expr
 
     (unzip -> (typedClauses, clauseTypes)) <- forM clauses $ \(MatchClause pat stmt) -> do
@@ -153,8 +155,7 @@ infer (MatchExpr expr clauses) = do
         (typedStmt, rt) <- withState (addArgs addedCtx) $ inferReturns stmt
         pure (MatchClause typedPattern typedStmt, rt)
 
-    assert (allEq clauseTypes) _mismatchedClauseTypes
-    assert (not $ null typedClauses) _emptyClauses
+    assert (allEq clauseTypes) (MismatchedClauseTypes clauseTypes)
 
     return (MatchExpr typedExpr typedClauses, head clauseTypes)
 
@@ -184,6 +185,7 @@ enumerateTypes (FuncExpr (TypedArgs (fmap snd -> argTypes)) eff (Just rt) _)
 enumerateTypes FuncExpr{}         = throwError MissingArgumentTypes
 -- TODO: Find a better way to handle this
 enumerateTypes HandleExpr{} = throwError AmbiguousHandler
+enumerateTypes MatchExpr{} = throwError AmbiguousMatch
 enumerateTypes (CallExpr callee args) = do
     calleeTypes <- Set.toList <$> enumerateTypes callee
     argTypeSets <- fmap Set.toList <$> mapM enumerateTypes args

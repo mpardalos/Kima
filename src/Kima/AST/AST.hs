@@ -199,6 +199,16 @@ instance
             <>  vcat (punctuate comma (pretty <$> ops))
             <>  line
             <>  "}"
+    pretty (SumTypeDef name constructors) =
+        "data"
+            <+> pretty name
+            <>  "{"
+            <>  line
+            <>  vcat (punctuate comma (prettyConstructor <$> constructors))
+            <>  line
+            <>  "}"
+         where
+            prettyConstructor (n, as) = pretty n <> tupled (pretty <$> as)
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)
     , Pretty (AnnotatedName (NameAnnotation stage))
@@ -250,6 +260,12 @@ instance
             <>  indent 4 (vcat (pretty <$> handlers))
             <>  line
             <>  "}"
+    pretty (MatchExpr expr clauses) =
+        "match" <+> parens (pretty expr) <+> " {"
+            <>  line
+            <>  indent 4 (vcat (pretty <$> clauses))
+            <>  line
+            <>  "}"
     pretty (BinExpr op l r      ) = pretty l <+> pretty op <+> pretty r
     pretty (UnaryExpr  op   e   ) = pretty op <> pretty e
     pretty (AccessExpr expr name) = parens (pretty expr) <> "." <> pretty name
@@ -262,6 +278,14 @@ instance
     ) => Pretty (HandlerClause stage) where
     pretty (HandlerClause name args rt body) =
         pretty name <> prettyArgList args <+> "->" <+> pretty rt <+> pretty body
+
+instance
+    ( AnnotationConstraint Pretty (NameAnnotation stage)
+    , Pretty (AnnotatedName (NameAnnotation stage))
+    , Pretty (EffectType stage)
+    , Pretty (FreeAnnotation stage)
+    ) => Pretty (MatchClause stage) where
+    pretty (MatchClause pat stmt) = pretty pat <+> pretty stmt
 
 instance
     ( AnnotationConstraint Pretty (NameAnnotation stage)

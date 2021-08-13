@@ -26,6 +26,9 @@ data TypecheckingError = AssignToConst (WriteAccess (AnnotatedName 'NoAnnotation
                        | WrongArgumentCount Int Int
                        | UnexpectedBreak
                        | AmbiguousHandler
+                       | AmbiguousMatch
+                       | EmptyClauses
+                       | MismatchedClauseTypes [KType]
     deriving (Eq, Show)
 
 instance Pretty TypecheckingError where
@@ -70,6 +73,7 @@ instance Pretty TypecheckingError where
     pretty MissingArgumentTypes = "Missing argument types"
     pretty MissingReturnType = "Missing return type"
     pretty MissingFieldTypes = "Missing field types"
+    pretty MissingPatternTypes = "Missing pattern types"
     pretty (UnavailableEffect (KEffect _ available) (KEffect requestedName requested)) =
         "Requested" <+> effectNamePretty <> line
         <> indent 4 (bulletList requested) <> line
@@ -94,6 +98,12 @@ instance Pretty TypecheckingError where
         "Expected" <+> pretty expected <+> "arguments, but got" <+> pretty received
     pretty UnexpectedBreak = "Unexpected break statement. It can only be used inside a handler"
     pretty AmbiguousHandler = "Cannot infer type of handle expression"
+    pretty AmbiguousMatch = "Cannot infer type of match expression"
+    pretty EmptyClauses = "Match expression with no clauses"
+    pretty (MismatchedClauseTypes ts) =
+        "Types of clauses in match expression do not match: " <> line
+        <> indent 4 (bulletList ts)
+
 
 bulletList :: Pretty a => [a] -> Doc ann
 bulletList = vsep . fmap (("•" <+>) . pretty)
