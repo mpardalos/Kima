@@ -227,7 +227,7 @@ instance
     pretty (FuncExpr sig eff rt body) =
         "fun"
             <+> prettyArgList sig
-            <+> "=>"
+            <+> ":"
             <+> pretty eff
             <+> "->"
             <+> pretty rt
